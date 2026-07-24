@@ -1715,6 +1715,9 @@
       let lastClientX = 0; let lastClientY = 0;
       let saveTimeout = null;
 
+      // NOVO: Adicionado para rastrear se houve movimento (evita pontilhar ao usar 2 dedos)
+      let hasMoved = false; 
+
       // --- Variável para travar no toque correto e ignorar a palma ---
       let activeTouchId = null;
 
@@ -1790,17 +1793,13 @@
         }
         
         isDrawing = true;
+        hasMoved = false; // Reinicia o rastreamento de movimento a cada toque
         canvasEl.dataset.isDirty = "true"; 
         const pos = getPos(clientX, clientY);
         lastX = pos.x; lastY = pos.y;
         
-        const strokeW = parseFloat(canvasEl.dataset.strokeWidth) || 4;
-        const color = canvasEl.dataset.color || '#1e293b';
+        // A lógica do ponto inicial que causava o problema foi removida daqui e movida para o stop()
 
-        ctx.beginPath();
-        ctx.arc(pos.x, pos.y, mode === 'eraser' ? (strokeW * 6) / 2 : strokeW / 2, 0, 2 * Math.PI);
-        ctx.fillStyle = mode === 'eraser' ? '#ffffff' : color;
-        ctx.fill();
         if (e.stopPropagation) e.stopPropagation();
       }
 
@@ -1868,6 +1867,9 @@
         }
 
         if (!isDrawing) return;
+
+        hasMoved = true; // Sinaliza que ocorreu movimentação durante o toque
+
         e.preventDefault();
         if (e.stopPropagation) e.stopPropagation();
         
@@ -1917,6 +1919,18 @@
         activeTouchId = null;
 
         if (isDrawing) {
+          // NOVO: Desenha o ponto apenas se for um toque simples (sem movimento)
+          if (!hasMoved) {
+            const mode = canvasEl.dataset.mode;
+            const strokeW = parseFloat(canvasEl.dataset.strokeWidth) || 4;
+            const color = canvasEl.dataset.color || '#1e293b';
+
+            ctx.beginPath();
+            ctx.arc(lastX, lastY, mode === 'eraser' ? (strokeW * 6) / 2 : strokeW / 2, 0, 2 * Math.PI);
+            ctx.fillStyle = mode === 'eraser' ? '#ffffff' : color;
+            ctx.fill();
+          }
+
           isDrawing = false;
           if (saveTimeout) clearTimeout(saveTimeout);
           saveTimeout = setTimeout(() => {
