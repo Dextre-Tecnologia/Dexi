@@ -59,9 +59,8 @@
 
     <div id="floating-tools-panel" class="flex flex-col gap-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur border border-slate-200 dark:border-slate-800 p-2 rounded-2xl shadow-xl transition-all duration-300 transform origin-bottom">
       
-      
-  
-      <div class="w-8 h-px bg-slate-200 dark:bg-slate-700 mx-auto my-1"></div> <button id="multi-select-toggle" onclick="toggleMultiSelectMode()" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all font-bold text-lg flex items-center justify-center" title="Modo de multiseleção">⊛</button>
+      <div class="w-8 h-px bg-slate-200 dark:bg-slate-700 mx-auto my-1"></div> 
+      <button id="multi-select-toggle" onclick="toggleMultiSelectMode()" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all font-bold text-lg flex items-center justify-center" title="Modo de multiseleção">⊛</button>
       <button id="pan-mode-toggle" onclick="togglePanMode()" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all font-bold text-lg flex items-center justify-center" title="Modo Mover Quadro">⊹</button>
       <button onclick="changeZoom(0.1)" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-amber-500 hover:text-white transition-all font-bold text-lg flex items-center justify-center">+</button>
       <button onclick="resetZoom()" id="zoom-indicator" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all font-mono text-[10px] font-bold flex items-center justify-center">100%</button>
@@ -88,7 +87,6 @@
         </div>
 
         <!-- BOTÕES DE COMANDO -->
-
         <div class="flex flex-col gap-2 mb-6">
           <!-- Arquivar -->
           <button onclick="triggerFolderSelector()" class="w-full bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 font-medium py-2 px-4 rounded-xl border border-green-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Arquivar</button>
@@ -155,21 +153,29 @@
   </div>
 
   <script>
+    // Função global auxiliar para evitar erros se strings precisarem de escape HTML
+    if (typeof window.escapeHTML !== 'function') {
+      window.escapeHTML = function(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>'"]/g, match => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[match]));
+      }
+    }
+
     // --- VARIÁVEIS GLOBAIS ---
     const canvas = document.getElementById('canvas');
     const boardWrapper = document.getElementById('board-wrapper');
     const canvasContainer = document.getElementById('canvas-container');
     
-    let localizedFiles = []; // Armazena arquivos inseridos pelo usuário
-    let isPanning = false; // Controle de arrasto do quadro
-    let forcePanMode = false; // Controle do Modo Mãozinha
-    let startX = 0, startY = 0; // Ponto inicial de clique para arrastar
-    let panX = 0, panY = 0; // O deslocamento atual do quadro
-    let zoom = 1; // Nível atual de zoom (1 = 100%)
-    let multiSelectMode = false; // Define se a seleção múltipla está ativa
+    let localizedFiles = []; 
+    let isPanning = false; 
+    let forcePanMode = false; 
+    let startX = 0, startY = 0; 
+    let panX = 0, panY = 0; 
+    let zoom = 1; 
+    let multiSelectMode = false; 
 
-    let mouseXCanvas = 200; // Posição X do mouse relativa ao quadro
-    let mouseYCanvas = 200; // Posição Y do mouse relativa ao quadro
+    let mouseXCanvas = 200; 
+    let mouseYCanvas = 200; 
 
     // Configurações para zoom de pinça
     let touchStartDist = 0;
@@ -185,7 +191,6 @@
     };
 
     // --- BANCO DE DADOS (INDEXEDDB) ---
-    // Usado para salvar arquivos pesados (Vídeos e PDFs) e evitar travamentos no LocalStorage
     let db;
     const dbRequest = indexedDB.open("DexiDatabase", 2);
     dbRequest.onupgradeneeded = (e) => {
@@ -224,8 +229,6 @@
     }
 
     // --- CONTROLE DA CÂMERA (QUADRO INIFINITO) ---
-
-    // Aplica fisicamente o pan (arraste) e o zoom no container via CSS
     function updateTransform() {
       canvasContainer.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
       boardWrapper.style.backgroundPosition = `${panX}px ${panY}px`;
@@ -233,21 +236,18 @@
       document.getElementById('zoom-indicator').innerText = `${Math.round(zoom * 100)}%`;
     }
 
-    // Controle de Zoom usando a roda do Mouse (Scroll)
     function handleWheel(e) {
-      // Impede zoom da câmera se o mouse estiver sobre áreas roláveis (ex: PDFs ou Notas)
       if (e.target.closest('.drawing-canvas') || e.target.closest('.scroll-container-a4')) return; 
       e.preventDefault();
       const zoomFactor = 1.1;
       let newZoom = zoom;
 
       if (e.deltaY < 0) {
-        newZoom = Math.min(zoom * zoomFactor, 3); // Zoom In
+        newZoom = Math.min(zoom * zoomFactor, 3); 
       } else {
-        newZoom = Math.max(zoom / zoomFactor, 0.15); // Zoom Out
+        newZoom = Math.max(zoom / zoomFactor, 0.15); 
       }
 
-      // Calcula a posição do mouse para que o zoom vá na direção do cursor
       const rect = boardWrapper.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
@@ -259,7 +259,6 @@
     }
     boardWrapper.addEventListener('wheel', handleWheel, { passive: false });
 
-    // Métodos auxiliares para zoom de pinça de dois dedos
     function getTouchDist(e) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -273,7 +272,6 @@
       };
     }
 
-    // Funções de Zoom chamadas por botões na UI
     window.changeZoom = function(delta) {
       let newZoom = zoom + delta;
       newZoom = Math.max(0.15, Math.min(newZoom, 3));
@@ -284,30 +282,27 @@
       zoom = newZoom;
       updateTransform();
     }
+    
     window.resetZoom = function() {
       zoom = 1; panX = 0; panY = 0;
       updateTransform();
     }
     
-    // Alterna o estado do menu lateral baseando-se no que está salvo
     window.toggleSidebarState = function() {
       const isVisible = localStorage.getItem('dexi_menu_visible') === 'true';
       toggleMenu(!isVisible);
     }
     
-    // Alterna a exibição do menu flutuante de ferramentas (Zoom/Mãozinha)
     window.toggleFloatingTools = function() {
       const panel = document.getElementById('floating-tools-panel');
       const btn = document.getElementById('floating-toggle-btn');
       
       if (panel.classList.contains('hidden')) {
-        // Mostrar
         panel.classList.remove('hidden');
         panel.classList.add('flex');
         btn.innerText = '▼';
         btn.setAttribute('title', 'Ocultar Ferramentas');
       } else {
-        // Ocultar
         panel.classList.add('hidden');
         panel.classList.remove('flex');
         btn.innerText = '▲';
@@ -315,7 +310,6 @@
       }
     }
 
-    // Ativa/Desativa o modo de mover o quadro livremente
     window.togglePanMode = function() {
       forcePanMode = !forcePanMode;
       const btn = document.getElementById('pan-mode-toggle');
@@ -328,7 +322,6 @@
       }
     }
 
-    // Funções para arrastar o quadro com o mouse/touch e suportar pinch zoom
     function startPan(e) {
       if (e.touches && e.touches.length === 2) {
         isPanning = false;
@@ -344,12 +337,10 @@
       isPinching = false;
 
       if (!forcePanMode) {
-        // Não arrasta o quadro se o usuário clicou num card ou botão
         if (e.target.closest('.codex-card') || e.target.closest('aside') || e.target.closest('button') || e.target.closest('input') || e.target.closest('a') || e.target.closest('canvas') || e.target.closest('embed') || e.target.closest('iframe')) {
           isPanning = false; return;
         }
       } else {
-        // MODO NAVEGAÇÃO ATIVO: Permite arrastar o quadro clicando nos cards
         if (e.target.closest('aside') || e.target.closest('button') || e.target.closest('input')) {
           isPanning = false; return;
         }
@@ -362,7 +353,6 @@
       startY = pageY - panY;
     }
 
-    // Gerencia o deslocamento do canvas e o zoom de dois dedos
     function doPan(e) {
       if (e.touches && e.touches.length === 2 && isPinching) {
         e.preventDefault();
@@ -380,7 +370,6 @@
         panX = centerCanvasX - (centerCanvasX - panX) * zoomFactor;
         panY = centerCanvasY - (centerCanvasY - panY) * zoomFactor;
         
-        // Deslocamento físico da mão (mover ao pinçar)
         const dx = currentCenter.x - touchStartCenter.x;
         const dy = currentCenter.y - touchStartCenter.y;
         panX += dx;
@@ -412,12 +401,10 @@
     window.addEventListener('touchmove', doPan, { passive: false });
     window.addEventListener('touchend', endPan);
 
-    // Limpa seleções se o usuário clicar no fundo vazio
     boardWrapper.addEventListener('click', (e) => {
       if (e.target === boardWrapper || e.target === canvas || e.target === canvasContainer) limparSelecao();
     });
 
-    // Mantém o controle exato de onde o mouse está no plano infinito (Útil para criar cards onde o mouse está)
     function updateCanvasCoordinates(e) {
       const rect = canvas.getBoundingClientRect();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -431,8 +418,6 @@
     window.addEventListener('touchmove', updateCanvasCoordinates, { passive: true });
 
     // --- CONTROLE DE UI (Interface) ---
-
-    // Alternar abertura do menu lateral
     function toggleMenu(show) {
       const sidebar = document.getElementById('sidebar');
       const triggerLeft = document.getElementById('trigger-left');
@@ -447,7 +432,6 @@
       }
     }
 
-    // Alternar entre modo claro/escuro da página
     function toggleTheme() {
       const html = document.documentElement;
       if (html.classList.contains('dark')) {
@@ -460,8 +444,7 @@
     }
     if (localStorage.getItem('theme') === 'light') document.documentElement.classList.remove('dark');
 
-    // --- IMPORTAÇÃO DE ARQUIVOS (DRAG & DROP E BROWSER) ---
-
+    // --- IMPORTAÇÃO DE ARQUIVOS ---
     function triggerFolderSelector() { document.getElementById('folder-selector').click(); }
 
     async function handleFolderSelection(files) {
@@ -473,7 +456,6 @@
       document.getElementById('folder-selector').value = '';
     }
 
-    // Eventos Drag and Drop direto no navegador
     const dropZone = boardWrapper;
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
       dropZone.addEventListener(eventName, e => e.preventDefault(), false);
@@ -483,13 +465,11 @@
     dropZone.addEventListener('drop', (e) => {
       dropZone.classList.remove('bg-slate-200/40', 'dark:bg-slate-800/40');
       
-      // Checa se o usuário colou um link em vez de um arquivo
       const linkData = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
       if (linkData && (linkData.startsWith('http://') || linkData.startsWith('https://'))) {
         tratarLinkColado(linkData);
         return;
       }
-      // Se for arquivo, processa e cria
       const files = e.dataTransfer.files;
       if (files.length > 0) {
         Array.from(files).forEach(file => processAndCreateCard(file));
@@ -497,8 +477,6 @@
     });
 
     // --- SELEÇÃO DE MÚLTIPLOS CARDS E AGRUPAMENTO ---
-
-    // Mostra ou esconde a barra superior (Agrupar, Desagrupar, Excluir)
     function atualizarToolbarSelecao() {
       const selecionados = document.querySelectorAll('.selected-card');
       const toolbar = document.getElementById('selection-toolbar');
@@ -520,14 +498,13 @@
       atualizarToolbarSelecao();
     }
 
-    // Cria um grupo visual/lógico para arrastar e redimensionar cards juntos
     window.agruparSelecionados = function() {
       const selecionados = document.querySelectorAll('.selected-card');
       if (selecionados.length < 2) { alert("Selecione pelo menos 2 cards para agrupar."); return; }
       const groupId = 'group_' + Date.now();
       selecionados.forEach(card => {
         card.dataset.groupId = groupId;
-        adicionarIndicadorGrupo(card); // Adiciona o emoji 📌
+        adicionarIndicadorGrupo(card);
       });
       limparSelecao();
       salvarEstadoNoStorage();
@@ -545,7 +522,6 @@
       salvarEstadoNoStorage();
     }
 
-    // Exclui todos os cards selecionados simultaneamente (limpando-os do banco de dados também)
     window.excluirSelecionados = function() {
       const selecionados = document.querySelectorAll('.selected-card');
       if (selecionados.length === 0) return;
@@ -574,9 +550,22 @@
       }
     }
 
-    // --- CRIAÇÃO DE CARDS DE LINKS (Bookmarks/Anotações Web) ---
+    // --- CRIAÇÃO DE CARDS DE LINKS ---
 
-    // Gera o HTML interno de uma linha de Link (com favicon, título e url)
+    // Ordenação (Up / Down) para os links
+    window.moverLinkCard = function(btn, dir) {
+      const item = btn.parentElement.parentElement;
+      const parent = item.parentElement;
+      
+      if (dir === -1 && item.previousElementSibling) {
+        parent.insertBefore(item, item.previousElementSibling);
+        salvarEstadoNoStorage();
+      } else if (dir === 1 && item.nextElementSibling) {
+        parent.insertBefore(item, item.nextElementSibling.nextElementSibling);
+        salvarEstadoNoStorage();
+      }
+    }
+
     function gerarStructureItemLink(url = '', tag = '') {
       let domain = '';
       try { domain = new URL(url).hostname; } catch(e) {}
@@ -585,7 +574,13 @@
 
       return `
         <div class="flex flex-col gap-1 p-2 border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/60 rounded-xl relative group/item" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
-          <button onclick="this.parentElement.remove(); salvarEstadoNoStorage();" class="absolute -top-1 -right-1 hidden group-hover/item:flex items-center justify-center bg-rose-500 hover:bg-rose-600 text-white font-bold w-4 h-4 rounded-full text-[9px] shadow transition-all">&times;</button>
+          
+          <div class="absolute -top-2 -right-2 hidden group-hover/item:flex items-center gap-1 z-10">
+            <button onclick="moverLinkCard(this, -1)" class="flex items-center justify-center bg-indigo-500 hover:bg-indigo-600 text-white font-bold w-5 h-5 rounded-full text-[10px] shadow transition-all" title="Mover para cima">&uarr;</button>
+            <button onclick="moverLinkCard(this, 1)" class="flex items-center justify-center bg-indigo-500 hover:bg-indigo-600 text-white font-bold w-5 h-5 rounded-full text-[10px] shadow transition-all" title="Mover para baixo">&darr;</button>
+            <button onclick="this.parentElement.parentElement.remove(); salvarEstadoNoStorage();" class="flex items-center justify-center bg-rose-500 hover:bg-rose-600 text-white font-bold w-5 h-5 rounded-full text-[10px] shadow transition-all" title="Excluir">&times;</button>
+          </div>
+
           <div class="flex gap-1.5 items-center w-full">
             <img src="${faviconUrl}" onerror="this.onerror=null;this.src='${fallbackSvgBase64}';" class="w-4 h-4 rounded object-contain bg-slate-100 dark:bg-slate-800 p-0.5 shrink-0" alt="Favicon">
             <input type="text" value="${escapeHTML(tag)}" placeholder="Nome/tag..." oninput="atualizarTagLink(this)" class="w-full text-[11px] font-semibold px-2 py-1 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:border-amber-500 text-slate-700 dark:text-slate-200 select-text">
@@ -615,13 +610,12 @@
       }
     }
 
-    // Cria visualmente o Card de links
     function processLinkCard(url, savedTag = '') {
       let hostname = 'Central de Links';
       try { hostname = new URL(url).hostname; } catch (e) { }
       const bodyHtml = `
         <div class="link-card-body p-3 bg-slate-50 dark:bg-slate-950/40 h-full flex flex-col justify-between gap-2 select-none">
-          <div class="links-container-list flex-1 overflow-y-auto pointer-events-auto flex flex-col gap-2 pr-0.5">
+          <div class="links-container-list flex-1 overflow-y-auto pointer-events-auto flex flex-col gap-2 pr-0.5 pt-2">
             ${gerarStructureItemLink(url, savedTag)}
           </div>
           <button onclick="adicionarNovaLinhaLink(this)" class="w-full shrink-0 bg-slate-200/80 hover:bg-amber-500 dark:bg-slate-800 dark:hover:bg-amber-500 text-slate-700 dark:text-slate-300 hover:text-white font-bold py-1.5 px-3 rounded-xl transition-all flex items-center justify-center gap-1 text-xs shadow-sm pointer-events-auto">
@@ -631,7 +625,6 @@
       createCard('LINKS', hostname, bodyHtml, 290, null);
     }
 
-    // Atualiza ícone do site quando o usuário digita a URL manualmente
     function atualizarTagLink(inputElement) {
       inputElement.setAttribute('value', inputElement.value);
       if(inputElement.classList.contains('url-input-field')) {
@@ -648,20 +641,16 @@
     }
 
     // --- LÓGICA PRINCIPAL: PROCESSAR ARQUIVOS QUE CHEGAM AO QUADRO ---
-    
-    // Converte os arquivos reais enviados pelo usuário em Cards visuais com HTML injetado
     async function processAndCreateCard(file) {
       const fileNameLower = file.name.toLowerCase();
       const extension = file.name.includes('.') ? file.name.split('.').pop().toUpperCase() : 'ARQUIVO';
       let bodyHtml = '';
 
-      // Arquivos de Texto (.txt, .md)
       if (fileNameLower.endsWith('.txt') || fileNameLower.endsWith('.md')) {
         const text = await file.text();
         bodyHtml = `<div class="p-4 text-sm h-full overflow-y-auto text-slate-700 dark:text-slate-300 font-mono bg-slate-50/50 dark:bg-slate-950/50 whitespace-pre-wrap" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">${escapeHTML(text)}</div>`;
         createCard(extension, file.name, bodyHtml);
       }
-      // Arquivos de Imagem
       else if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(fileNameLower)) {
         bodyHtml = await new Promise((resolve) => {
           const reader = new FileReader();
@@ -674,17 +663,15 @@
         });
         createCard(extension, file.name, bodyHtml, 320);
       }
-      // Arquivos de Vídeo
       else if (/\.(mp4|webm|ogg|mov)$/i.test(fileNameLower)) {
         const mediaId = "video_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
-        guardarMediaNoDb(mediaId, file); // Salva no IndexedDB
+        guardarMediaNoDb(mediaId, file); 
         const videoUrl = URL.createObjectURL(file);
         bodyHtml = `<div class="w-full h-full bg-slate-950 flex items-center justify-center" data-mediasourceid="${mediaId}" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
                       <video src="${videoUrl}" controls class="w-full h-full object-contain pointer-events-auto"></video>
                     </div>`;
         createCard(extension, file.name, bodyHtml, 360);
       }
-      // Arquivos de Áudio
       else if (/\.(mp3|wav|ogg|m4a|flac)$/i.test(fileNameLower)) {
         bodyHtml = await new Promise((resolve) => {
           const reader = new FileReader();
@@ -698,13 +685,11 @@
         });
         createCard(extension, file.name, bodyHtml, 300);
       }
-      // Arquivos PDF
       else if (fileNameLower.endsWith('.pdf')) {
         const pdfId = "pdf_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
-        guardarPdfNoDb(pdfId, file); // Salva no IndexedDB
+        guardarPdfNoDb(pdfId, file); 
         montarEGerarLeitorPdf(pdfId, file.name, 1);
       }
-      // Tipos desconhecidos
       else {
         bodyHtml = `<div class="p-5 text-center bg-slate-50 dark:bg-slate-950/40 h-full flex flex-col justify-center items-center">
                       <p class="text-xs text-slate-400 mb-2">Arquivo carregado na sessão.</p>
@@ -715,8 +700,6 @@
     }
 
     // --- LEITOR DE PDF (PDF.JS) ---
-
-    // Cria o esqueleto do Visualizador PDF e chama a renderização
     function montarEGerarLeitorPdf(id, filename, paginaInicial = 1, savedProps = null) {
       const viewerId = "view_" + id + "_" + Date.now();
       const readerContentHtml = `
@@ -740,7 +723,7 @@
 
       const customWidth = window.innerWidth > 800 ? 650 : 340;
       let props = savedProps;
-      if (!props) { // Posiciona o card próximo de onde o mouse do usuário está
+      if (!props) { 
         const targetLeft = mouseXCanvas ? (mouseXCanvas - 50) : (Math.abs(panX) / zoom + 400);
         const targetTop = mouseYCanvas ? (mouseYCanvas - 20) : (Math.abs(panY) / zoom + 100);
         props = { width: `${customWidth}px`, height: `550px`, left: `${targetLeft}px`, top: `${targetTop}px` };
@@ -750,7 +733,6 @@
       setTimeout(() => { renderizarPaginaVisualizador(viewerId, id); }, 150);
     }
 
-    // Busca o Blob no IndexedDB e renderiza como imagem em um elemento Canvas
     function renderizarPaginaVisualizador(viewerId, pdfId) {
       if (!db) return;
       const container = document.querySelector(`[data-viewerid="${viewerId}"]`);
@@ -794,7 +776,7 @@
               page.render(renderContext).promise.then(() => {
                 const inputEl = container.querySelector('.page-input-card');
                 if (inputEl) inputEl.value = pageNum;
-                salvarEstadoNoStorage(); // Salva estado para lembrar a página
+                salvarEstadoNoStorage(); 
               });
             });
           }).catch(err => console.error("Erro ao renderizar PDF:", err));
@@ -803,7 +785,6 @@
       };
     }
 
-    // Botões de Próximo e Anterior no PDF
     window.mudarPaginaCard = function(viewerId, delta) {
       const container = document.querySelector(`[data-viewerid="${viewerId}"]`);
       if (!container) return;
@@ -819,7 +800,6 @@
       renderizarPaginaVisualizador(viewerId, pdfId);
     }
 
-    // Inputs diretos no número de página
     window.irParaPaginaCard = function(viewerId, valor) {
       const container = document.querySelector(`[data-viewerid="${viewerId}"]`);
       if (!container) return;
@@ -838,8 +818,6 @@
     }
 
     // --- FUNÇÃO "CORE": CRIAÇÃO DO ELEMENTO DOM DO CARD ---
-    
-    // Injeta as divs do container (Card), define estilos, tamanhos, botões de fechar, etc.
     function createCard(fileType, filename, bodyContent, customWidth = 280, savedProps = null) {
       const card = document.createElement('div');
       card.className = `codex-card absolute bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg dark:shadow-2xl z-10 hover:border-slate-400 dark:hover:border-slate-600 overflow-hidden flex flex-col transform-none transition-shadow duration-150`;
@@ -850,7 +828,6 @@
       const finalWidth = customWidth;
       const finalHeight = savedProps && savedProps.height ? parseFloat(savedProps.height) : 280;
 
-      // Se o card já tem posições gravadas (sendo recarregado)
       if (savedProps) {
         card.style.width = savedProps.width;
         card.style.height = savedProps.height;
@@ -861,7 +838,6 @@
           setTimeout(() => adicionarIndicadorGrupo(card), 50);
         }
       } 
-      // Se é um card novo, cria uma grid inteligente para espalhá-los sem sobrepor
       else {
         card.style.width = `${finalWidth}px`;
         card.style.height = `${finalHeight}px`;
@@ -892,11 +868,10 @@
         </div>
         <div class="resize-handle"></div>`;
 
-      // Lógica para clicar no card e enviá-lo ao topo do quadro (zIndex) + lógica de multiseleção
       const header = card.querySelector('.card-header');
       header.addEventListener('pointerdown', (e) => {
         if (e.target.tagName === 'BUTTON') return;
-        if (card.classList.contains('card-fullscreen')) return; // Bloqueia interações em tela cheia
+        if (card.classList.contains('card-fullscreen')) return; 
         
         document.querySelectorAll('.codex-card').forEach(c => {
           if(!c.classList.contains('selected-card')) c.style.zIndex = 10;
@@ -924,12 +899,11 @@
       });
 
       canvas.appendChild(card);
-      applyInteract(card); // Habilita o drag & drop / resize do interact.js
+      applyInteract(card); 
       if (!savedProps) salvarEstadoNoStorage();
       return card;
     }
 
-    // Ativa o botão flutuante de seleção múltipla constante (para mobile)
     function toggleMultiSelectMode() {
       multiSelectMode = !multiSelectMode;
       const button = document.getElementById('multi-select-toggle');
@@ -945,7 +919,6 @@
       }
     }
 
-    // Remove do DOM e do Banco de Dados
     window.excluirCard = function(button) {
       const card = button.closest('.codex-card');
       if (card) {
@@ -963,12 +936,12 @@
     function applyInteract(element) {
       interact(element)
         .draggable({
-          allowFrom: '.card-header', // Só arrasta pegando pelo título
+          allowFrom: '.card-header', 
           inertia: false,
           listeners: {
             start(event) {
-              if (forcePanMode) return; // Bloqueia arraste do card se o modo mover quadro estiver ativo
-              if (event.target.classList.contains('card-fullscreen')) return; // Não arrasta em tela cheia
+              if (forcePanMode) return; 
+              if (event.target.classList.contains('card-fullscreen')) return; 
               document.querySelectorAll('.codex-card').forEach(c => {
                 if(!c.classList.contains('selected-card')) c.style.zIndex = 10;
               });
@@ -976,11 +949,11 @@
               document.body.classList.add('dragging-active');
             },
             move(event) {
-              if (forcePanMode) return; // Bloqueia arraste do card se o modo mover quadro estiver ativo
+              if (forcePanMode) return; 
               const target = event.target;
               if (target.classList.contains('card-fullscreen')) return;
               
-              const dx = event.dx / zoom; // Ajusta a velocidade de arraste de acordo com o zoom
+              const dx = event.dx / zoom; 
               const dy = event.dy / zoom;
               const cardsParaMover = new Set();
               
@@ -990,7 +963,6 @@
                 cardsParaMover.add(target);
               }
 
-              // Checa agrupamentos
               const gruposAdicionados = new Set();
               cardsParaMover.forEach(card => {
                 if (card.dataset.groupId && !gruposAdicionados.has(card.dataset.groupId)) {
@@ -999,7 +971,6 @@
                 }
               });
               
-              // Executa movimento
               cardsParaMover.forEach(card => {
                 const currentLeft = parseFloat(card.style.left) || 0;
                 const currentTop = parseFloat(card.style.top) || 0;
@@ -1014,15 +985,15 @@
           }
         })
         .resizable({
-          edges: { right: true, bottom: true }, // Só redimensiona pela direita e por baixo
+          edges: { right: true, bottom: true }, 
           listeners: {
             start(event) { 
-              if (forcePanMode) return; // Bloqueia redimensionamento
+              if (forcePanMode) return; 
               if (event.target.classList.contains('card-fullscreen')) return;
               document.body.classList.add('dragging-active'); 
             },
             move(event) {
-              if (forcePanMode) return; // Bloqueia redimensionamento
+              if (forcePanMode) return; 
               const target = event.target;
               if (target.classList.contains('card-fullscreen')) return;
               const dw = event.edges.right * (event.dx / zoom);
@@ -1056,14 +1027,12 @@
             }
           },
           modifiers: [
-            interact.modifiers.restrictSize({ min: { width: 230, height: 160 } }) // Tamanho mínimo de um card
+            interact.modifiers.restrictSize({ min: { width: 230, height: 160 } }) 
           ]
         });
     }
 
     // --- INTERAÇÕES COM LINKS EXTERNOS (COLAR CTRL+V OU MANUAL) ---
-
-    // Acionado pelo botão no menu lateral
     async function colarLinkManual() {
       try {
         const pastedText = await navigator.clipboard.readText();
@@ -1074,14 +1043,12 @@
       }
     }
 
-    // Processa uma URL inserida, verificando o que criar baseado na extensão (.pdf, vídeo, imagem, text, iframe)
     function tratarLinkColado(pastedText) {
       if (pastedText.startsWith('http://') || pastedText.startsWith('https://')) {
         let finalUrl = pastedText;
         let isDriveFile = false;
         let nomeArquivo = "Documento.pdf";
 
-        // Tenta contornar as URLs de preview do Google Drive
         if (pastedText.includes('drive.google.com') && pastedText.includes('/file/d/')) {
           isDriveFile = true;
           const partesUrl = pastedText.split('/file/d/');
@@ -1096,7 +1063,6 @@
         const urlLower = urlSemQuery.toLowerCase();
         nomeArquivo = urlSemQuery.substring(urlSemQuery.lastIndexOf('/') + 1) || "Arquivo Web";
 
-        // Geração como iframe (Renderizador web nativo)
         if (isDriveFile || urlLower.endsWith('.pdf')) {
           if (!isDriveFile) nomeArquivo = urlSemQuery.substring(urlSemQuery.lastIndexOf('/') + 1) || "Documento.pdf";
           
@@ -1132,7 +1098,6 @@
                             </div>`;
           createCard(ext, nomeArquivo, bodyHtml, 300);
         }
-        // Se for arquivo de texto da web, tenta fazer requisição fetch()
         else if (urlLower.endsWith('.txt') || urlLower.endsWith('.md')) {
           const ext = urlLower.split('.').pop().toUpperCase();
           const targetLeft = mouseXCanvas || (Math.abs(panX) / zoom + 350);
@@ -1150,11 +1115,9 @@
           return;
         } 
         else {
-          // Se for só uma URL normal (Site), vira uma anotação de favoritos
           processLinkCard(pastedText, '');
         }
 
-        // Posiciona onde o mouse estiver
         const cards = document.querySelectorAll('.codex-card');
         const lastCard = cards[cards.length - 1];
         if (lastCard) {
@@ -1168,12 +1131,9 @@
     }
 
     // --- GERENCIAMENTO DE ESTADO (SALVAR E CARREGAR NO NAVEGADOR) ---
-    
-    // Coleta todas as informações de tamanho, posição e conteúdo de todos os cards da tela
     function salvarEstadoNoStorage() {
       const cardsData = [];
       document.querySelectorAll('.codex-card').forEach(card => {
-        // Fix para que os textos inputados mantenham seu value HTML
         card.querySelectorAll('input[type="text"]').forEach(input => {
           input.setAttribute('value', input.value);
         });
@@ -1187,7 +1147,6 @@
         let savedMediaSourceId = "";
         let savedPagesArray = [];
 
-        // Verifica tipo do card para ver como ele deve ser salvo
         if (viewerEl) {
           savedCurrentPage = parseInt(viewerEl.dataset.currentPage) || 1;
           savedPdfSourceId = viewerEl.dataset.pdfsourceid || "";
@@ -1196,13 +1155,11 @@
           savedMediaSourceId = videoEl.dataset.mediasourceid || "";
         }
         if (isNOTAS) {
-          // Notas são salvas como imagens JPEG levemente compactadas para otimização extrema no mobile
           const drawCanvases = card.querySelectorAll('.drawing-canvas');
           drawCanvases.forEach(canvas => {
-            // Se o canvas não foi alterado e já possui imagem em cache, utiliza o cache
             if (!canvas.dataset.cachedData || canvas.dataset.isDirty === "true") {
-              canvas.dataset.cachedData = canvas.toDataURL('image/jpeg', 0.5); // 50% de qualidade JPEG
-              canvas.dataset.isDirty = "false"; // Reseta o estado dirty
+              canvas.dataset.cachedData = canvas.toDataURL('image/jpeg', 0.5); 
+              canvas.dataset.isDirty = "false"; 
             }
             savedPagesArray.push({
               id: canvas.id,
@@ -1226,729 +1183,32 @@
           pagesArray: savedPagesArray,
           groupId: card.dataset.groupId || "",
           globalColor: card.dataset.currentGlobalColor || "#1e293b",
-          paperType: card.dataset.paperType || "A4", // Salva o tipo de papel
+          paperType: card.dataset.paperType || "A4",
           bodyContent: (viewerEl || videoEl || isNOTAS) ? "" : card.querySelector('.card-body-holder').innerHTML 
         });
       });
-      // Converte tudo pra JSON string e guarda no localStorage
       localStorage.setItem('dexi_codex_cards', JSON.stringify(cardsData));
     }
 
-    // Chamada no OnLoad para ler do armazenamento e redesenhar os cards
     function carregarEstadoDoStorage() {
       const rawData = localStorage.getItem('dexi_codex_cards');
       const menuVisible = localStorage.getItem('dexi_menu_visible');
-      toggleMenu(menuVisible !== 'false'); // Restaura estado do menu
+      toggleMenu(menuVisible !== 'false');
 
       if (!rawData) return;
       try {
         const cardsData = JSON.parse(rawData);
         cardsData.forEach(c => {
           if ((c.filetype === 'PDF' || c.filetype === 'LEITOR PDF') && c.pdfSourceId) {
-            montarEGerarLeitorPdf(c.pdfSourceId, c.filename, c.currentPage, {
-              width: c.width, height: c.height, left: c.left, top: c.top, groupId: c.groupId
-            });
-          } else if (c.mediaSourceId) {
-            const transaction = db.transaction(["media"], "readonly");
-            const request = transaction.objectStore(["media"]).get(c.mediaSourceId);
-            request.onsuccess = (e) => {
-              const blob = e.target.result;
-              if (!blob) return;
-              const videoUrl = URL.createObjectURL(blob);
-              const bodyHtml = `<div class="w-full h-full bg-slate-950 flex items-center justify-center" data-mediasourceid="${c.mediaSourceId}" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
-                                  <video src="${videoUrl}" controls class="w-full h-full object-contain pointer-events-auto"></video>
-                                </div>`;
-              createCard(c.filetype, c.filename, bodyHtml, 360, {
-                width: c.width, height: c.height, left: c.left, top: c.top, groupId: c.groupId
-              });
-            };
-          } else if (c.filetype === 'NOTAS') {
-            reconstruirCardNotasComPaginas(c);
+            montarEGerarLeitorPdf(c.pdfSourceId, c.filename, c.currentPage, c);
           } else {
-            createCard(c.filetype, c.filename, c.bodyContent, c.width ? parseFloat(c.width) : 290, {
-              width: c.width, height: c.height, left: c.left, top: c.top, groupId: c.groupId
-            });
+             createCard(c.filetype, c.filename, c.bodyContent, parseFloat(c.width) || 280, c);
           }
         });
-      } catch (e) { console.error("Erro ao carregar dados", e); }
-    }
-
-    // Botão Limpar Tudo
-    window.limparQuadro = function() {
-      document.querySelectorAll('.codex-card').forEach(card => card.remove());
-      localStorage.removeItem('dexi_codex_cards');
-      atualizarToolbarSelecao();
-      // Esvazia as tabelas do IndexedDB
-      if (db) {
-        const transaction = db.transaction(["pdfs"], "readwrite");
-        transaction.objectStore(["pdfs"]).clear();
-        const mediaTransaction = db.transaction(["media"], "readwrite");
-        mediaTransaction.objectStore(["media"]).clear();
+      } catch (e) {
+        console.error("Erro ao carregar o estado:", e);
       }
-    }
-
-    // Previne erros de segurança de HTML injetado
-    function escapeHTML(str) {
-      return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
-    }
-
-    // --- MODAL GENÉRICO DE VISUALIZAÇÃO (Imagens) ---
-    window.openModal = function(title, contentHtml) {
-      document.getElementById('modal-title').innerText = title;
-      document.getElementById('modal-content').innerHTML = contentHtml;
-      document.getElementById('preview-modal').classList.remove('hidden');
-    }
-
-    window.closeModal = function() {
-      document.getElementById('preview-modal').classList.add('hidden');
-      document.getElementById('modal-content').innerHTML = '';
-    }
-
-    document.getElementById('preview-modal').addEventListener('click', function (e) {
-      if (e.target === this) closeModal();
-    });
-
-    // Cancela o clique solto / drags pendentes
-    function endAllInteractions() {
-      isPanning = false;
-      document.body.classList.remove('dragging-active');
-      if (typeof interact !== 'undefined' && interact.currentInteractions) {
-        interact.currentInteractions.forEach(interaction => {
-          if (interaction.interacting()) interaction.end();
-        });
-      }
-    }
-    window.addEventListener('mouseup', endAllInteractions);
-    window.addEventListener('touchend', endAllInteractions);
-
-    // Evento de Colar (CTRL+V / CMD+V) global na tela (Suporta texto e imagens no mobile/tablet)
-    window.addEventListener('paste', async (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      
-      const items = (e.clipboardData || window.clipboardData).items;
-      let imagemDetectada = false;
-      
-      for (let item of items) {
-        if (item.type.indexOf('image') !== -1) {
-          imagemDetectada = true;
-          const file = item.getAsFile();
-          const customFile = new File([file], `imagem_colada_${Date.now()}.png`, { type: file.type });
-          await processAndCreateCard(customFile);
-        }
-      }
-      
-      if (!imagemDetectada) {
-        const pastedText = (e.clipboardData || window.clipboardData).getData('text').trim();
-        if (pastedText) tratarLinkColado(pastedText);
-      }
-    });
-
-    // --- FUNÇÃO PARA ALTERNAR TELA CHEIA (Fullscreen em Cards) ---
-    // Ativa/Desativa o tamanho fixo da tela no dispositivo móvel
-    window.toggleFullscreenCard = function(card) {
-      if (!card) return;
-      
-      const isFullscreen = card.classList.contains('card-fullscreen');
-      
-      if (!isFullscreen) {
-        // Entrando em tela cheia: Salva as dimensões atuais
-        card.dataset.prevWidth = card.style.width;
-        card.dataset.prevHeight = card.style.height;
-        card.dataset.prevLeft = card.style.left;
-        card.dataset.prevTop = card.style.top;
-        card.dataset.prevTransform = card.style.transform;
-
-        card.classList.add('card-fullscreen');
-        
-        // Força a sobrescrita dos estilos inline que o interact.js aplica
-        card.style.width = '100vw';
-        card.style.height = '100dvh';
-        card.style.left = '0px';
-        card.style.top = '0px';
-        card.style.transform = 'none';
-      } else {
-        // Saindo da tela cheia: Restaura as dimensões originais
-        card.classList.remove('card-fullscreen');
-        
-        card.style.width = card.dataset.prevWidth || '';
-        card.style.height = card.dataset.prevHeight || '';
-        card.style.left = card.dataset.prevLeft || '';
-        card.style.top = card.dataset.prevTop || '';
-        card.style.transform = card.dataset.prevTransform || '';
-      }
-
-      const btn = card.querySelector('.fullscreen-toggle-btn');
-      if (btn) {
-        if (card.classList.contains('card-fullscreen')) {
-          btn.innerText = '🗗';
-          btn.setAttribute('title', 'Sair da Tela Cheia');
-          btn.classList.add('text-amber-400');
-        } else {
-          btn.innerText = '⛶';
-          btn.setAttribute('title', 'Tela Cheia');
-          btn.classList.remove('text-amber-400');
-        }
-      }
-    }
-
-    // --- SISTEMA AVANÇADO DE ANOTAÇÕES (CANVAS / NOTAS MULTIPAGINADAS) ---
-
-    // Abertura do Modal de seleção de papel
-    window.abrirModalNota = function() {
-      document.getElementById('paper-select-modal').classList.remove('hidden');
-    }
-
-    window.fecharModalNota = function() {
-      document.getElementById('paper-select-modal').classList.add('hidden');
-    }
-
-    window.criarNotaFromModal = function(tipoPapel) {
-      const nomeFolha = document.getElementById('nota-nome-input').value || "Folha Rascunho";
-      fecharModalNota();
-      criarNovaNota(nomeFolha, tipoPapel);
-    }
-
-    // Cria o card "Notas" vazio inicial respeitando o formato do papel
-    window.criarNovaNota = function(nomeFolha, tipoPapel) {
-      const initialCanvasId = 'canvas_page_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-      const config = paperConfigs[tipoPapel] || paperConfigs['A4'];
-
-      const bodyHtml = `
-        <div class="flex flex-col h-full bg-white relative group select-none pointer-events-auto">
-          <div class="absolute top-2 left-1/2 -translate-x-1/2 bg-slate-800/90 backdrop-blur text-white px-3 py-1.5 rounded-full flex gap-2.5 opacity-40 group-hover:opacity-100 transition-opacity z-20 shadow-lg items-center text-xs" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
-            <button onclick="setDrawMode(this, 'pen')" class="p-1.5 rounded-lg bg-amber-500/30 ring-1 ring-amber-400 opacity-100 shadow-md transition-all scale-110" title="Caneta">✏️</button>
-            <button onclick="setDrawMode(this, 'eraser')" class="p-1.5 rounded-lg opacity-60 hover:opacity-100 hover:bg-slate-700/50 transition-all" title="Borracha">🧽</button>
-            <button onclick="setDrawMode(this, 'move')" class="p-1.5 rounded-lg opacity-60 hover:opacity-100 hover:bg-slate-700/50 transition-all" title="Mover pela folha">🖐️</button>
-            
-            <div class="flex items-center gap-1 text-[11px] bg-slate-700/60 px-1.5 py-0.5 rounded-md">
-              <span class="text-slate-400">px:</span>
-              <input type="number" min="1" max="50" value="4" oninput="setStrokeWidthCard(this.closest('.codex-card'), this.value)" class="w-7 bg-transparent text-center text-amber-400 font-bold font-mono focus:outline-none pointer-events-auto">
-            </div>
-
-            <input type="color" value="#1e293b" oninput="setColorCard(this.closest('.codex-card'), this.value)" class="w-6 h-6 ml-1 p-0 border-0 rounded bg-transparent cursor-pointer pointer-events-auto" title="Cor da Caneta">
-
-            <div class="w-px h-3 bg-slate-600"></div>
-            
-            <button onclick="adicionarNovaPaginaAoCard(this.closest('.codex-card'))" class="text-indigo-400 hover:text-indigo-300 transition-colors font-bold text-[11px]" title="Adicionar outra folha">+📄</button>
-
-            <div class="w-px h-3 bg-slate-600"></div>
-
-            <button onclick="zoomCanvasCard(this.closest('.codex-card'), 0.15)" class="text-slate-300 hover:text-amber-300 transition-colors font-bold text-xs" title="Aumentar Zoom">➕</button>
-            <button onclick="zoomCanvasCard(this.closest('.codex-card'), -0.15)" class="text-slate-300 hover:text-amber-300 transition-colors font-bold text-xs" title="Diminuir Zoom">➖</button>
-            
-            <div class="w-px h-3 bg-slate-600"></div>
-
-            <button onclick="downloadCardAsMultiPagePDF(this.closest('.codex-card'))" class="text-slate-300 hover:text-emerald-400 transition-colors text-sm" title="Baixar Tudo em PDF">📥</button>
-            <button onclick="clearAllCanvasesInCard(this.closest('.codex-card'))" class="text-slate-300 hover:text-rose-400 transition-colors" title="Limpar Tudo">🗑️</button>
-            
-            <div class="w-px h-3 bg-slate-600"></div>
-            <button onclick="toggleFullscreenCard(this.closest('.codex-card'))" class="fullscreen-toggle-btn text-slate-300 hover:text-amber-400 transition-colors font-bold text-xs" title="Tela Cheia">⛶</button>
-          </div>
-          
-          <div class="scroll-container-a4 flex-1 w-full h-full overflow-y-auto bg-slate-100 dark:bg-slate-950/30 p-4 flex flex-col gap-6 justify-start items-center m-0 pointer-events-auto" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
-            <div class="canvas-item-wrapper m-auto relative">
-              <canvas id="${initialCanvasId}" class="drawing-canvas shadow-xl bg-white block touch-none" width="${config.canvasW}" height="${config.canvasH}" data-mode="pen" data-stroke-width="4" data-color="#1e293b" data-zoom="1" style="width: ${config.cssW}px; height: ${config.cssH}px;"></canvas>
-            </div>
-          </div>
-        </div>
-      `;
-
-      const targetLeft = mouseXCanvas || (Math.abs(panX) / zoom + 350);
-      const targetTop = mouseYCanvas || (Math.abs(panY) / zoom + 150);
-      const props = { width: `${config.cardW}px`, height: `${config.cardH}px`, left: `${targetLeft}px`, top: `${targetTop}px` };
-
-      const newCard = createCard('NOTAS', nomeFolha, bodyHtml, config.cardW, props);
-      newCard.dataset.currentGlobalMode = "pen";
-      newCard.dataset.currentGlobalStroke = "4";
-      newCard.dataset.currentGlobalColor = "#1e293b";
-      newCard.dataset.paperType = tipoPapel; // Salva o tipo no dataset do card
-
-      const canvasEl = newCard.querySelector('.drawing-canvas');
-      if (canvasEl) {
-        canvasEl.classList.add('initialized');
-        initDrawingCanvas(canvasEl);
-      }
-    }
-
-    // Adiciona "páginas" dentro do mesmo bloco de anotações
-    window.adicionarNovaPaginaAoCard = function(card) {
-      if (!card) return;
-      const scrollContainer = card.querySelector('.scroll-container-a4');
-      if (!scrollContainer) return;
-
-      const paperType = card.dataset.paperType || "A4";
-      const config = paperConfigs[paperType] || paperConfigs['A4'];
-
-      const newId = 'canvas_page_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-      const firstCanvas = card.querySelector('.drawing-canvas');
-      const currentZoom = firstCanvas ? firstCanvas.dataset.zoom : "1";
-      const currentMode = card.dataset.currentGlobalMode || "pen";
-      const currentStroke = card.dataset.currentGlobalStroke || "4";
-      const currentColor = card.dataset.currentGlobalColor || "#1e293b";
-
-      const calculatedWidth = config.cssW * parseFloat(currentZoom);
-      const calculatedHeight = config.cssH * parseFloat(currentZoom);
-
-      const wrapper = document.createElement('div');
-      wrapper.className = "canvas-item-wrapper m-auto relative";
-      wrapper.innerHTML = `
-        <button onclick="this.parentElement.remove(); salvarEstadoNoStorage();" class="absolute -top-2 -right-2 bg-rose-500 hover:bg-rose-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[11px] font-bold shadow-lg z-10">&times;</button>
-        <canvas id="${newId}" class="drawing-canvas shadow-xl bg-white block touch-none" width="${config.canvasW}" height="${config.canvasH}" data-mode="${currentMode}" data-stroke-width="${currentStroke}" data-color="${currentColor}" data-zoom="${currentZoom}" style="width: ${calculatedWidth}px; height: ${calculatedHeight}px;"></canvas>
-      `;
-
-      scrollContainer.appendChild(wrapper);
-      const newCanvasEl = wrapper.querySelector('.drawing-canvas');
-      initDrawingCanvas(newCanvasEl);
-      salvarEstadoNoStorage();
-    }
-
-    // Aplica zoom internamente só na folha que está sendo desenhada
-    window.zoomCanvasCard = function(card, delta) {
-      if (!card) return;
-      const paperType = card.dataset.paperType || "A4";
-      const config = paperConfigs[paperType] || paperConfigs['A4'];
-      
-      const canvases = card.querySelectorAll('.drawing-canvas');
-      canvases.forEach(canvasEl => {
-        let currentZoom = parseFloat(canvasEl.dataset.zoom) || 1;
-        currentZoom += delta;
-        currentZoom = Math.max(0.4, Math.min(currentZoom, 3));
-        canvasEl.dataset.zoom = currentZoom;
-
-        canvasEl.style.width = `${config.cssW * currentZoom}px`;
-        canvasEl.style.height = `${config.cssH * currentZoom}px`;
-      });
-      salvarEstadoNoStorage();
-    }
-
-    // Converte os desenhos Canvas em arquivo PDF para Download local
-    window.downloadCardAsMultiPagePDF = function(card) {
-      if (!card) return;
-      const canvases = card.querySelectorAll('.drawing-canvas');
-      if (canvases.length === 0) return;
-
-      const paperType = card.dataset.paperType || "A4";
-      let format = 'a4';
-      let w = 210, h = 297, orientation = 'p';
-
-      if (paperType === 'Carta') {
-          format = 'letter';
-          w = 215.9; h = 279.4;
-      } else if (paperType === 'Quadro') {
-          format = [400, 400]; // mm
-          w = 400; h = 400;
-      }
-
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF(orientation, 'mm', format);
-      const filename = card.dataset.filename || 'nota-rascunho';
-
-      canvases.forEach((canvasEl, index) => {
-        if (index > 0) pdf.addPage(format, orientation);
-        const imgData = canvasEl.toDataURL('image/jpeg', 1.0);
-        pdf.addImage(imgData, 'JPEG', 0, 0, w, h);
-      });
-
-      pdf.save(`${filename}.pdf`);
-    }
-
-    // Define estado de (Desenhar, Apagar, Arrastar folha)
-    window.setDrawMode = function(btn, mode) {
-      const card = btn.closest('.codex-card');
-      if (!card) return;
-      card.dataset.currentGlobalMode = mode;
-      
-      const canvases = card.querySelectorAll('.drawing-canvas');
-      canvases.forEach(c => c.dataset.mode = mode);
-
-      // Limpa os estados visuais apenas dos botões de ferramenta (Caneta, Borracha, Mover)
-      btn.parentElement.querySelectorAll('button').forEach(b => {
-        if (b.title === 'Caneta' || b.title === 'Borracha' || b.title === 'Mover pela folha') {
-          b.className = "p-1.5 rounded-lg opacity-60 hover:opacity-100 hover:bg-slate-700/50 transition-all";
-        }
-      });
-      
-      // Destaca visualmente o botão que acabou de ser clicado
-      btn.className = "p-1.5 rounded-lg bg-amber-500/30 ring-1 ring-amber-400 opacity-100 shadow-md transition-all scale-110";
-
-      const scrollContainer = card.querySelector('.scroll-container-a4');
-      if (scrollContainer) {
-        scrollContainer.style.cursor = mode === 'move' ? 'grab' : 'default';
-      }
-    }
-
-    // Altera e propaga tamanho do pincel
-    window.setStrokeWidthCard = function(card, value) {
-      if (!card) return;
-      card.dataset.currentGlobalStroke = value;
-      const canvases = card.querySelectorAll('.drawing-canvas');
-      canvases.forEach(c => c.dataset.strokeWidth = value);
-    }
-    
-    // Altera e propaga cor do pincel
-    window.setColorCard = function(card, value) {
-      if (!card) return;
-      card.dataset.currentGlobalColor = value;
-      const canvases = card.querySelectorAll('.drawing-canvas');
-      canvases.forEach(c => c.dataset.color = value);
-    }
-
-    window.clearAllCanvasesInCard = function(card) {
-      if (!card) return;
-      const canvases = card.querySelectorAll('.drawing-canvas');
-      canvases.forEach(canvasEl => {
-        const ctx = canvasEl.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
-        canvasEl.dataset.isDirty = "true"; // Sinaliza alteração para o salvamento
-      });
-      salvarEstadoNoStorage();
-    }
-
-    // Reconstrói todo o card de Notas após recarregar a página (com imagens do Base64)
-    function reconstruirCardNotasComPaginas(c) {
-      const paperType = c.paperType || "A4";
-      const config = paperConfigs[paperType] || paperConfigs['A4'];
-      
-      const a4Width = c.width || `${config.cardW}px`;
-      const a4Height = c.height || `${config.cardH}px`;
-      const savedPages = c.pagesArray || [];
-      const globalColor = c.globalColor || "#1e293b";
-
-      let pagesContentHtml = "";
-      savedPages.forEach((page, index) => {
-        const currentZoom = parseFloat(page.zoom) || 1;
-        const pageColor = page.color || globalColor;
-        const calculatedWidth = config.cssW * currentZoom;
-        const calculatedHeight = config.cssH * currentZoom;
-
-        const deleteButton = index > 0 ? `<button onclick="this.parentElement.remove(); salvarEstadoNoStorage();" class="absolute -top-2 -right-2 bg-rose-500 hover:bg-rose-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[11px] font-bold shadow-lg z-10">&times;</button>` : "";
-
-        pagesContentHtml += `
-          <div class="canvas-item-wrapper m-auto relative">
-            ${deleteButton}
-            <canvas id="${page.id}" class="drawing-canvas shadow-xl bg-white block touch-none" width="${config.canvasW}" height="${config.canvasH}" data-mode="pen" data-stroke-width="4" data-color="${pageColor}" data-zoom="${currentZoom}" style="width: ${calculatedWidth}px; height: ${calculatedHeight}px;"></canvas>
-          </div>
-        `;
-      });
-
-      const bodyHtml = `
-        <div class="flex flex-col h-full bg-white relative select-none pointer-events-auto">
-          <div class="flex-shrink-0 sticky top-0 left-0 w-full bg-slate-800/95 backdrop-blur text-white px-2 sm:px-3 py-1.5 flex flex-wrap gap-1.5 sm:gap-2.5 z-20 shadow-lg items-center justify-center text-xs" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
-            <button onclick="setDrawMode(this, 'pen')" class="p-1.5 rounded-lg bg-amber-500/30 ring-1 ring-amber-400 opacity-100 shadow-md transition-all scale-110" title="Caneta">✏️</button>
-            <button onclick="setDrawMode(this, 'eraser')" class="p-1.5 rounded-lg opacity-60 hover:opacity-100 hover:bg-slate-700/50 transition-all" title="Borracha">🧽</button>
-            <button onclick="setDrawMode(this, 'move')" class="p-1.5 rounded-lg opacity-60 hover:opacity-100 hover:bg-slate-700/50 transition-all" title="Mover pela folha">🖐️</button>
-            
-            <div class="flex items-center gap-1 text-[11px] bg-slate-700/60 px-1.5 py-0.5 rounded-md">
-              <span class="text-slate-400">px:</span>
-              <input type="number" min="1" max="50" value="4" oninput="setStrokeWidthCard(this.closest('.codex-card'), this.value)" class="w-7 bg-transparent text-center text-amber-400 font-bold font-mono focus:outline-none pointer-events-auto">
-            </div>
-            
-            <input type="color" value="${globalColor}" oninput="setColorCard(this.closest('.codex-card'), this.value)" class="w-6 h-6 ml-1 p-0 border-0 rounded bg-transparent cursor-pointer pointer-events-auto" title="Cor da Caneta">
-
-            <div class="hidden sm:block w-px h-3 bg-slate-600"></div>
-            
-            <button onclick="adicionarNovaPaginaAoCard(this.closest('.codex-card'))" class="text-indigo-400 hover:text-indigo-300 transition-colors font-bold text-[11px] whitespace-nowrap" title="Adicionar outra folha">+📄</button>
-
-            <div class="hidden sm:block w-px h-3 bg-slate-600"></div>
-
-            <button onclick="zoomCanvasCard(this.closest('.codex-card'), 0.15)" class="text-slate-300 hover:text-amber-300 transition-colors font-bold text-xs" title="Aumentar Zoom">➕</button>
-            <button onclick="zoomCanvasCard(this.closest('.codex-card'), -0.15)" class="text-slate-300 hover:text-amber-300 transition-colors font-bold text-xs" title="Diminuir Zoom">➖</button>
-            
-            <div class="hidden sm:block w-px h-3 bg-slate-600"></div>
-
-            <button onclick="downloadCardAsMultiPagePDF(this.closest('.codex-card'))" class="text-slate-300 hover:text-emerald-400 transition-colors text-sm" title="Baixar Tudo em PDF">📥</button>
-            <button onclick="clearAllCanvasesInCard(this.closest('.codex-card'))" class="text-slate-300 hover:text-rose-400 transition-colors" title="Limpar Tudo">🗑️</button>
-            
-            <div class="hidden sm:block w-px h-3 bg-slate-600"></div>
-            <button onclick="toggleFullscreenCard(this.closest('.codex-card'))" class="fullscreen-toggle-btn text-slate-300 hover:text-amber-400 transition-colors font-bold text-xs" title="Tela Cheia">⛶</button>
-          </div>
-          
-          <div class="scroll-container-a4 flex-1 w-full overflow-y-auto bg-slate-100 dark:bg-slate-950/30 p-4 flex flex-col gap-6 justify-start items-center m-0 pointer-events-auto" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
-            ${pagesContentHtml}
-          </div>
-        </div>
-      `;
-
-      const newCard = createCard('NOTAS', c.filename, bodyHtml, parseFloat(a4Width), {
-        width: a4Width, height: a4Height, left: c.left, top: c.top, groupId: c.groupId
-      });
-      newCard.dataset.currentGlobalMode = "pen";
-      newCard.dataset.currentGlobalStroke = "4";
-      newCard.dataset.currentGlobalColor = globalColor;
-      newCard.dataset.paperType = paperType; // Resgata o tipo de papel do save
-
-      savedPages.forEach(p => {
-        const canvasEl = newCard.querySelector(`#${p.id}`);
-        if (canvasEl) {
-          canvasEl.classList.add('initialized');
-          canvasEl.dataset.cachedData = p.data; // Armazena a imagem carregada no cache inicial do elemento
-          initDrawingCanvas(canvasEl, p.data); // Recarrega imagem do Storage na tela
-        }
-      });
-    }
-
-    // INICIALIZAÇÃO DE CANETAS DO CANVAS DE NOTAS (O coração dos rabiscos)
-    window.initDrawingCanvas = function(canvasEl, savedDataUrl = null) {
-      if (!canvasEl) return;
-      const ctx = canvasEl.getContext('2d');
-      
-      // Ativa suavização para evitar pixelamento
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      
-      // O fundo precisa ser preenchido de branco para o JSpdf ler depois
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
-
-      if (savedDataUrl) {
-        const img = new Image();
-        img.onload = () => ctx.drawImage(img, 0, 0);
-        img.src = savedDataUrl;
-      }
-
-      let isDrawing = false;
-      let isMoving = false;
-      let isTwoFingerScrolling = false;
-      let lastTwoFingerCenter = { x: 0, y: 0 };
-      let lastX = 0; let lastY = 0;
-      let lastClientX = 0; let lastClientY = 0;
-      let saveTimeout = null;
-
-      // NOVO: Adicionado para rastrear se houve movimento (evita pontilhar ao usar 2 dedos)
-      let hasMoved = false; 
-
-      // --- Variável para travar no toque correto e ignorar a palma ---
-      let activeTouchId = null;
-
-      // Pega a posição usando coordenadas X e Y explícitas
-      function getPos(clientX, clientY) {
-        const rect = canvasEl.getBoundingClientRect();
-        return {
-          x: (clientX - rect.left) * (canvasEl.width / rect.width),
-          y: (clientY - rect.top) * (canvasEl.height / rect.height)
-        };
-      }
-
-      // Filtro Inteligente de Toque para precaver toques acidentais
-      function getValidTouch(touches) {
-        // 1. Prioriza a caneta (stylus) se estiver em uso
-        for (let i = 0; i < touches.length; i++) {
-          if (touches[i].touchType === 'stylus') return touches[i];
-        }
-        // 2. Se for dedo, procura um toque que NÃO seja muito largo (rejeição de palma)
-        for (let i = 0; i < touches.length; i++) {
-          if (touches[i].radiusX === undefined || touches[i].radiusX < 20) {
-            return touches[i];
-          }
-        }
-        return null; // Se for muito grande, assume que é palma encostada
-      }
-
-      function start(e) {
-        if (typeof forcePanMode !== 'undefined' && forcePanMode) return;
-        
-        // NOVO: Se o usuário tocar com 2 dedos, ativa o modo de rolagem automática das Notas
-        if (e.touches && e.touches.length === 2) {
-          isDrawing = false;
-          isMoving = false;
-          isTwoFingerScrolling = true;
-          const t1 = e.touches[0];
-          const t2 = e.touches[1];
-          lastTwoFingerCenter = {
-            x: (t1.clientX + t2.clientX) / 2,
-            y: (t1.clientY + t2.clientY) / 2
-          };
-          e.preventDefault();
-          if (e.stopPropagation) e.stopPropagation();
-          return;
-        }
-
-        isTwoFingerScrolling = false;
-        let clientX, clientY;
-
-        if (e.touches) {
-          const validTouch = getValidTouch(e.touches);
-          if (!validTouch) return; // Bloqueou a palma
-          
-          activeTouchId = validTouch.identifier; // Trava O ID deste dedo/caneta
-          clientX = validTouch.clientX;
-          clientY = validTouch.clientY;
-        } else {
-          if (e.button !== 0) return; // Ignora clique direito no mouse
-          clientX = e.clientX;
-          clientY = e.clientY;
-        }
-
-        e.preventDefault(); 
-
-        const mode = canvasEl.dataset.mode;
-        
-        if (mode === 'move') {
-          isMoving = true;
-          lastClientX = clientX;
-          lastClientY = clientY;
-          if (e.stopPropagation) e.stopPropagation();
-          return;
-        }
-        
-        isDrawing = true;
-        hasMoved = false; // Reinicia o rastreamento de movimento a cada toque
-        canvasEl.dataset.isDirty = "true"; 
-        const pos = getPos(clientX, clientY);
-        lastX = pos.x; lastY = pos.y;
-        
-        // A lógica do ponto inicial que causava o problema foi removida daqui e movida para o stop()
-
-        if (e.stopPropagation) e.stopPropagation();
-      }
-
-      function draw(e) {
-        // NOVO: Processa a rolagem por duas vias se houver exatamente dois dedos sobre a folha
-        if (e.touches && e.touches.length === 2 && isTwoFingerScrolling) {
-          e.preventDefault();
-          if (e.stopPropagation) e.stopPropagation();
-          const t1 = e.touches[0];
-          const t2 = e.touches[1];
-          const currentCenter = {
-            x: (t1.clientX + t2.clientX) / 2,
-            y: (t1.clientY + t2.clientY) / 2
-          };
-          const dx = currentCenter.x - lastTwoFingerCenter.x;
-          const dy = currentCenter.y - lastTwoFingerCenter.y;
-          
-          const scrollContainer = canvasEl.closest('.scroll-container-a4');
-          if (scrollContainer) {
-            scrollContainer.scrollLeft -= dx;
-            scrollContainer.scrollTop -= dy;
-          }
-          lastTwoFingerCenter = currentCenter;
-          return;
-        }
-
-        let clientX, clientY;
-
-        if (e.touches) {
-          // Procura o toque exato que iniciou a ação, ignorando palmas/outros dedos novos
-          let currentTouch = null;
-          for (let i = 0; i < e.touches.length; i++) {
-            if (e.touches[i].identifier === activeTouchId) {
-              currentTouch = e.touches[i];
-              break;
-            }
-          }
-          if (!currentTouch) return; // O dedo original ou caneta não está mais tocando na tela
-          
-          clientX = currentTouch.clientX;
-          clientY = currentTouch.clientY;
-        } else {
-          clientX = e.clientX;
-          clientY = e.clientY;
-        }
-
-        const mode = canvasEl.dataset.mode;
-        
-        if (mode === 'move') {
-          if (!isMoving) return;
-          e.preventDefault();
-          if (e.stopPropagation) e.stopPropagation();
-
-          const deltaX = clientX - lastClientX;
-          const deltaY = clientY - lastClientY;
-          lastClientX = clientX;
-          lastClientY = clientY;
-
-          const scrollContainer = canvasEl.closest('.scroll-container-a4');
-          if (scrollContainer) {
-            scrollContainer.scrollLeft -= deltaX;
-            scrollContainer.scrollTop -= deltaY;
-          }
-          return;
-        }
-
-        if (!isDrawing) return;
-
-        hasMoved = true; // Sinaliza que ocorreu movimentação durante o toque
-
-        e.preventDefault();
-        if (e.stopPropagation) e.stopPropagation();
-        
-        const pos = getPos(clientX, clientY);
-        const strokeW = parseFloat(canvasEl.dataset.strokeWidth) || 4;
-        const color = canvasEl.dataset.color || '#1e293b';
-
-        ctx.beginPath();
-        ctx.moveTo(lastX, lastY);
-        ctx.lineTo(pos.x, pos.y);
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-
-        if (mode === 'eraser') {
-          ctx.globalCompositeOperation = 'source-over';
-          ctx.lineWidth = strokeW * 6;
-          ctx.strokeStyle = '#ffffff';
-        } else {
-          ctx.globalCompositeOperation = 'source-over';
-          ctx.lineWidth = strokeW;
-          ctx.strokeStyle = color; 
-        }
-
-        ctx.stroke();
-        lastX = pos.x; lastY = pos.y;
-      }
-
-      function stop(e) {
-        if (isTwoFingerScrolling) {
-          isTwoFingerScrolling = false;
-          activeTouchId = null;
-          return;
-        }
-
-        // Se for toque, verifica se quem levantou foi o dedo principal
-        if (e && e.changedTouches) {
-          let activeLifted = false;
-          for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === activeTouchId) {
-              activeLifted = true;
-              break;
-            }
-          }
-          if (!activeLifted && (isDrawing || isMoving)) return; 
-        }
-
-        activeTouchId = null;
-
-        if (isDrawing) {
-          // NOVO: Desenha o ponto apenas se for um toque simples (sem movimento)
-          if (!hasMoved) {
-            const mode = canvasEl.dataset.mode;
-            const strokeW = parseFloat(canvasEl.dataset.strokeWidth) || 4;
-            const color = canvasEl.dataset.color || '#1e293b';
-
-            ctx.beginPath();
-            ctx.arc(lastX, lastY, mode === 'eraser' ? (strokeW * 6) / 2 : strokeW / 2, 0, 2 * Math.PI);
-            ctx.fillStyle = mode === 'eraser' ? '#ffffff' : color;
-            ctx.fill();
-          }
-
-          isDrawing = false;
-          if (saveTimeout) clearTimeout(saveTimeout);
-          saveTimeout = setTimeout(() => {
-            salvarEstadoNoStorage(); 
-          }, 3000);
-        }
-        isMoving = false;
-      }
-
-      canvasEl.addEventListener('mousedown', start);
-      canvasEl.addEventListener('mousemove', draw);
-      window.addEventListener('mouseup', stop);
-      canvasEl.addEventListener('touchstart', start, { passive: false });
-      canvasEl.addEventListener('touchmove', draw, { passive: false });
-      window.addEventListener('touchend', stop);
-      window.addEventListener('touchcancel', stop);
     }
   </script>
 </body>
-
 </html>
