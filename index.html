@@ -92,7 +92,7 @@
       </div>
 
       <a href="https://github.com/Dextre-Tecnologia/Dexi" target="_blank" rel="noopener noreferrer" class="absolute bottom-4 left-4 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-lg shadow-slate-400/20 transition-transform duration-200 hover:scale-105 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Abrir GitHub">
-        <img src="https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/github-white-icon.png" class="w-6 h-6" alt="GitHub">
+        <img src="https://icones.pro/wp-content/uploads/2021/06/icone-github-jaune.png" class="w-6 h-6" alt="GitHub">
       </a>
     </aside>
 
@@ -1708,7 +1708,11 @@
       let isMoving = false;
       let isTwoFingerScrolling = false;
       let lastTwoFingerCenter = { x: 0, y: 0 };
-      let lastX = 0; let lastY = 0;
+      
+      // Variáveis para suavização de Curva Quadrática
+      let lastPoint = { x: 0, y: 0 };
+      let lastMidPoint = { x: 0, y: 0 };
+      
       let lastClientX = 0; let lastClientY = 0;
       let saveTimeout = null;
       let hasMoved = false; 
@@ -1784,8 +1788,10 @@
         isDrawing = true;
         hasMoved = false; 
         canvasEl.dataset.isDirty = "true"; 
+        
         const pos = getPos(clientX, clientY);
-        lastX = pos.x; lastY = pos.y;
+        lastPoint = pos;
+        lastMidPoint = pos;
         
         if (e.stopPropagation) e.stopPropagation();
       }
@@ -1862,9 +1868,15 @@
         const strokeW = parseFloat(canvasEl.dataset.strokeWidth) || 4;
         const color = canvasEl.dataset.color || '#1e293b';
 
+        // Cálculo do ponto médio para suavização (Quadratic Curve)
+        const midPoint = {
+          x: lastPoint.x + (pos.x - lastPoint.x) / 2,
+          y: lastPoint.y + (pos.y - lastPoint.y) / 2
+        };
+
         ctx.beginPath();
-        ctx.moveTo(lastX, lastY);
-        ctx.lineTo(pos.x, pos.y);
+        ctx.moveTo(lastMidPoint.x, lastMidPoint.y);
+        ctx.quadraticCurveTo(lastPoint.x, lastPoint.y, midPoint.x, midPoint.y);
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
@@ -1879,7 +1891,9 @@
         }
 
         ctx.stroke();
-        lastX = pos.x; lastY = pos.y;
+        
+        lastPoint = pos;
+        lastMidPoint = midPoint;
       }
 
       function stop(e) {
@@ -1909,9 +1923,29 @@
             const color = canvasEl.dataset.color || '#1e293b';
 
             ctx.beginPath();
-            ctx.arc(lastX, lastY, mode === 'eraser' ? (strokeW * 6) / 2 : strokeW / 2, 0, 2 * Math.PI);
+            ctx.arc(lastPoint.x, lastPoint.y, mode === 'eraser' ? (strokeW * 6) / 2 : strokeW / 2, 0, 2 * Math.PI);
             ctx.fillStyle = mode === 'eraser' ? '#ffffff' : color;
             ctx.fill();
+          } else {
+            // Desenha um segmento final para garantir que a linha chega onde o dedo soltou
+            const mode = canvasEl.dataset.mode;
+            const strokeW = parseFloat(canvasEl.dataset.strokeWidth) || 4;
+            const color = canvasEl.dataset.color || '#1e293b';
+            
+            ctx.beginPath();
+            ctx.moveTo(lastMidPoint.x, lastMidPoint.y);
+            ctx.lineTo(lastPoint.x, lastPoint.y);
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            if (mode === 'eraser') {
+              ctx.lineWidth = strokeW * 6;
+              ctx.strokeStyle = '#ffffff';
+            } else {
+              ctx.lineWidth = strokeW;
+              ctx.strokeStyle = color; 
+            }
+            ctx.stroke();
           }
 
           isDrawing = false;
