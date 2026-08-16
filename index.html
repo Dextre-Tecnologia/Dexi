@@ -1133,6 +1133,15 @@
       }
     }
 
+    // --- NOVA FUNÇÃO: DEBOUNCE PARA SALVAMENTO (EVITA TRAVAMENTO AO ESCREVER) ---
+    let timerSalvamento = null;
+    window.agendarSalvamento = function() {
+      clearTimeout(timerSalvamento);
+      timerSalvamento = setTimeout(() => {
+        salvarEstadoNoStorage();
+      }, 1500); // Aguarda 1.5s após a última digitação para salvar
+    };
+
     function salvarEstadoNoStorage() {
       const cardsData = [];
       document.querySelectorAll('.codex-card').forEach(card => {
@@ -1394,7 +1403,8 @@
           
           <div class="scroll-container-a4 flex-1 w-full h-full overflow-y-auto bg-slate-100 dark:bg-slate-950/30 p-4 flex flex-col gap-6 justify-start items-center m-0 pointer-events-auto" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
             <div class="canvas-item-wrapper m-auto relative">
-              <textarea class="note-textarea absolute top-0 left-0 w-full h-full bg-transparent resize-none outline-none z-10 pointer-events-none" style="color: #1e293b; padding: 16px; font-size: 16px; line-height: 1.5; white-space: pre-wrap;" oninput="salvarEstadoNoStorage();"></textarea>
+              <!-- ATUALIZADO: Usando agendarSalvamento para evitar travamentos -->
+              <textarea class="note-textarea absolute top-0 left-0 w-full h-full bg-transparent resize-none outline-none z-10 pointer-events-none" style="color: #1e293b; padding: 16px; font-size: 16px; line-height: 1.5; white-space: pre-wrap;" oninput="agendarSalvamento();"></textarea>
               <canvas id="${initialCanvasId}" class="drawing-canvas shadow-xl bg-white block touch-none" width="${config.canvasW}" height="${config.canvasH}" data-mode="pen" data-stroke-width="4" data-color="#1e293b" data-zoom="1" style="width: ${config.cssW}px; height: ${config.cssH}px;"></canvas>
             </div>
           </div>
@@ -1443,7 +1453,8 @@
 
       wrapper.innerHTML = `
         <button onclick="this.parentElement.remove(); salvarEstadoNoStorage();" class="absolute -top-2 -right-2 bg-rose-500 hover:bg-rose-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[11px] font-bold shadow-lg z-20">&times;</button>
-        <textarea class="note-textarea absolute top-0 left-0 w-full h-full bg-transparent resize-none outline-none z-10" style="color: ${currentColor}; padding: ${16 * parseFloat(currentZoom)}px; font-size: ${16 * parseFloat(currentZoom)}px; line-height: 1.5; pointer-events: ${pointerEvents}; white-space: pre-wrap;" oninput="salvarEstadoNoStorage();"></textarea>
+        <!-- ATUALIZADO: Usando agendarSalvamento para evitar travamentos -->
+        <textarea class="note-textarea absolute top-0 left-0 w-full h-full bg-transparent resize-none outline-none z-10" style="color: ${currentColor}; padding: ${16 * parseFloat(currentZoom)}px; font-size: ${16 * parseFloat(currentZoom)}px; line-height: 1.5; pointer-events: ${pointerEvents}; white-space: pre-wrap;" oninput="agendarSalvamento();"></textarea>
         <canvas id="${newId}" class="drawing-canvas shadow-xl bg-white block touch-none" width="${config.canvasW}" height="${config.canvasH}" data-mode="${currentMode}" data-stroke-width="${currentStroke}" data-color="${currentColor}" data-zoom="${currentZoom}" style="width: ${calculatedWidth}px; height: ${calculatedHeight}px;"></canvas>
       `;
 
@@ -1592,7 +1603,7 @@
       if (!card) return;
       const canvases = card.querySelectorAll('.drawing-canvas');
       canvases.forEach(canvasEl => {
-        const ctx = canvasEl.getContext('2d');
+        const ctx = canvasEl.getContext('2d', { desynchronized: true });
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
         canvasEl.dataset.isDirty = "true"; 
@@ -1625,7 +1636,8 @@
         pagesContentHtml += `
           <div class="canvas-item-wrapper m-auto relative">
             ${deleteButton}
-            <textarea class="note-textarea absolute top-0 left-0 w-full h-full bg-transparent resize-none outline-none z-10 pointer-events-none" style="color: ${pageColor}; padding: ${16 * currentZoom}px; font-size: ${16 * currentZoom}px; line-height: 1.5; white-space: pre-wrap;" oninput="salvarEstadoNoStorage();">${escapeHTML(savedText)}</textarea>
+            <!-- ATUALIZADO: Usando agendarSalvamento para evitar travamentos -->
+            <textarea class="note-textarea absolute top-0 left-0 w-full h-full bg-transparent resize-none outline-none z-10 pointer-events-none" style="color: ${pageColor}; padding: ${16 * currentZoom}px; font-size: ${16 * currentZoom}px; line-height: 1.5; white-space: pre-wrap;" oninput="agendarSalvamento();">${escapeHTML(savedText)}</textarea>
             <canvas id="${page.id}" class="drawing-canvas shadow-xl bg-white block touch-none" width="${config.canvasW}" height="${config.canvasH}" data-mode="pen" data-stroke-width="4" data-color="${pageColor}" data-zoom="${currentZoom}" style="width: ${calculatedWidth}px; height: ${calculatedHeight}px;"></canvas>
           </div>
         `;
@@ -1690,7 +1702,9 @@
 
     window.initDrawingCanvas = function(canvasEl, savedDataUrl = null) {
       if (!canvasEl) return;
-      const ctx = canvasEl.getContext('2d');
+      
+      // OTIMIZAÇÃO 1: desynchronized: true - Reduz a latência de hardware em telas de toque e Stylus
+      const ctx = canvasEl.getContext('2d', { desynchronized: true });
       
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
@@ -1709,7 +1723,6 @@
       let isTwoFingerScrolling = false;
       let lastTwoFingerCenter = { x: 0, y: 0 };
       
-      // Variáveis para suavização de Curva Quadrática
       let lastPoint = { x: 0, y: 0 };
       let lastMidPoint = { x: 0, y: 0 };
       
@@ -1717,6 +1730,10 @@
       let saveTimeout = null;
       let hasMoved = false; 
       let activeTouchId = null;
+
+      // OTIMIZAÇÃO 2: Variáveis do requestAnimationFrame
+      let frameRequested = false;
+      let pendingPoint = null;
 
       function getPos(clientX, clientY) {
         const rect = canvasEl.getBoundingClientRect();
@@ -1736,6 +1753,29 @@
           }
         }
         return null; 
+      }
+
+      // OTIMIZAÇÃO 3: Renderizador assíncrono - Desenhamos apenas o necessário, evitando travar a Main Thread do celular/tablet
+      function renderPendingPath() {
+        if (!isDrawing || !pendingPoint) {
+            frameRequested = false;
+            return;
+        }
+
+        const midPoint = {
+          x: lastPoint.x + (pendingPoint.x - lastPoint.x) / 2,
+          y: lastPoint.y + (pendingPoint.y - lastPoint.y) / 2
+        };
+
+        ctx.beginPath();
+        ctx.moveTo(lastMidPoint.x, lastMidPoint.y);
+        ctx.quadraticCurveTo(lastPoint.x, lastPoint.y, midPoint.x, midPoint.y);
+        ctx.stroke();
+
+        lastPoint = pendingPoint;
+        lastMidPoint = midPoint;
+        pendingPoint = null;
+        frameRequested = false;
       }
 
       function start(e) {
@@ -1783,7 +1823,7 @@
           if (e.stopPropagation) e.stopPropagation();
           return;
         }
-        if (mode === 'text') return; // Bloqueia desenhar se estiver no modo texto
+        if (mode === 'text') return; 
         
         isDrawing = true;
         hasMoved = false; 
@@ -1792,7 +1832,24 @@
         const pos = getPos(clientX, clientY);
         lastPoint = pos;
         lastMidPoint = pos;
+        pendingPoint = null;
         
+        // OTIMIZAÇÃO 4: Definindo os Status do Canvas aqui apenas UMA vez por traço, em vez de a cada pixel processado.
+        const strokeW = parseFloat(canvasEl.dataset.strokeWidth) || 4;
+        const color = canvasEl.dataset.color || '#1e293b';
+
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.globalCompositeOperation = 'source-over';
+
+        if (mode === 'eraser') {
+          ctx.lineWidth = strokeW * 6;
+          ctx.strokeStyle = '#ffffff';
+        } else {
+          ctx.lineWidth = strokeW;
+          ctx.strokeStyle = color; 
+        }
+
         if (e.stopPropagation) e.stopPropagation();
       }
 
@@ -1864,36 +1921,13 @@
         e.preventDefault();
         if (e.stopPropagation) e.stopPropagation();
         
-        const pos = getPos(clientX, clientY);
-        const strokeW = parseFloat(canvasEl.dataset.strokeWidth) || 4;
-        const color = canvasEl.dataset.color || '#1e293b';
+        // Empurra os pontos para o renderizador de quadros
+        pendingPoint = getPos(clientX, clientY);
 
-        // Cálculo do ponto médio para suavização (Quadratic Curve)
-        const midPoint = {
-          x: lastPoint.x + (pos.x - lastPoint.x) / 2,
-          y: lastPoint.y + (pos.y - lastPoint.y) / 2
-        };
-
-        ctx.beginPath();
-        ctx.moveTo(lastMidPoint.x, lastMidPoint.y);
-        ctx.quadraticCurveTo(lastPoint.x, lastPoint.y, midPoint.x, midPoint.y);
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-
-        if (mode === 'eraser') {
-          ctx.globalCompositeOperation = 'source-over';
-          ctx.lineWidth = strokeW * 6;
-          ctx.strokeStyle = '#ffffff';
-        } else {
-          ctx.globalCompositeOperation = 'source-over';
-          ctx.lineWidth = strokeW;
-          ctx.strokeStyle = color; 
+        if (!frameRequested) {
+            frameRequested = true;
+            requestAnimationFrame(renderPendingPath);
         }
-
-        ctx.stroke();
-        
-        lastPoint = pos;
-        lastMidPoint = midPoint;
       }
 
       function stop(e) {
@@ -1914,37 +1948,23 @@
           if (!activeLifted && (isDrawing || isMoving)) return; 
         }
 
+        // Finaliza renderizações pendentes de traços inacabados
+        if (frameRequested && pendingPoint) {
+            renderPendingPath();
+        }
+
         activeTouchId = null;
 
         if (isDrawing) {
           if (!hasMoved) {
-            const mode = canvasEl.dataset.mode;
-            const strokeW = parseFloat(canvasEl.dataset.strokeWidth) || 4;
-            const color = canvasEl.dataset.color || '#1e293b';
-
             ctx.beginPath();
-            ctx.arc(lastPoint.x, lastPoint.y, mode === 'eraser' ? (strokeW * 6) / 2 : strokeW / 2, 0, 2 * Math.PI);
-            ctx.fillStyle = mode === 'eraser' ? '#ffffff' : color;
+            ctx.arc(lastPoint.x, lastPoint.y, ctx.lineWidth / 2, 0, 2 * Math.PI);
+            ctx.fillStyle = ctx.strokeStyle;
             ctx.fill();
           } else {
-            // Desenha um segmento final para garantir que a linha chega onde o dedo soltou
-            const mode = canvasEl.dataset.mode;
-            const strokeW = parseFloat(canvasEl.dataset.strokeWidth) || 4;
-            const color = canvasEl.dataset.color || '#1e293b';
-            
             ctx.beginPath();
             ctx.moveTo(lastMidPoint.x, lastMidPoint.y);
             ctx.lineTo(lastPoint.x, lastPoint.y);
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            
-            if (mode === 'eraser') {
-              ctx.lineWidth = strokeW * 6;
-              ctx.strokeStyle = '#ffffff';
-            } else {
-              ctx.lineWidth = strokeW;
-              ctx.strokeStyle = color; 
-            }
             ctx.stroke();
           }
 
