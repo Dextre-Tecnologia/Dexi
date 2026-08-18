@@ -179,6 +179,31 @@
   <!-- WIDGET DE RELÓGIO DIGITAL (FIM)            -->
   <!-- ========================================== -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
   <script>
     // ==========================================
     // LÓGICA DO RELÓGIO DIGITAL (INÍCIO)
@@ -1610,7 +1635,7 @@
           <div class="scroll-container-a4 flex-1 w-full h-full overflow-y-auto bg-slate-100 dark:bg-slate-950/30 p-4 flex flex-col gap-6 justify-start items-center m-0 pointer-events-auto" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
             <div class="canvas-item-wrapper m-auto relative">
               <textarea class="note-textarea absolute top-0 left-0 w-full h-full bg-transparent resize-none outline-none z-10 pointer-events-none" style="color: #1e293b; padding: 16px; font-size: 16px; line-height: 1.5; white-space: pre-wrap;" oninput="agendarSalvamento();"></textarea>
-              <canvas id="${initialCanvasId}" class="drawing-canvas shadow-xl bg-white block touch-none" width="${config.canvasW}" height="${config.canvasH}" data-mode="pen" data-stroke-width="4" data-color="#1e293b" data-zoom="1" style="width: ${config.cssW}px; height: ${config.cssH}px;"></canvas>
+              <canvas id="${initialCanvasId}" class="drawing-canvas shadow-xl bg-white block" width="${config.canvasW}" height="${config.canvasH}" data-mode="pen" data-stroke-width="4" data-color="#1e293b" data-zoom="1" style="width: ${config.cssW}px; height: ${config.cssH}px;"></canvas>
             </div>
           </div>
         </div>
@@ -1659,7 +1684,7 @@
       wrapper.innerHTML = `
         <button onclick="this.parentElement.remove(); salvarEstadoNoStorage();" class="absolute -top-2 -right-2 bg-rose-500 hover:bg-rose-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[11px] font-bold shadow-lg z-20">&times;</button>
         <textarea class="note-textarea absolute top-0 left-0 w-full h-full bg-transparent resize-none outline-none z-10" style="color: ${currentColor}; padding: ${16 * parseFloat(currentZoom)}px; font-size: ${16 * parseFloat(currentZoom)}px; line-height: 1.5; pointer-events: ${pointerEvents}; white-space: pre-wrap;" oninput="agendarSalvamento();"></textarea>
-        <canvas id="${newId}" class="drawing-canvas shadow-xl bg-white block touch-none" width="${config.canvasW}" height="${config.canvasH}" data-mode="${currentMode}" data-stroke-width="${currentStroke}" data-color="${currentColor}" data-zoom="${currentZoom}" style="width: ${calculatedWidth}px; height: ${calculatedHeight}px;"></canvas>
+        <canvas id="${newId}" class="drawing-canvas shadow-xl bg-white block" width="${config.canvasW}" height="${config.canvasH}" data-mode="${currentMode}" data-stroke-width="${currentStroke}" data-color="${currentColor}" data-zoom="${currentZoom}" style="width: ${calculatedWidth}px; height: ${calculatedHeight}px;"></canvas>
       `;
 
       scrollContainer.appendChild(wrapper);
@@ -1842,7 +1867,7 @@
           <div class="canvas-item-wrapper m-auto relative">
             ${deleteButton}
             <textarea class="note-textarea absolute top-0 left-0 w-full h-full bg-transparent resize-none outline-none z-10 pointer-events-none" style="color: ${pageColor}; padding: ${16 * currentZoom}px; font-size: ${16 * currentZoom}px; line-height: 1.5; white-space: pre-wrap;" oninput="agendarSalvamento();">${escapeHTML(savedText)}</textarea>
-            <canvas id="${page.id}" class="drawing-canvas shadow-xl bg-white block touch-none" width="${config.canvasW}" height="${config.canvasH}" data-mode="pen" data-stroke-width="4" data-color="${pageColor}" data-zoom="${currentZoom}" style="width: ${calculatedWidth}px; height: ${calculatedHeight}px;"></canvas>
+            <canvas id="${page.id}" class="drawing-canvas shadow-xl bg-white block" width="${config.canvasW}" height="${config.canvasH}" data-mode="pen" data-stroke-width="4" data-color="${pageColor}" data-zoom="${currentZoom}" style="width: ${calculatedWidth}px; height: ${calculatedHeight}px;"></canvas>
           </div>
         `;
       });
@@ -1906,7 +1931,7 @@
       });
     }
 
-    // Inicialização da função de desenho do Canvas caso você não a tenha no resto do arquivo cortado
+    // Inicialização da função de desenho do Canvas
     function initDrawingCanvas(canvas) {
       let isDrawing = false;
       let ctx = canvas.getContext('2d');
@@ -1926,7 +1951,11 @@
 
       function start(e) {
         if (canvas.dataset.mode === 'move' || canvas.dataset.mode === 'text') return;
-        e.preventDefault();
+        
+        // Permite scroll nativo do navegador caso toquem na tela com 2 dedos
+        if (e.touches && e.touches.length >= 2) return; 
+        
+        if (e.cancelable) e.preventDefault(); // Impede o scroll nativo se desenhar com 1 dedo só
         isDrawing = true;
         const pos = getPos(e);
         lastX = pos.x; lastY = pos.y;
@@ -1934,7 +1963,14 @@
       
       function draw(e) {
         if (!isDrawing) return;
-        e.preventDefault();
+        
+        // Interrompe imediatamente a linha caso um 2º dedo encoste durante o traço (para arrastar a tela)
+        if (e.touches && e.touches.length >= 2) {
+           isDrawing = false;
+           return;
+        }
+        
+        if (e.cancelable) e.preventDefault();
         const pos = getPos(e);
         ctx.beginPath();
         ctx.moveTo(lastX, lastY);
@@ -1968,7 +2004,6 @@
       canvas.addEventListener('touchmove', draw, {passive: false});
       canvas.addEventListener('touchend', stop);
     }
-
   </script>
 </body>
 </html>
