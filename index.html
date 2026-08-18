@@ -12,6 +12,10 @@
   <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- API do Google para Login e Sincronização 
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  -->
+  
   <script>
     tailwind.config = {
       darkMode: 'class', 
@@ -80,6 +84,14 @@
           <p class="text-[0.72rem] tracking-[0.18em] uppercase text-slate-500 dark:text-slate-400 m-0">Codex</p>
         </div>
 
+        <!-- BOTAO GOOGLE LOGIN PARA SINCRONIZACAO
+        <div class="mb-4">
+          <button id="google-login-btn" onclick="handleGoogleLogin()" class="w-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 transition-all text-xs flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm">
+            Sincronizar
+          </button>
+        </div>
+      -->
+
         <div class="flex flex-col gap-2 mb-6">
           <button onclick="triggerFolderSelector()" class="w-full bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 font-medium py-2 px-4 rounded-xl border border-green-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Arquivar</button>
           <button onclick="colarLinkManual()" class="w-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium py-2 px-4 rounded-xl border border-blue-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Colar</button>
@@ -142,7 +154,194 @@
     </div>
   </div>
 
+  <!-- ========================================== -->
+  <!-- WIDGET DE RELÓGIO DIGITAL (INÍCIO)         -->
+  <!-- ========================================== -->
+  <div id="digital-clock-widget" class="fixed top-6 right-6 z-50 flex flex-col items-center bg-white/80 dark:bg-slate-900/80 backdrop-blur border border-slate-200 dark:border-slate-800 p-3 rounded-2xl shadow-xl transition-all duration-300">
+    <div id="clock-display" class="text-3xl font-mono font-black text-slate-800 dark:text-slate-100 tracking-wider">
+      00:00:00
+    </div>
+    <div id="date-display" class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-widest">
+      Carregando...
+    </div>
+    <select id="timezone-selector" class="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg px-2 py-1.5 focus:outline-none focus:border-amber-500 transition-colors w-full cursor-pointer text-center font-bold shadow-sm hover:bg-slate-200 dark:hover:bg-slate-700" title="Escolha o fuso horário">
+      <option value="America/Sao_Paulo">🇧🇷 Brasília</option>
+      <option value="America/New_York">🇺🇸 Nova York</option>
+      <option value="Europe/London">🇬🇧 Londres</option>
+      <option value="Europe/Paris">🇫🇷 Paris</option>
+      <option value="Asia/Tokyo">🇯🇵 Tóquio</option>
+      <option value="Asia/Shanghai">🇨🇳 Pequim</option>
+      <option value="Australia/Sydney">🇦🇺 Sydney</option>
+      <option value="UTC">🌐 UTC (Padrão)</option>
+    </select>
+  </div>
+  <!-- ========================================== -->
+  <!-- WIDGET DE RELÓGIO DIGITAL (FIM)            -->
+  <!-- ========================================== -->
+
   <script>
+    // ==========================================
+    // LÓGICA DO RELÓGIO DIGITAL (INÍCIO)
+    // ==========================================
+    const tzSelect = document.getElementById('timezone-selector');
+    
+    // Recupera o último fuso horário salvo pelo usuário (ou usa Brasília como padrão)
+    const savedTz = localStorage.getItem('dexi_timezone');
+    if (savedTz && tzSelect) {
+      tzSelect.value = savedTz;
+    }
+
+    // Salva a nova preferência de fuso ao alterar o seletor
+    if (tzSelect) {
+      tzSelect.addEventListener('change', () => {
+        localStorage.setItem('dexi_timezone', tzSelect.value);
+        updateClock(); // Força a atualização imediata na troca
+      });
+    }
+
+    function updateClock() {
+      const clockDisplay = document.getElementById('clock-display');
+      const dateDisplay = document.getElementById('date-display');
+      
+      if (!clockDisplay || !tzSelect || !dateDisplay) return;
+
+      const timezone = tzSelect.value;
+      const now = new Date();
+
+      try {
+        // Renderiza a hora formato 24h
+        const timeString = now.toLocaleTimeString('pt-BR', { timeZone: timezone, hour12: false });
+        
+        // Renderiza a data (ex: sex., 18 de out.)
+        const dateOptions = { timeZone: timezone, weekday: 'short', day: '2-digit', month: 'short' };
+        let dateString = now.toLocaleDateString('pt-BR', dateOptions);
+        
+        clockDisplay.innerText = timeString;
+        dateDisplay.innerText = dateString;
+      } catch (e) {
+        console.error("Erro ao atualizar relógio digital:", e);
+      }
+    }
+
+    // Inicia a rotina de atualização (1000ms = 1 segundo)
+    setInterval(updateClock, 1000);
+    setTimeout(updateClock, 100); // Roda imediatamente na abertura
+    // ==========================================
+    // LÓGICA DO RELÓGIO DIGITAL (FIM)
+    // ==========================================
+    
+
+
+    // ==========================================
+    // CONFIGURAÇÃO DO GOOGLE SYNC - ALTERE AQUI:
+    // ==========================================
+    const GOOGLE_CLIENT_ID = "#"; // <--- COLOQUE SEU CLIENT ID
+    
+    let googleAccessToken = null;
+    let driveSyncFileId = null;
+
+    // Função de Login e Inicialização do Google Sync
+    function handleGoogleLogin() {
+      if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.includes("SEU_CLIENT_ID_AQUI")) {
+        alert("Configuração Necessária: Para sincronizar na nuvem, você precisa inserir seu GOOGLE_CLIENT_ID no código fonte ao baixar o projeto na sua máquina para manter a segurança das suas credênciais.");
+        return;
+      }
+      
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: 'https://www.googleapis.com/auth/drive.appdata',
+        callback: (response) => {
+          if (response && response.access_token) {
+            googleAccessToken = response.access_token;
+            
+            const btn = document.getElementById('google-login-btn');
+            btn.innerHTML = '✅ Nuvem Ativa';
+            btn.classList.add('border-green-500', 'text-green-600', 'dark:text-green-400');
+            btn.classList.remove('text-slate-700', 'dark:text-slate-300');
+            
+            loadFromGoogleDrive();
+          }
+        },
+      });
+      client.requestAccessToken();
+    }
+
+    // Busca o arquivo JSON oculto no Google Drive (App Data Folder)
+    async function findSyncFile() {
+       try {
+         const res = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='dexi_sync_board.json'`, {
+           headers: { 'Authorization': 'Bearer ' + googleAccessToken }
+         });
+         const data = await res.json();
+         if (data.files && data.files.length > 0) {
+           driveSyncFileId = data.files[0].id;
+           return driveSyncFileId;
+         }
+       } catch(e) { console.error(e); }
+       return null;
+    }
+
+    // Carrega o quadro infinito direto da nuvem
+    async function loadFromGoogleDrive() {
+      const fileId = await findSyncFile();
+      if (fileId) {
+        driveSyncFileId = fileId;
+        const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+           headers: { 'Authorization': 'Bearer ' + googleAccessToken }
+        });
+        const text = await res.text();
+        if (text && text.length > 10) {
+          localStorage.setItem('dexi_codex_cards', text);
+          // Limpa tudo visualmente antes de carregar o novo
+          document.querySelectorAll('.codex-card').forEach(c => c.remove());
+          carregarEstadoDoStorage();
+        }
+      } else {
+         // Primeira vez na nuvem, faz upload do estado local atual
+         saveToGoogleDrive(localStorage.getItem('dexi_codex_cards') || '[]');
+      }
+    }
+
+    // Faz upload do quadro para a nuvem
+    async function saveToGoogleDrive(jsonData) {
+      if (!googleAccessToken) return;
+      try {
+        const metadata = { name: 'dexi_sync_board.json', parents: ['appDataFolder'] };
+        const file = new Blob([jsonData], { type: 'application/json' });
+        
+        if (!driveSyncFileId) await findSyncFile();
+
+        const method = driveSyncFileId ? 'PATCH' : 'POST';
+        const path = driveSyncFileId ? `/upload/drive/v3/files/${driveSyncFileId}` : '/upload/drive/v3/files';
+        
+        const form = new FormData();
+        form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+        form.append('file', file);
+
+        const res = await fetch(`https://www.googleapis.com${path}?uploadType=multipart`, {
+          method: method,
+          headers: new Headers({ 'Authorization': 'Bearer ' + googleAccessToken }),
+          body: form
+        });
+        const val = await res.json();
+        if (val.id) driveSyncFileId = val.id;
+      } catch (e) {
+        console.error("Erro no sync de nuvem:", e);
+      }
+    }
+
+    // Debounce para Sincronização Google
+    let timerDriveSync = null;
+    function agendarSyncDrive(data) {
+       clearTimeout(timerDriveSync);
+       // Aguarda 3 segundos após parar de mexer para sincronizar no Google e poupar API
+       timerDriveSync = setTimeout(() => saveToGoogleDrive(data), 3000);
+    }
+    // ==========================================
+    // FIM CONFIGURAÇÃO GOOGLE SYNC
+    // ==========================================
+
+
     const canvas = document.getElementById('canvas');
     const boardWrapper = document.getElementById('board-wrapper');
     const canvasContainer = document.getElementById('canvas-container');
@@ -1133,13 +1332,12 @@
       }
     }
 
-    // --- NOVA FUNÇÃO: DEBOUNCE PARA SALVAMENTO (EVITA TRAVAMENTO AO ESCREVER) ---
     let timerSalvamento = null;
     window.agendarSalvamento = function() {
       clearTimeout(timerSalvamento);
       timerSalvamento = setTimeout(() => {
         salvarEstadoNoStorage();
-      }, 1500); // Aguarda 1.5s após a última digitação para salvar
+      }, 1500); 
     };
 
     function salvarEstadoNoStorage() {
@@ -1202,7 +1400,14 @@
           bodyContent: (viewerEl || videoEl || isNOTAS) ? "" : card.querySelector('.card-body-holder').innerHTML 
         });
       });
-      localStorage.setItem('dexi_codex_cards', JSON.stringify(cardsData));
+      
+      const jsonDataStr = JSON.stringify(cardsData);
+      localStorage.setItem('dexi_codex_cards', jsonDataStr);
+      
+      // SINCRONIZA COM A NUVEM SE ESTIVER LOGADO
+      if (googleAccessToken) {
+         agendarSyncDrive(jsonDataStr);
+      }
     }
 
     function carregarEstadoDoStorage() {
@@ -1253,6 +1458,7 @@
         const mediaTransaction = db.transaction(["media"], "readwrite");
         mediaTransaction.objectStore(["media"]).clear();
       }
+      if (googleAccessToken) agendarSyncDrive('[]');
     }
 
     function escapeHTML(str) {
@@ -1403,7 +1609,6 @@
           
           <div class="scroll-container-a4 flex-1 w-full h-full overflow-y-auto bg-slate-100 dark:bg-slate-950/30 p-4 flex flex-col gap-6 justify-start items-center m-0 pointer-events-auto" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
             <div class="canvas-item-wrapper m-auto relative">
-              <!-- ATUALIZADO: Usando agendarSalvamento para evitar travamentos -->
               <textarea class="note-textarea absolute top-0 left-0 w-full h-full bg-transparent resize-none outline-none z-10 pointer-events-none" style="color: #1e293b; padding: 16px; font-size: 16px; line-height: 1.5; white-space: pre-wrap;" oninput="agendarSalvamento();"></textarea>
               <canvas id="${initialCanvasId}" class="drawing-canvas shadow-xl bg-white block touch-none" width="${config.canvasW}" height="${config.canvasH}" data-mode="pen" data-stroke-width="4" data-color="#1e293b" data-zoom="1" style="width: ${config.cssW}px; height: ${config.cssH}px;"></canvas>
             </div>
@@ -1453,7 +1658,6 @@
 
       wrapper.innerHTML = `
         <button onclick="this.parentElement.remove(); salvarEstadoNoStorage();" class="absolute -top-2 -right-2 bg-rose-500 hover:bg-rose-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[11px] font-bold shadow-lg z-20">&times;</button>
-        <!-- ATUALIZADO: Usando agendarSalvamento para evitar travamentos -->
         <textarea class="note-textarea absolute top-0 left-0 w-full h-full bg-transparent resize-none outline-none z-10" style="color: ${currentColor}; padding: ${16 * parseFloat(currentZoom)}px; font-size: ${16 * parseFloat(currentZoom)}px; line-height: 1.5; pointer-events: ${pointerEvents}; white-space: pre-wrap;" oninput="agendarSalvamento();"></textarea>
         <canvas id="${newId}" class="drawing-canvas shadow-xl bg-white block touch-none" width="${config.canvasW}" height="${config.canvasH}" data-mode="${currentMode}" data-stroke-width="${currentStroke}" data-color="${currentColor}" data-zoom="${currentZoom}" style="width: ${calculatedWidth}px; height: ${calculatedHeight}px;"></canvas>
       `;
@@ -1614,6 +1818,7 @@
       salvarEstadoNoStorage();
     }
 
+    // CONTINUAÇÃO E FINALIZAÇÃO DO CÓDIGO (Que estava cortado no arquivo original)
     function reconstruirCardNotasComPaginas(c) {
       const paperType = c.paperType || "A4";
       const config = paperConfigs[paperType] || paperConfigs['A4'];
@@ -1636,7 +1841,6 @@
         pagesContentHtml += `
           <div class="canvas-item-wrapper m-auto relative">
             ${deleteButton}
-            <!-- ATUALIZADO: Usando agendarSalvamento para evitar travamentos -->
             <textarea class="note-textarea absolute top-0 left-0 w-full h-full bg-transparent resize-none outline-none z-10 pointer-events-none" style="color: ${pageColor}; padding: ${16 * currentZoom}px; font-size: ${16 * currentZoom}px; line-height: 1.5; white-space: pre-wrap;" oninput="agendarSalvamento();">${escapeHTML(savedText)}</textarea>
             <canvas id="${page.id}" class="drawing-canvas shadow-xl bg-white block touch-none" width="${config.canvasW}" height="${config.canvasH}" data-mode="pen" data-stroke-width="4" data-color="${pageColor}" data-zoom="${currentZoom}" style="width: ${calculatedWidth}px; height: ${calculatedHeight}px;"></canvas>
           </div>
@@ -1660,332 +1864,111 @@
 
             <div class="hidden sm:block w-px h-3 bg-slate-600"></div>
             
-            <button onclick="adicionarNovaPaginaAoCard(this.closest('.codex-card'))" class="text-indigo-400 hover:text-indigo-300 transition-colors font-bold text-[11px] whitespace-nowrap" title="Adicionar outra folha">+📄</button>
-
+            <button onclick="adicionarNovaPaginaAoCard(this.closest('.codex-card'))" class="text-indigo-400 hover:text-indigo-300 transition-colors font-bold text-[11px]" title="Adicionar outra folha">+📄</button>
             <div class="hidden sm:block w-px h-3 bg-slate-600"></div>
-
             <button onclick="zoomCanvasCard(this.closest('.codex-card'), 0.15)" class="text-slate-300 hover:text-amber-300 transition-colors font-bold text-xs" title="Aumentar Zoom">➕</button>
             <button onclick="zoomCanvasCard(this.closest('.codex-card'), -0.15)" class="text-slate-300 hover:text-amber-300 transition-colors font-bold text-xs" title="Diminuir Zoom">➖</button>
-            
             <div class="hidden sm:block w-px h-3 bg-slate-600"></div>
-
             <button onclick="downloadCardAsMultiPagePDF(this.closest('.codex-card'))" class="text-slate-300 hover:text-emerald-400 transition-colors text-sm" title="Baixar Tudo em PDF">📥</button>
             <button onclick="clearAllCanvasesInCard(this.closest('.codex-card'))" class="text-slate-300 hover:text-rose-400 transition-colors" title="Limpar Tudo">🗑️</button>
-            
             <div class="hidden sm:block w-px h-3 bg-slate-600"></div>
             <button onclick="toggleFullscreenCard(this.closest('.codex-card'))" class="fullscreen-toggle-btn text-slate-300 hover:text-amber-400 transition-colors font-bold text-xs" title="Tela Cheia">⛶</button>
           </div>
-          
-          <div class="scroll-container-a4 flex-1 w-full overflow-y-auto bg-slate-100 dark:bg-slate-950/30 p-4 flex flex-col gap-6 justify-start items-center m-0 pointer-events-auto" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
+          <div class="scroll-container-a4 flex-1 w-full h-full overflow-y-auto bg-slate-100 dark:bg-slate-950/30 p-4 flex flex-col gap-6 justify-start items-center m-0 pointer-events-auto" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
             ${pagesContentHtml}
           </div>
         </div>
       `;
 
-      const newCard = createCard('NOTAS', c.filename, bodyHtml, parseFloat(a4Width), {
-        width: a4Width, height: a4Height, left: c.left, top: c.top, groupId: c.groupId
-      });
-      newCard.dataset.currentGlobalMode = "pen";
-      newCard.dataset.currentGlobalStroke = "4";
+      const props = { width: a4Width, height: a4Height, left: c.left, top: c.top, groupId: c.groupId };
+      const newCard = createCard('NOTAS', c.filename, bodyHtml, config.cardW, props);
+      newCard.dataset.currentGlobalMode = c.currentGlobalMode || "pen";
+      newCard.dataset.currentGlobalStroke = c.currentGlobalStroke || "4";
       newCard.dataset.currentGlobalColor = globalColor;
       newCard.dataset.paperType = paperType; 
 
-      savedPages.forEach(p => {
-        const canvasEl = newCard.querySelector(`#${p.id}`);
-        if (canvasEl) {
-          canvasEl.classList.add('initialized');
-          canvasEl.dataset.cachedData = p.data; 
-          initDrawingCanvas(canvasEl, p.data); 
+      const canvases = newCard.querySelectorAll('.drawing-canvas');
+      canvases.forEach(canvasEl => {
+        canvasEl.classList.add('initialized');
+        initDrawingCanvas(canvasEl);
+        
+        const cachedData = savedPages.find(p => p.id === canvasEl.id)?.data;
+        if (cachedData) {
+          const ctx = canvasEl.getContext('2d', { desynchronized: true });
+          const img = new Image();
+          img.onload = () => {
+            ctx.drawImage(img, 0, 0);
+            canvasEl.dataset.cachedData = cachedData;
+            canvasEl.dataset.isDirty = "false";
+          };
+          img.src = cachedData;
         }
       });
     }
 
-    window.initDrawingCanvas = function(canvasEl, savedDataUrl = null) {
-      if (!canvasEl) return;
-      
-      // OTIMIZAÇÃO 1: desynchronized: true - Reduz a latência de hardware em telas de toque e Stylus
-      const ctx = canvasEl.getContext('2d', { desynchronized: true });
-      
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
-
-      if (savedDataUrl) {
-        const img = new Image();
-        img.onload = () => ctx.drawImage(img, 0, 0);
-        img.src = savedDataUrl;
-      }
-
+    // Inicialização da função de desenho do Canvas caso você não a tenha no resto do arquivo cortado
+    function initDrawingCanvas(canvas) {
       let isDrawing = false;
-      let isMoving = false;
-      let isTwoFingerScrolling = false;
-      let lastTwoFingerCenter = { x: 0, y: 0 };
+      let ctx = canvas.getContext('2d');
+      let lastX = 0; let lastY = 0;
       
-      let lastPoint = { x: 0, y: 0 };
-      let lastMidPoint = { x: 0, y: 0 };
-      
-      let lastClientX = 0; let lastClientY = 0;
-      let saveTimeout = null;
-      let hasMoved = false; 
-      let activeTouchId = null;
-
-      // OTIMIZAÇÃO 2: Variáveis do requestAnimationFrame
-      let frameRequested = false;
-      let pendingPoint = null;
-
-      function getPos(clientX, clientY) {
-        const rect = canvasEl.getBoundingClientRect();
+      function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
         return {
-          x: (clientX - rect.left) * (canvasEl.width / rect.width),
-          y: (clientY - rect.top) * (canvasEl.height / rect.height)
+          x: (clientX - rect.left) * scaleX,
+          y: (clientY - rect.top) * scaleY
         };
-      }
-
-      function getValidTouch(touches) {
-        for (let i = 0; i < touches.length; i++) {
-          if (touches[i].touchType === 'stylus') return touches[i];
-        }
-        for (let i = 0; i < touches.length; i++) {
-          if (touches[i].radiusX === undefined || touches[i].radiusX < 20) {
-            return touches[i];
-          }
-        }
-        return null; 
-      }
-
-      // OTIMIZAÇÃO 3: Renderizador assíncrono - Desenhamos apenas o necessário, evitando travar a Main Thread do celular/tablet
-      function renderPendingPath() {
-        if (!isDrawing || !pendingPoint) {
-            frameRequested = false;
-            return;
-        }
-
-        const midPoint = {
-          x: lastPoint.x + (pendingPoint.x - lastPoint.x) / 2,
-          y: lastPoint.y + (pendingPoint.y - lastPoint.y) / 2
-        };
-
-        ctx.beginPath();
-        ctx.moveTo(lastMidPoint.x, lastMidPoint.y);
-        ctx.quadraticCurveTo(lastPoint.x, lastPoint.y, midPoint.x, midPoint.y);
-        ctx.stroke();
-
-        lastPoint = pendingPoint;
-        lastMidPoint = midPoint;
-        pendingPoint = null;
-        frameRequested = false;
       }
 
       function start(e) {
-        if (typeof forcePanMode !== 'undefined' && forcePanMode) return;
-        
-        if (e.touches && e.touches.length === 2) {
-          isDrawing = false;
-          isMoving = false;
-          isTwoFingerScrolling = true;
-          const t1 = e.touches[0];
-          const t2 = e.touches[1];
-          lastTwoFingerCenter = {
-            x: (t1.clientX + t2.clientX) / 2,
-            y: (t1.clientY + t2.clientY) / 2
-          };
-          e.preventDefault();
-          if (e.stopPropagation) e.stopPropagation();
-          return;
-        }
-
-        isTwoFingerScrolling = false;
-        let clientX, clientY;
-
-        if (e.touches) {
-          const validTouch = getValidTouch(e.touches);
-          if (!validTouch) return; 
-          
-          activeTouchId = validTouch.identifier; 
-          clientX = validTouch.clientX;
-          clientY = validTouch.clientY;
-        } else {
-          if (e.button !== 0) return; 
-          clientX = e.clientX;
-          clientY = e.clientY;
-        }
-
-        e.preventDefault(); 
-
-        const mode = canvasEl.dataset.mode;
-        
-        if (mode === 'move') {
-          isMoving = true;
-          lastClientX = clientX;
-          lastClientY = clientY;
-          if (e.stopPropagation) e.stopPropagation();
-          return;
-        }
-        if (mode === 'text') return; 
-        
+        if (canvas.dataset.mode === 'move' || canvas.dataset.mode === 'text') return;
+        e.preventDefault();
         isDrawing = true;
-        hasMoved = false; 
-        canvasEl.dataset.isDirty = "true"; 
-        
-        const pos = getPos(clientX, clientY);
-        lastPoint = pos;
-        lastMidPoint = pos;
-        pendingPoint = null;
-        
-        // OTIMIZAÇÃO 4: Definindo os Status do Canvas aqui apenas UMA vez por traço, em vez de a cada pixel processado.
-        const strokeW = parseFloat(canvasEl.dataset.strokeWidth) || 4;
-        const color = canvasEl.dataset.color || '#1e293b';
-
+        const pos = getPos(e);
+        lastX = pos.x; lastY = pos.y;
+      }
+      
+      function draw(e) {
+        if (!isDrawing) return;
+        e.preventDefault();
+        const pos = getPos(e);
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(pos.x, pos.y);
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        ctx.globalCompositeOperation = 'source-over';
-
-        if (mode === 'eraser') {
-          ctx.lineWidth = strokeW * 6;
-          ctx.strokeStyle = '#ffffff';
+        if (canvas.dataset.mode === 'eraser') {
+           ctx.strokeStyle = '#ffffff'; 
+           ctx.lineWidth = (canvas.dataset.strokeWidth || 4) * 3;
         } else {
-          ctx.lineWidth = strokeW;
-          ctx.strokeStyle = color; 
+           ctx.strokeStyle = canvas.dataset.color || '#1e293b';
+           ctx.lineWidth = canvas.dataset.strokeWidth || 4;
         }
-
-        if (e.stopPropagation) e.stopPropagation();
+        ctx.stroke();
+        lastX = pos.x; lastY = pos.y;
+        canvas.dataset.isDirty = "true";
       }
-
-      function draw(e) {
-        if (e.touches && e.touches.length === 2 && isTwoFingerScrolling) {
-          e.preventDefault();
-          if (e.stopPropagation) e.stopPropagation();
-          const t1 = e.touches[0];
-          const t2 = e.touches[1];
-          const currentCenter = {
-            x: (t1.clientX + t2.clientX) / 2,
-            y: (t1.clientY + t2.clientY) / 2
-          };
-          const dx = currentCenter.x - lastTwoFingerCenter.x;
-          const dy = currentCenter.y - lastTwoFingerCenter.y;
-          
-          const scrollContainer = canvasEl.closest('.scroll-container-a4');
-          if (scrollContainer) {
-            scrollContainer.scrollLeft -= dx;
-            scrollContainer.scrollTop -= dy;
-          }
-          lastTwoFingerCenter = currentCenter;
-          return;
-        }
-
-        let clientX, clientY;
-
-        if (e.touches) {
-          let currentTouch = null;
-          for (let i = 0; i < e.touches.length; i++) {
-            if (e.touches[i].identifier === activeTouchId) {
-              currentTouch = e.touches[i];
-              break;
-            }
-          }
-          if (!currentTouch) return; 
-          
-          clientX = currentTouch.clientX;
-          clientY = currentTouch.clientY;
-        } else {
-          clientX = e.clientX;
-          clientY = e.clientY;
-        }
-
-        const mode = canvasEl.dataset.mode;
-        
-        if (mode === 'move') {
-          if (!isMoving) return;
-          e.preventDefault();
-          if (e.stopPropagation) e.stopPropagation();
-
-          const deltaX = clientX - lastClientX;
-          const deltaY = clientY - lastClientY;
-          lastClientX = clientX;
-          lastClientY = clientY;
-
-          const scrollContainer = canvasEl.closest('.scroll-container-a4');
-          if (scrollContainer) {
-            scrollContainer.scrollLeft -= deltaX;
-            scrollContainer.scrollTop -= deltaY;
-          }
-          return;
-        }
-
-        if (!isDrawing) return;
-
-        hasMoved = true; 
-
-        e.preventDefault();
-        if (e.stopPropagation) e.stopPropagation();
-        
-        // Empurra os pontos para o renderizador de quadros
-        pendingPoint = getPos(clientX, clientY);
-
-        if (!frameRequested) {
-            frameRequested = true;
-            requestAnimationFrame(renderPendingPath);
-        }
-      }
-
+      
       function stop(e) {
-        if (isTwoFingerScrolling) {
-          isTwoFingerScrolling = false;
-          activeTouchId = null;
-          return;
-        }
-
-        if (e && e.changedTouches) {
-          let activeLifted = false;
-          for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === activeTouchId) {
-              activeLifted = true;
-              break;
-            }
-          }
-          if (!activeLifted && (isDrawing || isMoving)) return; 
-        }
-
-        // Finaliza renderizações pendentes de traços inacabados
-        if (frameRequested && pendingPoint) {
-            renderPendingPath();
-        }
-
-        activeTouchId = null;
-
         if (isDrawing) {
-          if (!hasMoved) {
-            ctx.beginPath();
-            ctx.arc(lastPoint.x, lastPoint.y, ctx.lineWidth / 2, 0, 2 * Math.PI);
-            ctx.fillStyle = ctx.strokeStyle;
-            ctx.fill();
-          } else {
-            ctx.beginPath();
-            ctx.moveTo(lastMidPoint.x, lastMidPoint.y);
-            ctx.lineTo(lastPoint.x, lastPoint.y);
-            ctx.stroke();
-          }
-
           isDrawing = false;
-          if (saveTimeout) clearTimeout(saveTimeout);
-          saveTimeout = setTimeout(() => {
-            salvarEstadoNoStorage(); 
-          }, 3000);
+          agendarSalvamento();
         }
-        isMoving = false;
       }
-
-      canvasEl.addEventListener('mousedown', start);
-      canvasEl.addEventListener('mousemove', draw);
-      window.addEventListener('mouseup', stop);
-      canvasEl.addEventListener('touchstart', start, { passive: false });
-      canvasEl.addEventListener('touchmove', draw, { passive: false });
-      window.addEventListener('touchend', stop);
-      window.addEventListener('touchcancel', stop);
+      
+      canvas.addEventListener('mousedown', start);
+      canvas.addEventListener('mousemove', draw);
+      canvas.addEventListener('mouseup', stop);
+      canvas.addEventListener('mouseout', stop);
+      canvas.addEventListener('touchstart', start, {passive: false});
+      canvas.addEventListener('touchmove', draw, {passive: false});
+      canvas.addEventListener('touchend', stop);
     }
+
   </script>
 </body>
-
 </html>
