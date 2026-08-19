@@ -39,6 +39,43 @@
       touch-action: none;
     }
 
+    .tldraw-note-shell {
+      background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+      overflow: hidden;
+      border-radius: 0 0 1rem 1rem;
+      display: flex;
+      align-items: stretch;
+      justify-content: stretch;
+    }
+
+    .tldraw-host {
+      width: 100%;
+      height: 100%;
+      background: #ffffff;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: stretch;
+      justify-content: stretch;
+    }
+
+    .tldraw-host > div,
+    .tldraw-host .tl-container,
+    .tldraw-host .tl-canvas-container,
+    .tldraw-host .tl-canvas,
+    .tldraw-host [data-tldraw] {
+      width: 100% !important;
+      height: 100% !important;
+      min-width: 0 !important;
+      min-height: 0 !important;
+    }
+
+    .tldraw-host .tl-container {
+      position: absolute !important;
+      inset: 0 !important;
+      z-index: 1 !important;
+    }
+
     /* ESTILO PARA SUPORTE A TELA CHEIA EM NOTAS */
     .codex-card.card-fullscreen {
       position: fixed !important;

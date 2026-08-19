@@ -8,10 +8,33 @@
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
   <meta name="description" content="Seu Codex de Conteúdos">
   
+  <!-- Dependências externas: estilos utilitários, interação, PDF, React e TLDraw. -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/tldraw/tldraw.css">
+  <script type="module">
+    try {
+      const ReactModule = await import('https://esm.sh/react@18.3.1');
+      const ReactDOMModule = await import('https://esm.sh/react-dom@18.3.1/client');
+      const TldrawModule = await import('https://esm.sh/tldraw?bundle&external=react,react-dom');
+
+      window.mountDexiTldraw = (host, persistenceKey) => {
+        const root = ReactDOMModule.createRoot(host);
+        root.render(ReactModule.createElement(TldrawModule.Tldraw, {
+          persistenceKey,
+          autoFocus: true,
+          onMount: (editor) => editor.selectAll()
+        }));
+        return root;
+      };
+    } catch (error) {
+      console.error('Erro ao carregar TLDraw:', error);
+    }
+  </script>
   <!-- API do Google para Login e Sincronização 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   -->
@@ -41,6 +64,7 @@
  
 </head>
 
+<!-- Interface principal: barra lateral, quadro infinito, ferramentas flutuantes e modais. -->
 <body class="bg-[#f8f7f4] dark:bg-[#0f172a] text-[#1e293b] dark:text-[#f8f7f4] min-h-screen overflow-hidden font-sans transition-colors duration-200 relative">
 
   <input type="file" id="folder-selector" multiple class="hidden" onchange="handleFolderSelection(this.files)">
@@ -95,7 +119,6 @@
         <div class="flex flex-col gap-2 mb-6">
           <button onclick="triggerFolderSelector()" class="w-full bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 font-medium py-2 px-4 rounded-xl border border-green-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Arquivar</button>
           <button onclick="colarLinkManual()" class="w-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium py-2 px-4 rounded-xl border border-blue-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Colar</button>
-          <button onclick="abrirModalNota()" class="w-full bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 font-medium py-2 px-4 rounded-xl border border-purple-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Notar</button>
         </div>
 
         <div class="mb-4">
@@ -106,6 +129,9 @@
       <a href="https://github.com/Dextre-Tecnologia/Dexi" target="_blank" rel="noopener noreferrer" class="absolute bottom-4 left-4 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-lg shadow-slate-400/20 transition-transform duration-200 hover:scale-105 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Abrir GitHub">
         <img src="https://images.icon-icons.com/3685/PNG/512/github_logo_icon_229278.png" class="w-6 h-6" alt="GitHub">
       </a>
+      <button onclick="criarNovaNota('Folha Rascunho', 'A4')" class="absolute bottom-4 left-20 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-lg shadow-slate-400/20 transition-transform duration-200 hover:scale-105 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Criar nota TLDraw" title="Criar nota TLDraw">
+        <img src="https://www.hkmu.edu.hk/oetools/wp-content/uploads/sites/86/2025/05/tldraw.png" class="w-7 h-7" alt="TLDraw">
+      </button>
     </aside>
 
     <div id="board-wrapper" class="bg-grid-light dark:bg-grid-dark transition-all duration-200" style="background-size: 32px 32px;">
@@ -174,6 +200,7 @@
       <option value="Australia/Sydney">🇦🇺 Sydney</option>
       <option value="UTC">🌐 UTC (Padrão)</option>
     </select>
+
   </div>
   <!-- ========================================== -->
   <!-- WIDGET DE RELÓGIO DIGITAL (FIM)            -->
@@ -205,6 +232,7 @@
 
   
   <script>
+    // Relógio digital e seleção de fuso horário.
     // ==========================================
     // LÓGICA DO RELÓGIO DIGITAL (INÍCIO)
     // ==========================================
@@ -258,7 +286,7 @@
 
 
     // ==========================================
-    // CONFIGURAÇÃO DO GOOGLE SYNC - ALTERE AQUI:
+    // Sincronização opcional com Google Drive.
     // ==========================================
     const GOOGLE_CLIENT_ID = "#"; // <--- COLOQUE SEU CLIENT ID
     
@@ -367,6 +395,7 @@
     // ==========================================
 
 
+    // Estado global do quadro: zoom, pan, seleção, toque e posição de criação.
     const canvas = document.getElementById('canvas');
     const boardWrapper = document.getElementById('board-wrapper');
     const canvasContainer = document.getElementById('canvas-container');
@@ -387,12 +416,14 @@
     let touchStartCenter = { x: 0, y: 0 };
     let isPinching = false;
 
+    // Configurações das folhas usadas pelas notas locais e pelo editor TLDraw.
     const paperConfigs = {
         'A4': { canvasW: 794, canvasH: 1123, cssW: 340, cssH: 481, cardW: 400, cardH: 565 },
         'Carta': { canvasW: 816, canvasH: 1056, cssW: 340, cssH: 440, cardW: 400, cardH: 520 },
         'Quadro': { canvasW: 4000, canvasH: 4000, cssW: 2000, cssH: 2000, cardW: 600, cardH: 500 }
     };
 
+    // IndexedDB guarda arquivos binários, como PDFs e vídeos, fora do localStorage.
     let db;
     const dbRequest = indexedDB.open("DexiDatabase", 2);
     dbRequest.onupgradeneeded = (e) => {
@@ -430,6 +461,7 @@
       transaction.objectStore(["media"]).delete(id);
     }
 
+    // Navegação do quadro infinito: zoom, arraste, pinça e coordenadas do mouse.
     function updateTransform() {
       canvasContainer.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
       boardWrapper.style.backgroundPosition = `${panX}px ${panY}px`;
@@ -617,6 +649,7 @@
     window.addEventListener('mousemove', updateCanvasCoordinates);
     window.addEventListener('touchmove', updateCanvasCoordinates, { passive: true });
 
+    // Controles visuais da aplicação: menu lateral, tema e ferramentas flutuantes.
     function toggleMenu(show) {
       const sidebar = document.getElementById('sidebar');
       const triggerLeft = document.getElementById('trigger-left');
@@ -645,6 +678,7 @@
 
     function triggerFolderSelector() { document.getElementById('folder-selector').click(); }
 
+    // Entrada de arquivos e links: transforma cada item em um card do quadro.
     async function handleFolderSelection(files) {
       localizedFiles = Array.from(files);
       if (localizedFiles.length === 0) return;
@@ -673,6 +707,7 @@
       }
     });
 
+    // Seleção múltipla e agrupamento de cards.
     function atualizarToolbarSelecao() {
       const selecionados = document.querySelectorAll('.selected-card');
       const toolbar = document.getElementById('selection-toolbar');
@@ -746,6 +781,7 @@
       }
     }
 
+    // Cards de links: favicon, edição, ordenação e abertura em nova aba.
     function gerarStructureItemLink(url = '', tag = '') {
       let domain = '';
       try { domain = new URL(url).hostname; } catch(e) {}
@@ -872,6 +908,7 @@
       salvarEstadoNoStorage();
     }
 
+    // Leitura de arquivos locais e criação de cards para texto, imagens, áudio, vídeo e PDF.
     async function processAndCreateCard(file) {
       const fileNameLower = file.name.toLowerCase();
       const extension = file.name.includes('.') ? file.name.split('.').pop().toUpperCase() : 'ARQUIVO';
@@ -1047,6 +1084,7 @@
       renderizarPaginaVisualizador(viewerId, pdfId);
     }
 
+    // Fábrica central de cards: cria cabeçalho, conteúdo, exclusão, arraste e redimensionamento.
     function createCard(fileType, filename, bodyContent, customWidth = 280, savedProps = null) {
       const card = document.createElement('div');
       card.className = `codex-card absolute bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg dark:shadow-2xl z-10 hover:border-slate-400 dark:hover:border-slate-600 overflow-hidden flex flex-col transform-none transition-shadow duration-150`;
@@ -1365,6 +1403,7 @@
       }, 1500); 
     };
 
+    // Serializa o quadro inteiro para restaurar cards após atualizar a página.
     function salvarEstadoNoStorage() {
       const cardsData = [];
       document.querySelectorAll('.codex-card').forEach(card => {
@@ -1375,11 +1414,16 @@
         const viewerEl = card.querySelector('[data-viewerid]');
         const videoEl = card.querySelector('[data-mediasourceid]');
         const isNOTAS = card.dataset.filetype === 'NOTAS';
+        const iframeEl = card.querySelector('iframe');
+        const tldrawHost = card.querySelector('.tldraw-host');
+        const bodyHolder = card.querySelector('.card-body-holder');
+        const noteUrl = iframeEl ? iframeEl.getAttribute('src') : (card.dataset.noteUrl || 'https://www.tldraw.com/');
         
         let savedCurrentPage = 1;
         let savedPdfSourceId = "";
         let savedMediaSourceId = "";
         let savedPagesArray = [];
+        let savedBodyContent = (viewerEl || videoEl) ? "" : (bodyHolder ? bodyHolder.innerHTML : "");
 
         if (viewerEl) {
           savedCurrentPage = parseInt(viewerEl.dataset.currentPage) || 1;
@@ -1388,24 +1432,31 @@
         if (videoEl) {
           savedMediaSourceId = videoEl.dataset.mediasourceid || "";
         }
-        if (isNOTAS) {
-          const drawCanvases = card.querySelectorAll('.drawing-canvas');
-          drawCanvases.forEach(canvas => {
-            if (!canvas.dataset.cachedData || canvas.dataset.isDirty === "true") {
-              canvas.dataset.cachedData = canvas.toDataURL('image/jpeg', 0.5); 
-              canvas.dataset.isDirty = "false"; 
-            }
-            const wrapper = canvas.closest('.canvas-item-wrapper');
-            const textarea = wrapper ? wrapper.querySelector('.note-textarea') : null;
+        if (isNOTAS && tldrawHost) {
+          savedBodyContent = '';
+        } else if (isNOTAS) {
+          if (iframeEl) {
+            savedBodyContent = bodyHolder ? bodyHolder.innerHTML : "";
+          } else {
+            const drawCanvases = card.querySelectorAll('.drawing-canvas');
+            drawCanvases.forEach(canvas => {
+              if (!canvas.dataset.cachedData || canvas.dataset.isDirty === "true") {
+                canvas.dataset.cachedData = canvas.toDataURL('image/jpeg', 0.5); 
+                canvas.dataset.isDirty = "false"; 
+              }
+              const wrapper = canvas.closest('.canvas-item-wrapper');
+              const textarea = wrapper ? wrapper.querySelector('.note-textarea') : null;
 
-            savedPagesArray.push({
-              id: canvas.id,
-              data: canvas.dataset.cachedData,
-              zoom: canvas.dataset.zoom || "1",
-              color: canvas.dataset.color || "#1e293b",
-              text: textarea ? textarea.value : ""
+              savedPagesArray.push({
+                id: canvas.id,
+                data: canvas.dataset.cachedData,
+                zoom: canvas.dataset.zoom || "1",
+                color: canvas.dataset.color || "#1e293b",
+                text: textarea ? textarea.value : ""
+              });
             });
-          });
+            savedBodyContent = "";
+          }
         }
 
         cardsData.push({
@@ -1422,7 +1473,11 @@
           groupId: card.dataset.groupId || "",
           globalColor: card.dataset.currentGlobalColor || "#1e293b",
           paperType: card.dataset.paperType || "A4", 
-          bodyContent: (viewerEl || videoEl || isNOTAS) ? "" : card.querySelector('.card-body-holder').innerHTML 
+          bodyContent: savedBodyContent,
+          noteMode: tldrawHost ? 'tldraw-local' : (iframeEl ? 'tldraw' : (isNOTAS ? 'canvas' : '')),
+          noteId: card.dataset.noteId || '',
+          noteUrl: noteUrl,
+          notePaper: card.dataset.paperType || 'A4'
         });
       });
       
@@ -1435,6 +1490,7 @@
       }
     }
 
+    // Recria os cards persistidos no localStorage e reabre seus recursos associados.
     function carregarEstadoDoStorage() {
       const rawData = localStorage.getItem('dexi_codex_cards');
       const menuVisible = localStorage.getItem('dexi_menu_visible');
@@ -1443,6 +1499,7 @@
       if (!rawData) return;
       try {
         const cardsData = JSON.parse(rawData);
+        const usedNoteUrls = new Set();
         cardsData.forEach(c => {
           if ((c.filetype === 'PDF' || c.filetype === 'LEITOR PDF') && c.pdfSourceId) {
             montarEGerarLeitorPdf(c.pdfSourceId, c.filename, c.currentPage, {
@@ -1463,13 +1520,28 @@
               });
             };
           } else if (c.filetype === 'NOTAS') {
-            reconstruirCardNotasComPaginas(c);
+            if (c.noteMode === 'tldraw-local' || c.noteMode === 'tldraw' || c.noteId || c.noteUrl || (c.bodyContent && c.bodyContent.includes('<iframe'))) {
+              const noteUrl = c.noteUrl || 'https://www.tldraw.com/';
+              const bodyHtml = `
+                <div class="tldraw-note-shell h-full w-full bg-white overflow-hidden relative">
+                  <iframe src="${noteUrl}" class="w-full h-full border-0 bg-white" title="TLDraw" allow="clipboard-read; clipboard-write; fullscreen; autoplay; web-share" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+                </div>
+              `;
+              const noteCard = createCard(c.filetype, c.filename, bodyHtml, c.width ? parseFloat(c.width) : 400, {
+                width: c.width, height: c.height, left: c.left, top: c.top, groupId: c.groupId
+              });
+              noteCard.dataset.paperType = c.paperType || 'A4';
+              noteCard.dataset.noteUrl = noteUrl;
+            } else {
+              reconstruirCardNotasComPaginas(c);
+            }
           } else {
             createCard(c.filetype, c.filename, c.bodyContent, c.width ? parseFloat(c.width) : 290, {
               width: c.width, height: c.height, left: c.left, top: c.top, groupId: c.groupId
             });
           }
         });
+        salvarEstadoNoStorage();
       } catch (e) { console.error("Erro ao carregar dados", e); }
     }
 
@@ -1582,7 +1654,7 @@
     }
 
     window.abrirModalNota = function() {
-      document.getElementById('paper-select-modal').classList.remove('hidden');
+      criarNovaNota('Folha Rascunho', 'A4');
     }
 
     window.fecharModalNota = function() {
@@ -1595,69 +1667,47 @@
       criarNovaNota(nomeFolha, tipoPapel);
     }
 
+    // Notas: cada clique cria um card independente e guarda sua própria configuração.
     window.criarNovaNota = function(nomeFolha, tipoPapel) {
-      const initialCanvasId = 'canvas_page_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
       const config = paperConfigs[tipoPapel] || paperConfigs['A4'];
-
-      const bodyHtml = `
-        <div class="flex flex-col h-full bg-white relative group select-none pointer-events-auto">
-          <div class="absolute top-2 left-1/2 -translate-x-1/2 bg-slate-800/90 backdrop-blur text-white px-3 py-1.5 rounded-full flex gap-2.5 opacity-40 group-hover:opacity-100 transition-opacity z-20 shadow-lg items-center text-xs" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
-            <button onclick="setDrawMode(this, 'pen')" class="p-1.5 rounded-lg bg-amber-500/30 ring-1 ring-amber-400 opacity-100 shadow-md transition-all scale-110" title="Caneta">✏️</button>
-            <button onclick="setDrawMode(this, 'text')" class="p-1.5 rounded-lg opacity-60 hover:opacity-100 hover:bg-slate-700/50 transition-all" title="Digitar Texto">⌨️</button>
-            <button onclick="setDrawMode(this, 'eraser')" class="p-1.5 rounded-lg opacity-60 hover:opacity-100 hover:bg-slate-700/50 transition-all" title="Borracha">🧽</button>
-            <button onclick="setDrawMode(this, 'move')" class="p-1.5 rounded-lg opacity-60 hover:opacity-100 hover:bg-slate-700/50 transition-all" title="Mover pela folha">🖐️</button>
-            
-            <div class="flex items-center gap-1 text-[11px] bg-slate-700/60 px-1.5 py-0.5 rounded-md">
-              <span class="text-slate-400">px:</span>
-              <input type="number" min="1" max="50" value="4" oninput="setStrokeWidthCard(this.closest('.codex-card'), this.value)" class="w-7 bg-transparent text-center text-amber-400 font-bold font-mono focus:outline-none pointer-events-auto">
-            </div>
-
-            <input type="color" value="#1e293b" oninput="setColorCard(this.closest('.codex-card'), this.value)" class="w-6 h-6 ml-1 p-0 border-0 rounded bg-transparent cursor-pointer pointer-events-auto" title="Cor da Caneta">
-
-            <div class="w-px h-3 bg-slate-600"></div>
-            
-            <button onclick="adicionarNovaPaginaAoCard(this.closest('.codex-card'))" class="text-indigo-400 hover:text-indigo-300 transition-colors font-bold text-[11px]" title="Adicionar outra folha">+📄</button>
-
-            <div class="w-px h-3 bg-slate-600"></div>
-
-            <button onclick="zoomCanvasCard(this.closest('.codex-card'), 0.15)" class="text-slate-300 hover:text-amber-300 transition-colors font-bold text-xs" title="Aumentar Zoom">➕</button>
-            <button onclick="zoomCanvasCard(this.closest('.codex-card'), -0.15)" class="text-slate-300 hover:text-amber-300 transition-colors font-bold text-xs" title="Diminuir Zoom">➖</button>
-            
-            <div class="w-px h-3 bg-slate-600"></div>
-
-            <button onclick="downloadCardAsMultiPagePDF(this.closest('.codex-card'))" class="text-slate-300 hover:text-emerald-400 transition-colors text-sm" title="Baixar Tudo em PDF">📥</button>
-            <button onclick="clearAllCanvasesInCard(this.closest('.codex-card'))" class="text-slate-300 hover:text-rose-400 transition-colors" title="Limpar Tudo">🗑️</button>
-            
-            <div class="w-px h-3 bg-slate-600"></div>
-            <button onclick="toggleFullscreenCard(this.closest('.codex-card'))" class="fullscreen-toggle-btn text-slate-300 hover:text-amber-400 transition-colors font-bold text-xs" title="Tela Cheia">⛶</button>
-          </div>
-          
-          <div class="scroll-container-a4 flex-1 w-full h-full overflow-y-auto bg-slate-100 dark:bg-slate-950/30 p-4 flex flex-col gap-6 justify-start items-center m-0 pointer-events-auto" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
-            <div class="canvas-item-wrapper m-auto relative">
-              <textarea class="note-textarea absolute top-0 left-0 w-full h-full bg-transparent resize-none outline-none z-10 pointer-events-none" style="color: #1e293b; padding: 16px; font-size: 16px; line-height: 1.5; white-space: pre-wrap;" oninput="agendarSalvamento();"></textarea>
-              <canvas id="${initialCanvasId}" class="drawing-canvas shadow-xl bg-white block" width="${config.canvasW}" height="${config.canvasH}" data-mode="pen" data-stroke-width="4" data-color="#1e293b" data-zoom="1" style="width: ${config.cssW}px; height: ${config.cssH}px;"></canvas>
-            </div>
-          </div>
-        </div>
-      `;
-
       const targetLeft = mouseXCanvas || (Math.abs(panX) / zoom + 350);
       const targetTop = mouseYCanvas || (Math.abs(panY) / zoom + 150);
       const props = { width: `${config.cardW}px`, height: `${config.cardH}px`, left: `${targetLeft}px`, top: `${targetTop}px` };
 
-      const newCard = createCard('NOTAS', nomeFolha, bodyHtml, config.cardW, props);
-      newCard.dataset.currentGlobalMode = "pen";
-      newCard.dataset.currentGlobalStroke = "4";
-      newCard.dataset.currentGlobalColor = "#1e293b";
-      newCard.dataset.paperType = tipoPapel; 
+      const paperUrl = criarUrlNotaTldraw();
 
-      const canvasEl = newCard.querySelector('.drawing-canvas');
-      if (canvasEl) {
-        canvasEl.classList.add('initialized');
-        initDrawingCanvas(canvasEl);
-      }
+      const bodyHtml = `
+        <div class="tldraw-note-shell h-full w-full bg-white overflow-hidden">
+          <iframe
+            src="${paperUrl}"
+            class="w-full h-full border-0 bg-white"
+            title="TLDraw - ${tipoPapel}"
+            allow="clipboard-write; clipboard-read; fullscreen; autoplay"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-presentation allow-downloads"
+          ></iframe>
+        </div>
+      `;
+
+      const newCard = createCard('NOTAS', nomeFolha, bodyHtml, config.cardW, props);
+      newCard.dataset.paperType = tipoPapel;
+      newCard.dataset.tldrawPaper = tipoPapel;
+      newCard.dataset.noteUrl = paperUrl;
+      salvarEstadoNoStorage();
     }
 
+    function criarUrlNotaTldraw() {
+      const id = window.crypto && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      return `https://www.tldraw.com/?d=${id}`;
+    }
+
+    function normalizarUrlNotaTldraw(url) {
+      if (!url) return '';
+      return url.replace('?note=', '?d=');
+    }
+
+    // Operações específicas das notas: páginas, zoom, PDF, cor, texto e limpeza.
     window.adicionarNovaPaginaAoCard = function(card) {
       if (!card) return;
       const scrollContainer = card.querySelector('.scroll-container-a4');
@@ -1931,7 +1981,7 @@
       });
     }
 
-    // Inicialização da função de desenho do Canvas
+    // Inicialização do desenho manual usado como fallback quando o módulo TLDraw não carrega.
     function initDrawingCanvas(canvas) {
       let isDrawing = false;
       let ctx = canvas.getContext('2d');
