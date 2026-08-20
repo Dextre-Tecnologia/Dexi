@@ -79,6 +79,19 @@
     <button onclick="excluirSelecionados()" class="text-[10px] sm:text-xs bg-rose-600 hover:bg-rose-700 text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-bold transition-all shadow-sm whitespace-nowrap">Excluir</button>
   </div>
 
+  <div id="writing-toolbar" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[90] hidden items-center gap-2 bg-slate-900/95 backdrop-blur border border-slate-700 text-white px-3 py-2 rounded-2xl shadow-2xl">
+    <button onclick="toggleBoardWriting(true); setBoardWritingMode('pen')" data-writing-mode="pen" class="writing-tool-button active" title="Caneta">✏️</button>
+    <button onclick="setBoardWritingMode('eraser')" data-writing-mode="eraser" class="writing-tool-button" title="Borracha">🧽</button>
+    <button onclick="setBoardWritingMode('select')" data-writing-mode="select" class="writing-tool-button" title="Selecionar uma área">⬚</button>
+    <button onclick="setBoardWritingMode('text')" data-writing-mode="text" class="writing-tool-button" title="Teclado">⌨️</button>
+    <button onclick="criarStickyNote()" class="writing-tool-button" title="Criar sticky note">🗒️</button>
+    <input id="board-stroke-width" type="number" min="1" max="50" value="4" class="writing-size-input" title="Espessura do traço" aria-label="Espessura do traço">
+    <input id="board-stroke-color" type="color" value="#1e293b" class="writing-color-input" title="Cor do traço" aria-label="Cor do traço">
+    <button onclick="clearBoardWriting()" class="writing-tool-button" title="Apagar tudo">🗑️</button>
+    <button id="download-board-selection" onclick="downloadBoardSelection()" class="writing-command-button" disabled title="Baixar seleção">📥 Baixar</button>
+    <button onclick="toggleBoardWriting(false)" class="writing-close-button" title="Fechar Notar">Fechar</button>
+  </div>
+
   <div class="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2">
     <button onclick="toggleFloatingTools()" id="floating-toggle-btn" class="w-10 h-10 rounded-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all font-bold text-sm flex items-center justify-center shadow-xl text-slate-500 dark:text-slate-400 z-50" title="Ocultar Ferramentas">▼</button>
     <div id="floating-tools-panel" class="flex flex-col gap-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur border border-slate-200 dark:border-slate-800 p-2 rounded-2xl shadow-xl transition-all duration-300 transform origin-bottom">
@@ -119,6 +132,7 @@
         <div class="flex flex-col gap-2 mb-6">
           <button onclick="triggerFolderSelector()" class="w-full bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 font-medium py-2 px-4 rounded-xl border border-green-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Arquivar</button>
           <button onclick="colarLinkManual()" class="w-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium py-2 px-4 rounded-xl border border-blue-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Colar</button>
+          <button onclick="toggleBoardWriting(true)" class="w-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-medium py-2 px-4 rounded-xl border border-amber-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Notar</button>
         </div>
 
         <div class="mb-4">
@@ -129,14 +143,14 @@
       <a href="https://github.com/Dextre-Tecnologia/Dexi" target="_blank" rel="noopener noreferrer" class="absolute bottom-4 left-4 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-lg shadow-slate-400/20 transition-transform duration-200 hover:scale-105 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Abrir GitHub">
         <img src="https://images.icon-icons.com/3685/PNG/512/github_logo_icon_229278.png" class="w-6 h-6" alt="GitHub">
       </a>
-      <button onclick="criarNovaNota('Folha Rascunho', 'A4')" class="absolute bottom-4 left-20 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-lg shadow-slate-400/20 transition-transform duration-200 hover:scale-105 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Criar nota TLDraw" title="Criar nota TLDraw">
-        <img src="https://www.hkmu.edu.hk/oetools/wp-content/uploads/sites/86/2025/05/tldraw.png" class="w-7 h-7" alt="TLDraw">
-      </button>
     </aside>
 
     <div id="board-wrapper" class="bg-grid-light dark:bg-grid-dark transition-all duration-200" style="background-size: 32px 32px;">
       <div id="canvas-container">
         <main class="w-full h-full relative select-none" id="canvas"></main>
+        <canvas id="board-writing-layer" width="5000" height="5000" aria-label="Camada de escrita do quadro"></canvas>
+        <div id="board-writing-selection" aria-hidden="true"></div>
+        
       </div>
     </div>
   </div>
@@ -183,7 +197,7 @@
   <!-- ========================================== -->
   <!-- WIDGET DE RELÓGIO DIGITAL (INÍCIO)         -->
   <!-- ========================================== -->
-  <div id="digital-clock-widget" class="fixed top-6 right-6 z-50 flex flex-col items-center bg-white/80 dark:bg-slate-900/80 backdrop-blur border border-slate-200 dark:border-slate-800 p-3 rounded-2xl shadow-xl transition-all duration-300">
+  <div id="digital-clock-widget" class="fixed top-6 right-6 z-50 hidden flex-col items-center bg-white/80 dark:bg-slate-900/80 backdrop-blur border border-slate-200 dark:border-slate-800 p-3 rounded-2xl shadow-xl transition-all duration-300">
     <div id="clock-display" class="text-3xl font-mono font-black text-slate-800 dark:text-slate-100 tracking-wider">
       00:00:00
     </div>
@@ -415,6 +429,315 @@
     let touchStartZoom = 1;
     let touchStartCenter = { x: 0, y: 0 };
     let isPinching = false;
+    let isTwoFingerPanning = false;
+
+    let boardWritingActive = false;
+    let boardWritingMode = 'pen';
+    let boardWritingDrawing = false;
+    let boardWritingStart = null;
+    let boardWritingSelection = null;
+    let boardWritingCurrentStroke = [];
+    let boardWritingStrokes = [];
+    let activeStickyNote = null;
+    let boardSelectionJustCreated = false;
+    const boardWritingLayer = document.getElementById('board-writing-layer');
+    const boardWritingSelectionEl = document.getElementById('board-writing-selection');
+    const boardWritingContext = boardWritingLayer.getContext('2d');
+
+    function getBoardWritingPosition(event) {
+      const rect = boardWritingLayer.getBoundingClientRect();
+      const point = event.touches ? event.touches[0] : event;
+      return {
+        x: Math.max(0, Math.min(boardWritingLayer.width, (point.clientX - rect.left) / zoom)),
+        y: Math.max(0, Math.min(boardWritingLayer.height, (point.clientY - rect.top) / zoom))
+      };
+    }
+
+    function updateBoardWritingSelection(start, end) {
+      const left = Math.min(start.x, end.x);
+      const top = Math.min(start.y, end.y);
+      const width = Math.abs(end.x - start.x);
+      const height = Math.abs(end.y - start.y);
+      boardWritingSelection = { left, top, width, height };
+      boardWritingSelectionEl.style.display = 'block';
+      boardWritingSelectionEl.style.left = `${left}px`;
+      boardWritingSelectionEl.style.top = `${top}px`;
+      boardWritingSelectionEl.style.width = `${width}px`;
+      boardWritingSelectionEl.style.height = `${height}px`;
+      boardWritingSelectionEl.style.pointerEvents = 'none';
+      document.getElementById('download-board-selection').disabled = width < 2 || height < 2;
+    }
+
+    function hideBoardWritingSelection() {
+      boardWritingSelectionEl.style.display = 'none';
+      boardWritingSelectionEl.style.pointerEvents = 'none';
+      boardWritingSelection = null;
+      document.getElementById('download-board-selection').disabled = true;
+    }
+
+    function drawBoardStroke(stroke) {
+      if (stroke.points.length === 0) return;
+      boardWritingContext.beginPath();
+      boardWritingContext.moveTo(stroke.points[0].x, stroke.points[0].y);
+      stroke.points.slice(1).forEach(point => boardWritingContext.lineTo(point.x, point.y));
+      boardWritingContext.lineCap = 'round';
+      boardWritingContext.lineJoin = 'round';
+      boardWritingContext.strokeStyle = stroke.color;
+      boardWritingContext.lineWidth = stroke.width;
+      boardWritingContext.stroke();
+    }
+
+    function renderBoardWriting() {
+      boardWritingContext.clearRect(0, 0, boardWritingLayer.width, boardWritingLayer.height);
+      boardWritingStrokes.forEach(drawBoardStroke);
+    }
+
+    function saveBoardWriting() {
+      localStorage.setItem('dexi_board_writing_strokes', JSON.stringify(boardWritingStrokes));
+    }
+
+    function getBoardInkColor() {
+      return document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000';
+    }
+
+    function atualizarTracosPadraoPeloTema(previousDark) {
+      const nextColor = document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000';
+      const previousColors = previousDark ? ['#ffffff', '#fff'] : ['#000000', '#000', '#1e293b'];
+      let changed = false;
+      boardWritingStrokes.forEach(stroke => {
+        if (previousColors.includes(String(stroke.color).toLowerCase())) {
+          stroke.color = nextColor;
+          changed = true;
+        }
+      });
+      if (changed) {
+        renderBoardWriting();
+        saveBoardWriting();
+      }
+    }
+
+    function persistBoardWritingBeforeExit() {
+      if (boardWritingMode === 'pen' && boardWritingCurrentStroke.length > 0) {
+        boardWritingStrokes.push({
+          points: boardWritingCurrentStroke,
+          color: getBoardInkColor(),
+          width: Number(document.getElementById('board-stroke-width').value)
+        });
+        boardWritingCurrentStroke = [];
+      }
+      saveBoardWriting();
+    }
+
+    window.addEventListener('pagehide', persistBoardWritingBeforeExit);
+    window.addEventListener('beforeunload', persistBoardWritingBeforeExit);
+
+    function loadBoardWriting() {
+      try {
+        const savedStrokes = JSON.parse(localStorage.getItem('dexi_board_writing_strokes') || '[]');
+        if (Array.isArray(savedStrokes)) boardWritingStrokes = savedStrokes;
+      } catch (error) {
+        boardWritingStrokes = [];
+      }
+      renderBoardWriting();
+      const legacyData = localStorage.getItem('dexi_board_writing');
+      if (legacyData) {
+        const image = new Image();
+        image.onload = () => boardWritingContext.drawImage(image, 0, 0);
+        image.src = legacyData;
+      }
+    }
+
+    function selecionarStickyNote(card) {
+      activeStickyNote = card;
+    }
+
+    window.aplicarEstiloSticky = function(card, property, value) {
+      if (!card) return;
+      const textarea = card.querySelector('.sticky-note-textarea');
+      const body = card.querySelector('.sticky-note-body');
+      if (!textarea || !body) return;
+      const datasetKey = {
+        background: 'stickyBackground',
+        color: 'stickyTextColor',
+        fontFamily: 'stickyFontFamily',
+        fontSize: 'stickyFontSize',
+        fontWeight: 'stickyFontWeight',
+        fontStyle: 'stickyFontStyle',
+        textDecoration: 'stickyTextDecoration'
+      }[property];
+      if (datasetKey) card.dataset[datasetKey] = value;
+      if (property === 'background') body.style.backgroundColor = value;
+      if (property === 'color') textarea.style.color = value;
+      if (property === 'fontFamily') textarea.style.fontFamily = value;
+      if (property === 'fontSize') textarea.style.fontSize = `${value}px`;
+      if (property === 'fontWeight') textarea.style.fontWeight = value;
+      if (property === 'fontStyle') textarea.style.fontStyle = value;
+      if (property === 'textDecoration') textarea.style.textDecoration = value;
+      salvarEstadoNoStorage();
+    };
+
+    window.alternarEstiloSticky = function(card, property) {
+      if (!card) return;
+      const textarea = card.querySelector('.sticky-note-textarea');
+      if (!textarea) return;
+      const values = {
+        fontWeight: ['400', '700'],
+        fontStyle: ['normal', 'italic'],
+        textDecoration: ['none', 'underline']
+      }[property];
+      const nextValue = textarea.style[property] === values[1] ? values[0] : values[1];
+      aplicarEstiloSticky(card, property, nextValue);
+      const button = card.querySelector(`[data-sticky-style="${property}"]`);
+      if (button) button.classList.toggle('active', nextValue === values[1]);
+    };
+
+    window.toggleBoardWriting = function(active) {
+      boardWritingActive = active;
+      localStorage.setItem('dexi_board_writing_active', active ? 'true' : 'false');
+      document.getElementById('writing-toolbar').classList.toggle('hidden', !active);
+      document.getElementById('writing-toolbar').classList.toggle('flex', active);
+      boardWritingLayer.style.pointerEvents = active ? 'auto' : 'none';
+      boardWrapper.style.cursor = active ? 'crosshair' : '';
+      if (!active) {
+        boardWritingDrawing = false;
+        boardWritingSelectionEl.style.display = 'none';
+        boardWritingSelection = null;
+        document.getElementById('download-board-selection').disabled = true;
+      }
+      setBoardWritingMode('pen');
+    };
+
+    window.setBoardWritingMode = function(mode) {
+      boardWritingMode = mode;
+      document.querySelectorAll('[data-writing-mode]').forEach(button => {
+        button.classList.toggle('active', button.dataset.writingMode === mode);
+      });
+      boardWritingLayer.style.pointerEvents = mode === 'text' ? 'none' : (boardWritingActive ? 'auto' : 'none');
+      boardWritingLayer.style.cursor = mode === 'select' ? 'crosshair' : (mode === 'eraser' ? 'cell' : (mode === 'text' ? 'text' : 'crosshair'));
+      if (mode === 'pen' && boardWritingActive) {
+        boardWritingLayer.style.pointerEvents = 'auto';
+        boardWrapper.style.cursor = 'crosshair';
+      }
+    };
+
+    function startBoardWriting(event) {
+      if (!boardWritingActive) return;
+      if (event.touches && event.touches.length > 1) {
+        boardWritingDrawing = false;
+        boardWritingCurrentStroke = [];
+        return;
+      }
+      event.stopPropagation();
+      if (event.cancelable) event.preventDefault();
+      const position = getBoardWritingPosition(event);
+      boardWritingStart = position;
+      boardWritingDrawing = true;
+      if (boardWritingMode === 'eraser') {
+        eraseBoardWritingAt(position);
+        return;
+      }
+      if (boardWritingMode === 'select') {
+        updateBoardWritingSelection(position, position);
+        return;
+      }
+      boardWritingCurrentStroke = [position];
+    }
+
+    function eraseBoardWritingAt(position) {
+      const eraserRadius = Math.max(8, Number(document.getElementById('board-stroke-width').value) * 2);
+      const remainingStrokes = boardWritingStrokes.filter(stroke => {
+        const hitRadius = eraserRadius + (stroke.width / 2);
+        return !stroke.points.some(point => {
+          const dx = point.x - position.x;
+          const dy = point.y - position.y;
+          return (dx * dx) + (dy * dy) <= hitRadius * hitRadius;
+        });
+      });
+      if (remainingStrokes.length !== boardWritingStrokes.length) {
+        boardWritingStrokes = remainingStrokes;
+        renderBoardWriting();
+        saveBoardWriting();
+      }
+    }
+
+    function moveBoardWriting(event) {
+      if (!boardWritingDrawing) return;
+      event.stopPropagation();
+      if (event.cancelable) event.preventDefault();
+      const position = getBoardWritingPosition(event);
+      if (boardWritingMode === 'eraser') {
+        eraseBoardWritingAt(position);
+        return;
+      }
+      if (boardWritingMode === 'select') {
+        updateBoardWritingSelection(boardWritingStart, position);
+        return;
+      }
+      boardWritingCurrentStroke.push(position);
+      const previewStroke = {
+        points: boardWritingCurrentStroke,
+        color: getBoardInkColor(),
+        width: Number(document.getElementById('board-stroke-width').value)
+      };
+      renderBoardWriting();
+      drawBoardStroke(previewStroke);
+    }
+
+    function stopBoardWriting(event) {
+      if (!boardWritingDrawing) return;
+      if (event) event.stopPropagation();
+      boardWritingDrawing = false;
+      if (boardWritingMode === 'select' && boardWritingSelection) {
+        boardSelectionJustCreated = true;
+      }
+      if (boardWritingMode === 'pen' && boardWritingCurrentStroke.length > 0) {
+        boardWritingStrokes.push({
+          points: boardWritingCurrentStroke,
+          color: getBoardInkColor(),
+          width: Number(document.getElementById('board-stroke-width').value)
+        });
+        renderBoardWriting();
+        saveBoardWriting();
+      }
+      boardWritingCurrentStroke = [];
+    }
+
+    boardWritingLayer.addEventListener('mousedown', startBoardWriting);
+    boardWritingLayer.addEventListener('mousemove', moveBoardWriting);
+    boardWritingLayer.addEventListener('mouseup', stopBoardWriting);
+    boardWritingLayer.addEventListener('mouseleave', stopBoardWriting);
+    boardWritingLayer.addEventListener('touchstart', startBoardWriting, { passive: false });
+    boardWritingLayer.addEventListener('touchmove', moveBoardWriting, { passive: false });
+    boardWritingLayer.addEventListener('touchend', stopBoardWriting, { passive: false });
+
+    window.clearBoardWriting = function() {
+      boardWritingStrokes = [];
+      boardWritingCurrentStroke = [];
+      boardWritingContext.clearRect(0, 0, boardWritingLayer.width, boardWritingLayer.height);
+      localStorage.removeItem('dexi_board_writing_strokes');
+      hideBoardWritingSelection();
+    };
+
+    window.downloadBoardSelection = function() {
+      if (!boardWritingSelection || boardWritingSelection.width < 2 || boardWritingSelection.height < 2) return;
+      const selectionCanvas = document.createElement('canvas');
+      selectionCanvas.width = Math.ceil(boardWritingSelection.width);
+      selectionCanvas.height = Math.ceil(boardWritingSelection.height);
+      const selectionContext = selectionCanvas.getContext('2d');
+      selectionContext.fillStyle = '#ffffff';
+      selectionContext.fillRect(0, 0, selectionCanvas.width, selectionCanvas.height);
+      selectionContext.drawImage(boardWritingLayer, boardWritingSelection.left, boardWritingSelection.top, boardWritingSelection.width, boardWritingSelection.height, 0, 0, selectionCanvas.width, selectionCanvas.height);
+      const link = document.createElement('a');
+      link.download = `dexi-nota-${Date.now()}.png`;
+      link.href = selectionCanvas.toDataURL('image/png');
+      link.click();
+      hideBoardWritingSelection();
+    };
+
+    loadBoardWriting();
+    if (localStorage.getItem('dexi_board_writing_active') === 'true') {
+      toggleBoardWriting(true);
+    }
 
     // Configurações das folhas usadas pelas notas locais e pelo editor TLDraw.
     const paperConfigs = {
@@ -470,6 +793,13 @@
     }
 
     function handleWheel(e) {
+      if (boardWritingActive && e.target === boardWritingLayer && (Math.abs(e.deltaX) > 0 || Math.abs(e.deltaY) > 0)) {
+        e.preventDefault();
+        panX -= e.deltaX;
+        panY -= e.deltaY;
+        updateTransform();
+        return;
+      }
       if (e.target.closest('.drawing-canvas') || e.target.closest('.scroll-container-a4') || e.target.closest('textarea')) return; 
       e.preventDefault();
       const zoomFactor = 1.1;
@@ -555,18 +885,30 @@
     }
 
     function startPan(e) {
-      if (e.touches && e.touches.length === 2) {
+      if (boardWritingActive && e.target === boardWritingLayer && (!e.touches || e.touches.length < 2)) {
         isPanning = false;
-        isPinching = true;
-        touchStartDist = getTouchDist(e);
-        touchStartZoom = zoom;
+        return;
+      }
+      if (e.touches && e.touches.length === 2) {
         touchStartCenter = getTouchCenter(e);
         startX = touchStartCenter.x - panX;
         startY = touchStartCenter.y - panY;
+        if (boardWritingActive) {
+          isPanning = true;
+          isPinching = false;
+          isTwoFingerPanning = true;
+        } else {
+          isPanning = false;
+          isPinching = true;
+          isTwoFingerPanning = false;
+          touchStartDist = getTouchDist(e);
+          touchStartZoom = zoom;
+        }
         e.preventDefault();
         return;
       }
       isPinching = false;
+      isTwoFingerPanning = false;
 
       if (!forcePanMode) {
         if (e.target.closest('.codex-card') || e.target.closest('aside') || e.target.closest('button') || e.target.closest('input') || e.target.closest('a') || e.target.closest('canvas') || e.target.closest('textarea') || e.target.closest('embed') || e.target.closest('iframe')) {
@@ -586,6 +928,15 @@
     }
 
     function doPan(e) {
+      if (e.touches && e.touches.length === 2 && isTwoFingerPanning) {
+        e.preventDefault();
+        const currentCenter = getTouchCenter(e);
+        panX += currentCenter.x - touchStartCenter.x;
+        panY += currentCenter.y - touchStartCenter.y;
+        touchStartCenter = currentCenter;
+        updateTransform();
+        return;
+      }
       if (e.touches && e.touches.length === 2 && isPinching) {
         e.preventDefault();
         const currentDist = getTouchDist(e);
@@ -624,6 +975,7 @@
     function endPan(e) { 
       isPanning = false; 
       isPinching = false;
+      isTwoFingerPanning = false;
     }
 
     boardWrapper.addEventListener('mousedown', startPan);
@@ -632,6 +984,16 @@
     boardWrapper.addEventListener('touchstart', startPan, { passive: false });
     window.addEventListener('touchmove', doPan, { passive: false });
     window.addEventListener('touchend', endPan);
+
+    document.addEventListener('click', (e) => {
+      if (boardSelectionJustCreated) {
+        boardSelectionJustCreated = false;
+        return;
+      }
+      if (boardWritingSelection && !e.target.closest('#board-writing-selection')) {
+        hideBoardWritingSelection();
+      }
+    });
 
     boardWrapper.addEventListener('click', (e) => {
       if (e.target === boardWrapper || e.target === canvas || e.target === canvasContainer) limparSelecao();
@@ -653,19 +1015,25 @@
     function toggleMenu(show) {
       const sidebar = document.getElementById('sidebar');
       const triggerLeft = document.getElementById('trigger-left');
+      const clockWidget = document.getElementById('digital-clock-widget');
       if (show) {
         sidebar.style.transform = 'translateX(0)';
         triggerLeft.classList.add('hidden');
+        clockWidget.classList.add('hidden');
+        clockWidget.classList.remove('flex');
         localStorage.setItem('dexi_menu_visible', 'true');
       } else {
         sidebar.style.transform = 'translateX(-285px)';
         triggerLeft.classList.remove('hidden');
+        clockWidget.classList.remove('hidden');
+        clockWidget.classList.add('flex');
         localStorage.setItem('dexi_menu_visible', 'false');
       }
     }
 
     function toggleTheme() {
       const html = document.documentElement;
+      const previousDark = html.classList.contains('dark');
       if (html.classList.contains('dark')) {
         html.classList.remove('dark');
         localStorage.setItem('theme', 'light');
@@ -673,8 +1041,18 @@
         html.classList.add('dark');
         localStorage.setItem('theme', 'dark');
       }
+      atualizarCorCanetaPeloTema();
+      atualizarTracosPadraoPeloTema(previousDark);
     }
     if (localStorage.getItem('theme') === 'light') document.documentElement.classList.remove('dark');
+
+    function atualizarCorCanetaPeloTema() {
+      const strokeColor = document.getElementById('board-stroke-color');
+      if (strokeColor) {
+        strokeColor.value = document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000';
+      }
+    }
+    atualizarCorCanetaPeloTema();
 
     function triggerFolderSelector() { document.getElementById('folder-selector').click(); }
 
@@ -966,6 +1344,199 @@
         createCard(extension, file.name, bodyHtml, 260);
       }
     }
+
+    window.criarStickyNote = function(savedProps = null, savedText = '', savedFilename = 'Sticky note', savedStyle = {}) {
+      const noteId = `sticky_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+      const bodyHtml = `
+        <div class="sticky-note-body h-full flex flex-col bg-yellow-100 dark:bg-yellow-200 text-slate-800" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
+          <textarea class="sticky-note-textarea flex-1 w-full resize-none bg-transparent p-4 text-sm leading-6 outline-none select-text" placeholder="Escreva sua nota..." onfocus="selecionarStickyNote(this.closest('.codex-card'))" onclick="selecionarStickyNote(this.closest('.codex-card'))" oninput="this.closest('.codex-card').dataset.stickyText = this.value; agendarSalvamento();">${escapeHTML(savedText)}</textarea>
+          <div class="sticky-note-controls flex flex-wrap items-center gap-1 border-t border-yellow-300/70 px-2 py-1.5">
+            <input type="color" value="${savedStyle.background || '#fef08a'}" onchange="aplicarEstiloSticky(this.closest('.codex-card'), 'background', this.value)" title="Cor do sticky" aria-label="Cor do sticky">
+            <input type="color" value="${savedStyle.textColor || '#1e293b'}" onchange="aplicarEstiloSticky(this.closest('.codex-card'), 'color', this.value)" title="Cor da fonte" aria-label="Cor da fonte">
+            <select onchange="aplicarEstiloSticky(this.closest('.codex-card'), 'fontFamily', this.value)" title="Fonte" aria-label="Fonte">
+              <option value="sans-serif">Sans</option><option value="serif">Serif</option><option value="monospace">Mono</option><option value="cursive">Cursiva</option>
+            </select>
+            <input type="number" min="10" max="48" value="${savedStyle.fontSize || '14'}" onchange="aplicarEstiloSticky(this.closest('.codex-card'), 'fontSize', this.value)" title="Tamanho" aria-label="Tamanho da fonte">
+            <button onclick="alternarEstiloSticky(this.closest('.codex-card'), 'fontWeight')" data-sticky-style="fontWeight" title="Negrito">B</button>
+            <button onclick="alternarEstiloSticky(this.closest('.codex-card'), 'fontStyle')" data-sticky-style="fontStyle" title="Itálico"><i>I</i></button>
+            <button onclick="alternarEstiloSticky(this.closest('.codex-card'), 'textDecoration')" data-sticky-style="textDecoration" title="Sublinhado"><u>U</u></button>
+            <button onclick="baixarStickyNote(this.closest('.codex-card'))" title="Baixar como TXT">TXT</button>
+            <button onclick="baixarStickyNoteComoPDF(this.closest('.codex-card'))" title="Baixar como PDF">PDF</button>
+            <button onclick="baixarStickyNoteComoDOC(this.closest('.codex-card'))" title="Baixar como DOC">DOC</button>
+          </div>
+        </div>
+      `;
+      const props = savedProps || null;
+      const card = createCard('STICKY', savedFilename, bodyHtml, 260, props);
+      card.dataset.stickyId = noteId;
+      card.dataset.stickyText = savedText;
+      card.dataset.stickyBackground = savedStyle.background || '#fef08a';
+      card.dataset.stickyTextColor = savedStyle.textColor || '#1e293b';
+      card.dataset.stickyFontFamily = savedStyle.fontFamily || 'sans-serif';
+      card.dataset.stickyFontSize = savedStyle.fontSize || '14';
+      card.dataset.stickyFontWeight = savedStyle.fontWeight || '400';
+      card.dataset.stickyFontStyle = savedStyle.fontStyle || 'normal';
+      card.dataset.stickyTextDecoration = savedStyle.textDecoration || 'none';
+      selecionarStickyNote(card);
+      const stickyTextarea = card.querySelector('.sticky-note-textarea');
+      const stickyBody = card.querySelector('.sticky-note-body');
+      const stickyFontSelect = card.querySelector('.sticky-note-controls select');
+      if (stickyBody) stickyBody.style.backgroundColor = card.dataset.stickyBackground;
+      if (stickyTextarea) {
+        stickyTextarea.style.color = card.dataset.stickyTextColor;
+        stickyTextarea.style.fontFamily = card.dataset.stickyFontFamily;
+        stickyTextarea.style.fontSize = `${card.dataset.stickyFontSize}px`;
+        stickyTextarea.style.fontWeight = card.dataset.stickyFontWeight;
+        stickyTextarea.style.fontStyle = card.dataset.stickyFontStyle;
+        stickyTextarea.style.textDecoration = card.dataset.stickyTextDecoration;
+      }
+      if (stickyFontSelect) stickyFontSelect.value = card.dataset.stickyFontFamily;
+      card.querySelector('[data-sticky-style="fontWeight"]')?.classList.toggle('active', card.dataset.stickyFontWeight === '700');
+      card.querySelector('[data-sticky-style="fontStyle"]')?.classList.toggle('active', card.dataset.stickyFontStyle === 'italic');
+      card.querySelector('[data-sticky-style="textDecoration"]')?.classList.toggle('active', card.dataset.stickyTextDecoration === 'underline');
+      if (!savedProps) salvarEstadoNoStorage();
+      if (boardWritingActive) {
+        setBoardWritingMode('text');
+        setTimeout(() => card.querySelector('.sticky-note-textarea')?.focus(), 0);
+      }
+      return card;
+    };
+
+    window.baixarStickyNote = function(card) {
+      if (!card) return;
+      const text = card.querySelector('.sticky-note-textarea')?.value || '';
+      const filename = (card.dataset.filename || 'sticky-note').trim().replace(/[\\/:*?"<>|]/g, '-') || 'sticky-note';
+      const link = document.createElement('a');
+      link.download = `${filename}.txt`;
+      link.href = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 0);
+    };
+
+    window.baixarStickyNoteComoPDF = function(card) {
+      if (!card || !window.jspdf?.jsPDF) return;
+      const textarea = card.querySelector('.sticky-note-textarea');
+      if (!textarea) return;
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const filename = (card.dataset.filename || 'sticky-note').trim().replace(/[\\/:*?"<>|]/g, '-') || 'sticky-note';
+      const margin = 16;
+      const maxWidth = 178;
+      const fontSize = Math.max(10, Math.min(28, parseFloat(card.dataset.stickyFontSize) || 14));
+      const background = card.dataset.stickyBackground || '#fef08a';
+      const textColor = card.dataset.stickyTextColor || '#1e293b';
+      const backgroundRgb = hexToRgb(background);
+      const textRgb = hexToRgb(textColor);
+      const fontFamily = card.dataset.stickyFontFamily || 'sans-serif';
+      const pdfFont = fontFamily === 'serif' ? 'times' : (fontFamily === 'monospace' ? 'courier' : 'helvetica');
+      if (backgroundRgb) {
+        pdf.setFillColor(...backgroundRgb);
+        pdf.rect(0, 0, 210, 297, 'F');
+      }
+      pdf.setFontSize(fontSize);
+      const pdfFontStyle = card.dataset.stickyFontWeight === '700'
+        ? (card.dataset.stickyFontStyle === 'italic' ? 'bolditalic' : 'bold')
+        : (card.dataset.stickyFontStyle === 'italic' ? 'italic' : 'normal');
+      pdf.setFont(pdfFont, pdfFontStyle);
+      if (textRgb) pdf.setTextColor(...textRgb);
+      const lines = pdf.splitTextToSize(textarea.value || '', maxWidth);
+      const lineHeight = fontSize * 0.45;
+      const underline = card.dataset.stickyTextDecoration === 'underline';
+      const boardOverlay = getStickyBoardSegments(card);
+      let y = margin;
+      lines.forEach(line => {
+        if (y > 280) {
+          pdf.addPage();
+          y = margin;
+          if (backgroundRgb) {
+            pdf.setFillColor(...backgroundRgb);
+            pdf.rect(0, 0, 210, 297, 'F');
+          }
+          pdf.setFont(pdfFont, pdfFontStyle);
+          pdf.setFontSize(fontSize);
+          if (textRgb) pdf.setTextColor(...textRgb);
+        }
+        pdf.text(line, margin, y);
+        if (underline) {
+          const lineWidth = pdf.getTextWidth(line);
+          pdf.setLineWidth(0.25);
+          pdf.line(margin, y + 1, margin + lineWidth, y + 1);
+        }
+        y += lineHeight;
+      });
+      boardOverlay.segments.forEach(({ stroke, points }) => {
+        const strokeRgb = hexToRgb(stroke.color);
+        if (!strokeRgb) return;
+        pdf.setDrawColor(...strokeRgb);
+        pdf.setLineWidth(Math.max(0.2, stroke.width * 210 / boardOverlay.width * 0.12));
+        for (let index = 1; index < points.length; index += 1) {
+          pdf.line(
+            points[index - 1].x * 210 / boardOverlay.width,
+            points[index - 1].y * 297 / boardOverlay.height,
+            points[index].x * 210 / boardOverlay.width,
+            points[index].y * 297 / boardOverlay.height
+          );
+        }
+      });
+      pdf.save(`${filename}.pdf`);
+    };
+
+    function hexToRgb(value) {
+      const hex = String(value || '').replace('#', '');
+      if (!/^[\da-f]{6}$/i.test(hex)) return null;
+      return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
+    }
+
+    function getStickyBoardSegments(card) {
+      const left = parseFloat(card.style.left) || 0;
+      const top = parseFloat(card.style.top) || 0;
+      const width = parseFloat(card.style.width) || 260;
+      const height = parseFloat(card.style.height) || 280;
+      const segments = [];
+      boardWritingStrokes.forEach(stroke => {
+        let segment = [];
+        stroke.points.forEach(point => {
+          const inside = point.x >= left && point.x <= left + width && point.y >= top && point.y <= top + height;
+          if (inside) {
+            segment.push({ x: point.x - left, y: point.y - top });
+          } else if (segment.length > 1) {
+            segments.push({ stroke, points: segment });
+            segment = [];
+          } else {
+            segment = [];
+          }
+        });
+        if (segment.length > 1) segments.push({ stroke, points: segment });
+      });
+      return { width, height, segments };
+    }
+
+    window.baixarStickyNoteComoDOC = function(card) {
+      if (!card) return;
+      const textarea = card.querySelector('.sticky-note-textarea');
+      if (!textarea) return;
+      const filename = (card.dataset.filename || 'sticky-note').trim().replace(/[\\/:*?"<>|]/g, '-') || 'sticky-note';
+      const textColor = card.dataset.stickyTextColor || '#1e293b';
+      const background = card.dataset.stickyBackground || '#fef08a';
+      const fontFamily = card.dataset.stickyFontFamily || 'sans-serif';
+      const fontSize = card.dataset.stickyFontSize || '14';
+      const fontWeight = card.dataset.stickyFontWeight || '400';
+      const fontStyle = card.dataset.stickyFontStyle || 'normal';
+      const textDecoration = card.dataset.stickyTextDecoration || 'none';
+      const content = escapeHTML(textarea.value || '').replace(/\n/g, '<br>');
+      const boardOverlay = getStickyBoardSegments(card);
+      const svgPaths = boardOverlay.segments.map(({ stroke, points }) => {
+        const path = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
+        return `<path d="${path}" fill="none" stroke="${stroke.color}" stroke-width="${stroke.width}" stroke-linecap="round" stroke-linejoin="round" />`;
+      }).join('');
+      const overlaySvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${boardOverlay.width} ${boardOverlay.height}" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">${svgPaths}</svg>`;
+      const docHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHTML(filename)}</title></head><body style="position:relative;overflow:hidden;background:${background};color:${textColor};font-family:${fontFamily};font-size:${fontSize}px;font-weight:${fontWeight};font-style:${fontStyle};text-decoration:${textDecoration};padding:24px;white-space:normal;">${content}${overlaySvg}</body></html>`;
+      const link = document.createElement('a');
+      link.download = `${filename}.doc`;
+      link.href = URL.createObjectURL(new Blob([docHtml], { type: 'application/msword' }));
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 0);
+    };
 
     function montarEGerarLeitorPdf(id, filename, paginaInicial = 1, savedProps = null) {
       const viewerId = "view_" + id + "_" + Date.now();
@@ -1418,6 +1989,7 @@
         const tldrawHost = card.querySelector('.tldraw-host');
         const bodyHolder = card.querySelector('.card-body-holder');
         const noteUrl = iframeEl ? iframeEl.getAttribute('src') : (card.dataset.noteUrl || 'https://www.tldraw.com/');
+        const stickyTextarea = card.querySelector('.sticky-note-textarea');
         
         let savedCurrentPage = 1;
         let savedPdfSourceId = "";
@@ -1477,7 +2049,15 @@
           noteMode: tldrawHost ? 'tldraw-local' : (iframeEl ? 'tldraw' : (isNOTAS ? 'canvas' : '')),
           noteId: card.dataset.noteId || '',
           noteUrl: noteUrl,
-          notePaper: card.dataset.paperType || 'A4'
+          notePaper: card.dataset.paperType || 'A4',
+          stickyText: stickyTextarea ? stickyTextarea.value : (card.dataset.stickyText || '')
+          ,stickyBackground: card.dataset.stickyBackground || '#fef08a'
+          ,stickyTextColor: card.dataset.stickyTextColor || '#1e293b'
+          ,stickyFontFamily: card.dataset.stickyFontFamily || 'sans-serif'
+          ,stickyFontSize: card.dataset.stickyFontSize || '14'
+          ,stickyFontWeight: card.dataset.stickyFontWeight || '400'
+          ,stickyFontStyle: card.dataset.stickyFontStyle || 'normal'
+          ,stickyTextDecoration: card.dataset.stickyTextDecoration || 'none'
         });
       });
       
@@ -1535,6 +2115,22 @@
             } else {
               reconstruirCardNotasComPaginas(c);
             }
+          } else if (c.filetype === 'STICKY') {
+            criarStickyNote({
+              width: c.width,
+              height: c.height,
+              left: c.left,
+              top: c.top,
+              groupId: c.groupId
+            }, c.stickyText || '', c.filename || 'Sticky note', {
+              background: c.stickyBackground,
+              textColor: c.stickyTextColor,
+              fontFamily: c.stickyFontFamily,
+              fontSize: c.stickyFontSize,
+              fontWeight: c.stickyFontWeight,
+              fontStyle: c.stickyFontStyle,
+              textDecoration: c.stickyTextDecoration
+            });
           } else {
             createCard(c.filetype, c.filename, c.bodyContent, c.width ? parseFloat(c.width) : 290, {
               width: c.width, height: c.height, left: c.left, top: c.top, groupId: c.groupId
