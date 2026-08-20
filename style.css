@@ -129,11 +129,22 @@
     #board-writing-layer {
       position: absolute;
       inset: 0;
-      width: 5000px;
-      height: 5000px;
       z-index: 35;
       pointer-events: none;
       touch-action: none;
+    }
+
+    #board-writing-svg {
+      position: absolute;
+      inset: 0;
+      z-index: 35;
+      pointer-events: none;
+      touch-action: none;
+      overflow: visible;
+    }
+
+    #board-writing-svg path {
+      pointer-events: none;
     }
 
     #board-writing-selection {
