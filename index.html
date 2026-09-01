@@ -16,6 +16,10 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/tldraw/tldraw.css">
+  <style>
+    .board-text-element { pointer-events: auto; }
+    .board-text-input { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+  </style>
   <script type="module">
     try {
       const ReactModule = await import('https://esm.sh/react@18.3.1');
@@ -79,17 +83,18 @@
     <button onclick="excluirSelecionados()" class="text-[10px] sm:text-xs bg-rose-600 hover:bg-rose-700 text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-bold transition-all shadow-sm whitespace-nowrap">Excluir</button>
   </div>
 
-  <div id="writing-toolbar" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[90] hidden items-center gap-2 bg-slate-900/95 backdrop-blur border border-slate-700 text-white px-3 py-2 rounded-2xl shadow-2xl">
-    <button onclick="toggleBoardWriting(true); setBoardWritingMode('pen')" data-writing-mode="pen" class="writing-tool-button active" title="Caneta">✏️</button>
-    <button onclick="setBoardWritingMode('eraser')" data-writing-mode="eraser" class="writing-tool-button" title="Borracha">🧽</button>
-    <button onclick="setBoardWritingMode('select')" data-writing-mode="select" class="writing-tool-button" title="Selecionar uma área">⬚</button>
-    <button onclick="setBoardWritingMode('text')" data-writing-mode="text" class="writing-tool-button" title="Teclado">⌨️</button>
-    <button onclick="criarStickyNote()" class="writing-tool-button" title="Criar sticky note">🗒️</button>
-    <input id="board-stroke-width" type="number" min="1" max="50" value="4" class="writing-size-input" title="Espessura do traço" aria-label="Espessura do traço">
-    <input id="board-stroke-color" type="color" value="#1e293b" class="writing-color-input" title="Cor do traço" aria-label="Cor do traço">
-    <button onclick="clearBoardWriting()" class="writing-tool-button" title="Apagar tudo">🗑️</button>
-    <button id="download-board-selection" onclick="downloadBoardSelection()" class="writing-command-button" disabled title="Baixar seleção">📥 Baixar</button>
-    <button onclick="toggleBoardWriting(false)" class="writing-close-button" title="Fechar Notar">Fechar</button>
+  <div id="writing-toolbar" class="fixed bottom-2 left-2 right-2 sm:bottom-4 sm:left-1/2 sm:-translate-x-1/2 z-[90] hidden flex-wrap justify-center items-center gap-1 sm:gap-2 bg-slate-900/95 backdrop-blur border border-slate-700 text-white px-2 sm:px-3 py-2 rounded-xl sm:rounded-2xl shadow-2xl max-w-[calc(100vw-1rem)]">
+    <button onclick="toggleBoardWriting(true); setBoardWritingMode('pen')" data-writing-mode="pen" class="writing-tool-button active w-7 h-7 sm:w-8 sm:h-8 text-sm sm:text-base" title="Caneta">✏️</button>
+    <button onclick="setBoardWritingMode('eraser')" data-writing-mode="eraser" class="writing-tool-button w-7 h-7 sm:w-8 sm:h-8 text-sm sm:text-base" title="Borracha">🧽</button>
+    <button onclick="setBoardWritingMode('select')" data-writing-mode="select" class="writing-tool-button w-7 h-7 sm:w-8 sm:h-8 text-sm sm:text-base" title="Selecionar uma área">⬚</button>
+    <button onclick="setBoardWritingMode('move')" data-writing-mode="move" class="writing-tool-button w-7 h-7 sm:w-8 sm:h-8 text-sm sm:text-base" title="Mover pelo quadro">↔️</button>
+    <button onclick="setBoardWritingMode('text')" data-writing-mode="text" class="writing-tool-button w-7 h-7 sm:w-8 sm:h-8 text-sm sm:text-base" title="Teclado">⌨️</button>
+    <button onclick="criarStickyNote()" class="writing-tool-button w-7 h-7 sm:w-8 sm:h-8 text-sm sm:text-base" title="Criar sticky note">🗒️</button>
+    <input id="board-stroke-width" type="number" min="1" max="50" value="4" class="writing-size-input w-10 h-7 sm:w-12 sm:h-8 text-xs sm:text-sm" title="Espessura do traço" aria-label="Espessura do traço">
+    <input id="board-stroke-color" type="color" value="#1e293b" class="writing-color-input w-7 h-7 sm:w-8 sm:h-8" title="Cor do traço" aria-label="Cor do traço">
+    <button onclick="clearBoardWriting()" class="writing-tool-button w-7 h-7 sm:w-8 sm:h-8 text-sm sm:text-base" title="Apagar tudo">🗑️</button>
+    <button id="download-board-selection" onclick="abrirModalDownloadFormat()" class="writing-command-button px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm rounded-lg" disabled title="Baixar seleção">Baixar</button>
+    <button onclick="toggleBoardWriting(false)" class="writing-close-button px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm rounded-lg" title="Fechar Notar">Fechar</button>
   </div>
 
   <div class="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2">
@@ -132,11 +137,10 @@
           <button onclick="triggerFolderSelector()" class="w-full bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 font-medium py-2 px-4 rounded-xl border border-green-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Arquivar</button>
           <button onclick="colarLinkManual()" class="w-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium py-2 px-4 rounded-xl border border-blue-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Colar</button>
           <button onclick="toggleBoardWriting(true)" class="w-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-medium py-2 px-4 rounded-xl border border-amber-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Notar</button>
-        </div>
-
-        <div class="mb-4">
-          <button onclick="limparQuadro()" class="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-medium py-2 px-4 rounded-xl border border-rose-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Limpar</button>
-        </div>
+          <br>
+          <button onclick="limparQuadro()" class="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-medium py-2 px-4 rounded-xl border border-rose-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Deletar</button>
+          <button onclick="abrirModalRecuperaveis()" class="w-full bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 font-medium py-2 px-4 rounded-xl border border-purple-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Gerenciar</button>
+        
       </div>
 
       <a href="https://github.com/Dextre-Tecnologia/Dexi" target="_blank" rel="noopener noreferrer" class="absolute bottom-4 left-4 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-lg shadow-slate-400/20 transition-transform duration-200 hover:scale-105 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Abrir GitHub">
@@ -147,8 +151,8 @@
     <div id="board-wrapper" class="bg-grid-light dark:bg-grid-dark transition-all duration-200" style="background-size: 32px 32px;">
       <div id="canvas-container">
         <main class="w-full h-full relative select-none" id="canvas"></main>
-        <canvas id="board-writing-layer" width="5000" height="5000" aria-label="Camada de escrita do quadro"></canvas>
-        <svg id="board-writing-svg" width="5000" height="5000" aria-label="Traços do quadro"></svg>
+        <canvas id="board-writing-layer" width="100%" height="100%" aria-label="Camada de escrita do quadro"></canvas>
+        <svg id="board-writing-svg" width="100%" height="100%" aria-label="Traços do quadro"></svg>
         <div id="board-writing-selection" aria-hidden="true"></div>
         
       </div>
@@ -194,31 +198,91 @@
     </div>
   </div>
 
-  <!-- ========================================== -->
-  <!-- WIDGET DE RELÓGIO DIGITAL (INÍCIO)         -->
-  <!-- ========================================== -->
-  <div id="digital-clock-widget" class="fixed top-6 right-6 z-50 hidden flex-col items-center bg-white/80 dark:bg-slate-900/80 backdrop-blur border border-slate-200 dark:border-slate-800 p-3 rounded-2xl shadow-xl transition-all duration-300">
-    <div id="clock-display" class="text-3xl font-mono font-black text-slate-800 dark:text-slate-100 tracking-wider">
+  <div id="recuperaveis-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+    <div class="relative bg-white dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-2xl w-full max-w-2xl flex flex-col shadow-2xl transition-all duration-200 overflow-hidden h-[80vh]">
+      <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
+        <h3 class="font-bold text-slate-800 dark:text-slate-200">Gerenciar Itens Deletados</h3>
+        <button onclick="fecharModalRecuperaveis()" class="text-slate-400 hover:text-rose-500 font-bold text-xl px-2 transition-colors">&times;</button>
+      </div>
+      <div id="recuperaveis-content" class="p-5 flex-1 overflow-y-auto flex flex-col gap-3">
+        <p class="text-center text-slate-500 dark:text-slate-400 text-sm">Carregando...</p>
+      </div>
+      <div class="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex gap-3">
+        <button id="recuperaveis-recuperar-todos" onclick="recuperarTodosDeletados()" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed">Recuperar Tudo</button>
+        <button id="recuperaveis-limpar-todos" onclick="limparTodoHistorico()" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed">Deletar Tudo</button>
+        <button onclick="fecharModalRecuperaveis()" class="flex-1 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 text-slate-800 dark:text-white font-bold py-2 px-4 rounded-xl transition-all">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Escolha de Formato de Download -->
+  <div id="download-format-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+    <div class="relative bg-white dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-2xl w-full max-w-sm flex flex-col shadow-2xl transition-all duration-200 overflow-hidden">
+      <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
+        <h3 class="font-bold text-slate-800 dark:text-slate-200">Escolher Formato de Download</h3>
+        <button onclick="fecharModalDownloadFormat()" class="text-slate-400 hover:text-rose-500 font-bold text-xl px-2 transition-colors">&times;</button>
+      </div>
+      <div class="p-5 flex flex-col gap-3">
+        <button onclick="executarDownloadBoard('png')" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2">
+          <span class="text-xl">🖼️</span> PNG (Alta Qualidade)
+        </button>
+        <button onclick="executarDownloadBoard('jpg')" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2">
+          <span class="text-xl">📷</span> JPG (Comprimido)
+        </button>
+        <button onclick="executarDownloadBoard('pdf')" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2">
+          <span class="text-xl">📄</span> PDF (Documento)
+        </button>
+      </div>
+      <div class="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+        <button onclick="fecharModalDownloadFormat()" class="w-full bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 text-slate-800 dark:text-white font-bold py-2 px-4 rounded-xl transition-all">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="top-web-search" class="fixed left-2 right-2 top-3 z-40 max-w-[calc(100%-1rem)] sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-[min(58vw,620px)]">
+    <div class="flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-white/90 p-2 shadow-xl backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/80">
+      <div id="search-engine-badge" class="flex h-9 min-w-[70px] items-center justify-center rounded-xl bg-slate-100 px-2 text-[9px] font-black uppercase tracking-[0.16em] text-slate-700 dark:bg-slate-800 dark:text-slate-200 sm:text-[10px]">Google</div>
+      <input id="top-web-search-input" type="search" placeholder="Pesquisar na web..." aria-label="Pesquisar na web" class="h-10 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500">
+      <button id="top-web-search-btn" onclick="executarPesquisaWeb()" class="h-10 rounded-xl bg-amber-500 px-3 text-xs font-bold text-slate-900 shadow-sm transition hover:bg-amber-400 focus:outline-none sm:px-4 sm:text-sm">Buscar</button>
+    </div>
+  </div>
+
+  <div id="digital-clock-widget" class="fixed right-2 top-[5.5rem] z-50 flex flex-col items-center rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/80 sm:right-6 sm:top-6 sm:min-w-[220px]">
+    <div id="clock-display" class="text-2xl font-mono font-black tracking-wider text-slate-800 dark:text-slate-100 sm:text-3xl">
       00:00:00
     </div>
-    <div id="date-display" class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-widest">
+    <div id="date-display" class="mb-2 text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 sm:text-[10px]">
       Carregando...
     </div>
-    <select id="timezone-selector" class="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg px-2 py-1.5 focus:outline-none focus:border-amber-500 transition-colors w-full cursor-pointer text-center font-bold shadow-sm hover:bg-slate-200 dark:hover:bg-slate-700" title="Escolha o fuso horário">
-      <option value="America/Sao_Paulo">🇧🇷 Brasília</option>
-      <option value="America/New_York">🇺🇸 Nova York</option>
-      <option value="Europe/London">🇬🇧 Londres</option>
-      <option value="Europe/Paris">🇫🇷 Paris</option>
-      <option value="Asia/Tokyo">🇯🇵 Tóquio</option>
-      <option value="Asia/Shanghai">🇨🇳 Pequim</option>
-      <option value="Australia/Sydney">🇦🇺 Sydney</option>
-      <option value="UTC">🌐 UTC (Padrão)</option>
-    </select>
+    <div class="flex w-full items-center gap-2">
+      <select id="timezone-selector" class="flex-1 cursor-pointer rounded-lg border border-slate-200 bg-slate-100 px-2 py-1.5 text-center text-[10px] font-bold text-slate-700 shadow-sm transition hover:bg-slate-200 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 sm:text-xs" title="Escolha o fuso horário">
+        <option value="America/Sao_Paulo">🇧🇷 Brasília</option>
+        <option value="America/New_York">🇺🇸 Nova York</option>
+        <option value="Europe/London">🇬🇧 Londres</option>
+        <option value="Europe/Paris">🇫🇷 Paris</option>
+        <option value="Asia/Tokyo">🇯🇵 Tóquio</option>
+        <option value="Asia/Shanghai">🇨🇳 Pequim</option>
+        <option value="Australia/Sydney">🇦🇺 Sydney</option>
+        <option value="UTC">🌐 UTC</option>
+      </select>
+      <button id="favorite-sites-toggle" type="button" class="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 bg-amber-100 text-base font-bold text-amber-700 transition hover:bg-amber-200 dark:border-amber-700 dark:bg-amber-500/10 dark:text-amber-300" title="Favoritos" aria-label="Abrir favoritos">★</button>
+    </div>
 
+    <div id="favorite-sites-panel" class="absolute right-0 top-full z-[80] mt-2 hidden w-[300px] max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur dark:border-slate-700 dark:bg-slate-950/95">
+      <div class="mb-2 flex items-center justify-between">
+        <h4 class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-700 dark:text-slate-200">Favoritos</h4>
+        <button id="close-favorite-panel" type="button" class="text-lg font-bold text-slate-400 transition hover:text-rose-500" aria-label="Fechar favoritos">×</button>
+      </div>
+      <div id="favorite-sites-list" class="grid gap-2"></div>
+      <div class="mt-3 border-t border-slate-200 pt-3 dark:border-slate-700">
+        <div class="grid grid-cols-2 gap-2">
+          <input id="favorite-name-input" type="text" placeholder="Nome" class="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-[10px] text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500">
+          <input id="favorite-url-input" type="url" placeholder="https://site.com" class="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-[10px] text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500">
+        </div>
+        <button id="add-favorite-btn" type="button" class="mt-2 w-full rounded-xl bg-amber-500 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-900 transition hover:bg-amber-400">Adicionar</button>
+      </div>
+    </div>
   </div>
-  <!-- ========================================== -->
-  <!-- WIDGET DE RELÓGIO DIGITAL (FIM)            -->
-  <!-- ========================================== -->
 
 
 
@@ -244,7 +308,7 @@
 
 
 
-  
+  <!-- FUNCIONALIDADES -->
   <script>
     // Relógio digital e seleção de fuso horário.
     // ==========================================
@@ -296,8 +360,105 @@
     // ==========================================
     // LÓGICA DO RELÓGIO DIGITAL (FIM)
     // ==========================================
-    
 
+    const defaultFavorites = [
+      { name: 'Gmail', url: 'https://mail.google.com' },
+      { name: 'Mapas', url: 'https://maps.google.com' },
+      { name: 'Drive', url: 'https://drive.google.com' },
+      { name: 'OneDrive', url: 'https://onedrive.live.com/' }
+    ];
+
+    function getFavoriteSites() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('dexi_favorite_sites') || 'null');
+        if (Array.isArray(saved) && saved.length) return saved;
+      } catch (e) {
+        console.warn('Erro ao ler favoritos:', e);
+      }
+      localStorage.setItem('dexi_favorite_sites', JSON.stringify(defaultFavorites));
+      return defaultFavorites;
+    }
+
+    function saveFavoriteSites(items) {
+      localStorage.setItem('dexi_favorite_sites', JSON.stringify(items));
+    }
+
+    function getFaviconUrl(url) {
+      try {
+        const domain = new URL(url).hostname;
+        return `https://www.google.com/s2/favicons?sz=32&domain=${domain}`;
+      } catch (e) {
+        return 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23999"><circle cx="12" cy="12" r="10"/></svg>';
+      }
+    }
+
+    function renderFavoriteSites() {
+      const list = document.getElementById('favorite-sites-list');
+      if (!list) return;
+      const favorites = getFavoriteSites();
+      list.innerHTML = favorites.map((site, index) => {
+        const faviconUrl = getFaviconUrl(site.url);
+        return `
+        <div class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 dark:border-slate-700 dark:bg-slate-900 group hover:border-amber-300 dark:hover:border-amber-600 transition">
+          <img src="${faviconUrl}" alt="${site.name}" class="w-5 h-5 rounded-sm flex-shrink-0 object-contain bg-white dark:bg-slate-800 p-0.5" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23999%22><circle cx=%2212%22 cy=%2212%22 r=%2210%22/></svg>'">
+          <a href="${site.url}" target="_blank" rel="noopener noreferrer" class="flex-1 text-left text-[10px] font-bold text-slate-700 transition hover:text-amber-600 dark:text-slate-200 dark:hover:text-amber-400 truncate">${site.name}</a>
+          <button type="button" data-index="${index}" class="favorite-remove-btn text-lg font-black text-slate-300 transition hover:text-rose-500 opacity-0 group-hover:opacity-100" aria-label="Remover ${site.name}">×</button>
+        </div>
+      `;
+      }).join('');
+
+      list.querySelectorAll('.favorite-remove-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const favorites = getFavoriteSites();
+          const index = Number(button.dataset.index);
+          favorites.splice(index, 1);
+          saveFavoriteSites(favorites);
+          renderFavoriteSites();
+        });
+      });
+    }
+
+    function toggleFavoriteSitesPanel() {
+      const panel = document.getElementById('favorite-sites-panel');
+      if (!panel) return;
+      panel.classList.toggle('hidden');
+    }
+
+    document.getElementById('favorite-sites-toggle')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      toggleFavoriteSitesPanel();
+    });
+
+    document.getElementById('close-favorite-panel')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      document.getElementById('favorite-sites-panel')?.classList.add('hidden');
+    });
+
+    document.getElementById('add-favorite-btn')?.addEventListener('click', () => {
+      const nameInput = document.getElementById('favorite-name-input');
+      const urlInput = document.getElementById('favorite-url-input');
+      const name = nameInput?.value.trim();
+      let url = urlInput?.value.trim();
+      if (!name || !url) { alert('Preencha nome e URL do favorito.'); return; }
+      if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+      const favorites = getFavoriteSites();
+      favorites.push({ name, url });
+      saveFavoriteSites(favorites);
+      renderFavoriteSites();
+      if (nameInput) nameInput.value = '';
+      if (urlInput) urlInput.value = '';
+    });
+
+    document.addEventListener('click', (event) => {
+      const panel = document.getElementById('favorite-sites-panel');
+      const toggle = document.getElementById('favorite-sites-toggle');
+      if (panel && !panel.classList.contains('hidden') && !panel.contains(event.target) && !toggle?.contains(event.target)) {
+        panel.classList.add('hidden');
+      }
+    });
+
+    renderFavoriteSites();
 
     // ==========================================
     // Sincronização opcional com Google Drive.
@@ -436,9 +597,12 @@
     let boardWritingDrawing = false;
     let boardWritingStart = null;
     let boardWritingSelection = null;
+    let boardWritingSelectionSnapshot = null;
     let boardWritingCurrentStroke = [];
     let boardWritingStrokes = [];
+    let boardWritingTexts = [];
     let activeStickyNote = null;
+    let activeTextEditor = null;
     let boardSelectionJustCreated = false;
     const boardWritingLayer = document.getElementById('board-writing-layer');
     const boardWritingSvg = document.getElementById('board-writing-svg');
@@ -529,13 +693,15 @@
       boardWritingSelectionEl.style.width = `${width}px`;
       boardWritingSelectionEl.style.height = `${height}px`;
       boardWritingSelectionEl.style.pointerEvents = 'none';
-      document.getElementById('download-board-selection').disabled = width < 2 || height < 2;
+      const minSize = 5;
+      document.getElementById('download-board-selection').disabled = width < minSize || height < minSize;
     }
 
     function hideBoardWritingSelection() {
       boardWritingSelectionEl.style.display = 'none';
       boardWritingSelectionEl.style.pointerEvents = 'none';
       boardWritingSelection = null;
+      boardWritingSelectionSnapshot = null;
       document.getElementById('download-board-selection').disabled = true;
     }
 
@@ -561,7 +727,86 @@
       localStorage.setItem('dexi_board_writing_strokes', JSON.stringify(boardWritingStrokes));
     }
 
+    function saveBoardWritingTexts() {
+      localStorage.setItem('dexi_board_writing_texts', JSON.stringify(boardWritingTexts));
+    }
+
+    function renderBoardWritingTexts() {
+      const textElements = document.querySelectorAll('.board-text-element');
+      textElements.forEach(el => {
+        const textId = el.dataset.textId;
+        const textData = boardWritingTexts.find(t => t.id === textId);
+        if (!textData) el.remove();
+      });
+      boardWritingTexts.forEach(text => {
+        let textEl = document.querySelector(`[data-text-id="${text.id}"]`);
+        if (!textEl) {
+          textEl = document.createElement('div');
+          textEl.className = 'board-text-element';
+          textEl.dataset.textId = text.id;
+          textEl.style.position = 'absolute';
+          textEl.style.left = `${text.x}px`;
+          textEl.style.top = `${text.y}px`;
+          textEl.style.zIndex = '40';
+          textEl.innerHTML = `
+            <div class="bg-white/95 dark:bg-slate-900/95 border-2 border-amber-500 rounded-lg p-2 shadow-lg backdrop-blur" 
+                 onmousedown="event.stopPropagation()" 
+                 ontouchstart="event.stopPropagation()">
+              <textarea class="board-text-input w-40 h-24 text-sm p-2 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 resize-none focus:outline-none focus:border-amber-500" 
+                        onblur="saveBoardTextElement('${text.id}')"
+                        ondblclick="event.stopPropagation()">${escapeHTML(text.content)}</textarea>
+              <div class="flex gap-1 mt-2">
+                <button onclick="deleteBoardTextElement('${text.id}')" class="text-xs px-2 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded font-bold">Deletar</button>
+              </div>
+            </div>
+          `;
+          canvasContainer.appendChild(textEl);
+        }
+      });
+    }
+
+    window.createBoardTextElement = function(x, y) {
+      if (boardWritingMode !== 'text') return;
+      const textId = Date.now().toString();
+      boardWritingTexts.push({
+        id: textId,
+        x: x,
+        y: y,
+        content: ''
+      });
+      renderBoardWritingTexts();
+      const textarea = document.querySelector(`[data-text-id="${textId}"] .board-text-input`);
+      if (textarea) {
+        textarea.focus();
+        activeTextEditor = textarea;
+      }
+      saveBoardWritingTexts();
+    };
+
+    window.saveBoardTextElement = function(textId) {
+      const textData = boardWritingTexts.find(t => t.id === textId);
+      if (textData) {
+        const textarea = document.querySelector(`[data-text-id="${textId}"] .board-text-input`);
+        if (textarea) {
+          textData.content = textarea.value;
+          saveBoardWritingTexts();
+        }
+      }
+      activeTextEditor = null;
+    };
+
+    window.deleteBoardTextElement = function(textId) {
+      boardWritingTexts = boardWritingTexts.filter(t => t.id !== textId);
+      const textEl = document.querySelector(`[data-text-id="${textId}"]`);
+      if (textEl) textEl.remove();
+      saveBoardWritingTexts();
+    };
+
     function getBoardInkColor() {
+      const colorInput = document.getElementById('board-stroke-color');
+      if (colorInput && colorInput.value) {
+        return colorInput.value;
+      }
       return document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000';
     }
 
@@ -603,6 +848,12 @@
       } catch (error) {
         boardWritingStrokes = [];
       }
+      try {
+        const savedTexts = JSON.parse(localStorage.getItem('dexi_board_writing_texts') || '[]');
+        if (Array.isArray(savedTexts)) boardWritingTexts = savedTexts;
+      } catch (error) {
+        boardWritingTexts = [];
+      }
       const furthestPoint = boardWritingStrokes.reduce((furthest, stroke) => {
         stroke.points.forEach(point => {
           furthest.x = Math.max(furthest.x, point.x);
@@ -612,6 +863,7 @@
       }, { x: 0, y: 0 });
       expandBoardWritingLayerIfNeeded(furthestPoint.x, furthestPoint.y);
       renderBoardWriting();
+      renderBoardWritingTexts();
       const legacyData = localStorage.getItem('dexi_board_writing');
       if (legacyData) {
         const image = new Image();
@@ -688,6 +940,11 @@
       });
       boardWritingLayer.style.pointerEvents = 'none';
       boardWritingSvg.style.pointerEvents = mode === 'text' ? 'none' : (boardWritingActive ? 'auto' : 'none');
+      if (mode === 'move') {
+        boardWritingSvg.style.cursor = 'grab';
+        boardWrapper.style.cursor = 'grab';
+        return;
+      }
       boardWritingSvg.style.cursor = mode === 'select' ? 'crosshair' : (mode === 'eraser' ? 'cell' : (mode === 'text' ? 'text' : 'crosshair'));
       if (mode === 'pen' && boardWritingActive) {
         boardWritingSvg.style.pointerEvents = 'auto';
@@ -707,12 +964,27 @@
       const position = getBoardWritingPosition(event);
       boardWritingStart = position;
       boardWritingDrawing = true;
+      if (boardWritingMode === 'text') {
+        if (activeTextEditor) {
+          saveBoardTextElement(activeTextEditor.closest('.board-text-element').dataset.textId);
+        }
+        createBoardTextElement(position.x, position.y);
+        return;
+      }
       if (boardWritingMode === 'eraser') {
         eraseBoardWritingAt(position);
         return;
       }
       if (boardWritingMode === 'select') {
         updateBoardWritingSelection(position, position);
+        return;
+      }
+      if (boardWritingMode === 'move') {
+        isPanning = true;
+        const pageX = event.touches ? event.touches[0].pageX : event.pageX;
+        const pageY = event.touches ? event.touches[0].pageY : event.pageY;
+        startX = pageX - panX;
+        startY = pageY - panY;
         return;
       }
       boardWritingCurrentStroke = [position];
@@ -739,6 +1011,16 @@
       if (!boardWritingDrawing) return;
       event.stopPropagation();
       if (event.cancelable) event.preventDefault();
+      if (boardWritingMode === 'text' || boardWritingMode === 'move') {
+        if (boardWritingMode === 'move') {
+          const pageX = event.touches ? event.touches[0].pageX : event.pageX;
+          const pageY = event.touches ? event.touches[0].pageY : event.pageY;
+          panX = pageX - startX;
+          panY = pageY - startY;
+          updateTransform();
+        }
+        return;
+      }
       const position = getBoardWritingPosition(event);
       if (boardWritingMode === 'eraser') {
         eraseBoardWritingAt(position);
@@ -773,6 +1055,9 @@
         renderBoardWriting();
         saveBoardWriting();
       }
+      if (boardWritingMode === 'move') {
+        isPanning = false;
+      }
       boardWritingCurrentStroke = [];
     }
 
@@ -785,28 +1070,213 @@
     boardWrapper.addEventListener('touchend', stopBoardWriting, { passive: false });
 
     window.clearBoardWriting = function() {
+      // Salva os traços e textos antes de limpar
+      if (boardWritingStrokes.length > 0 || boardWritingTexts.length > 0) {
+        const timestamp = new Date().toLocaleString('pt-BR');
+        const clearedItem = {
+          id: Date.now(),
+          type: 'drawing',
+          timestamp: timestamp,
+          strokes: JSON.parse(JSON.stringify(boardWritingStrokes)),
+          texts: JSON.parse(JSON.stringify(boardWritingTexts)),
+          title: `Desenho (${boardWritingStrokes.length} traço${boardWritingStrokes.length > 1 ? 's' : ''} + ${boardWritingTexts.length} texto${boardWritingTexts.length > 1 ? 's' : ''})`
+        };
+        deletedItems.unshift(clearedItem);
+        if (deletedItems.length > MAX_DELETED_ITEMS) {
+          deletedItems = deletedItems.slice(0, MAX_DELETED_ITEMS);
+        }
+        try {
+          localStorage.setItem('dexi_deleted_items', JSON.stringify(deletedItems));
+        } catch (e) {
+          console.warn("Erro ao salvar histórico de deletados:", e);
+        }
+      }
+      
       boardWritingStrokes = [];
+      boardWritingTexts = [];
       boardWritingCurrentStroke = [];
       boardWritingContext.clearRect(0, 0, boardWritingLayer.width, boardWritingLayer.height);
       renderBoardWritingSvg();
+      document.querySelectorAll('.board-text-element').forEach(el => el.remove());
       localStorage.removeItem('dexi_board_writing_strokes');
+      localStorage.removeItem('dexi_board_writing_texts');
       hideBoardWritingSelection();
     };
 
     window.downloadBoardSelection = function() {
-      if (!boardWritingSelection || boardWritingSelection.width < 2 || boardWritingSelection.height < 2) return;
-      const selectionCanvas = document.createElement('canvas');
-      selectionCanvas.width = Math.ceil(boardWritingSelection.width);
-      selectionCanvas.height = Math.ceil(boardWritingSelection.height);
-      const selectionContext = selectionCanvas.getContext('2d');
-      selectionContext.fillStyle = '#ffffff';
-      selectionContext.fillRect(0, 0, selectionCanvas.width, selectionCanvas.height);
-      selectionContext.drawImage(boardWritingLayer, boardWritingSelection.left, boardWritingSelection.top, boardWritingSelection.width, boardWritingSelection.height, 0, 0, selectionCanvas.width, selectionCanvas.height);
-      const link = document.createElement('a');
-      link.download = `dexi-nota-${Date.now()}.png`;
-      link.href = selectionCanvas.toDataURL('image/png');
-      link.click();
-      hideBoardWritingSelection();
+      const selection = boardWritingSelection || boardWritingSelectionSnapshot;
+      console.log("downloadBoardSelection chamada");
+      console.log("selection:", selection);
+      console.log("boardWritingStrokes:", boardWritingStrokes.length);
+      
+      const minSelectionSize = 5;
+      if (!selection || selection.width < minSelectionSize || selection.height < minSelectionSize) {
+        console.error("Seleção inválida:", selection);
+        alert("⚠️ Selecione uma área maior para baixar!");
+        return null;
+      }
+      
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = Math.ceil(selection.width);
+      finalCanvas.height = Math.ceil(selection.height);
+      const finalContext = finalCanvas.getContext('2d');
+      if (!finalContext) {
+        console.error("Contexto 2D não disponível");
+        return null;
+      }
+      
+      finalContext.fillStyle = '#ffffff';
+      finalContext.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+      
+      if (!boardWritingStrokes || boardWritingStrokes.length === 0) {
+        console.log("Nenhum traço para desenhar");
+        return finalCanvas;
+      }
+      
+      const selectionStrokes = boardWritingStrokes.filter(stroke => {
+        if (!stroke.points || stroke.points.length === 0) return false;
+        return stroke.points.some(point => 
+          point.x >= selection.left &&
+          point.x <= selection.left + selection.width &&
+          point.y >= selection.top &&
+          point.y <= selection.top + selection.height
+        );
+      });
+      
+      console.log("Traços selecionados:", selectionStrokes.length);
+      
+      selectionStrokes.forEach(stroke => {
+        if (stroke.points.length === 0) return;
+        const exportedStrokeColor = (stroke.color && (stroke.color.toLowerCase() === '#ffffff' || stroke.color.toLowerCase() === '#fff')) ? '#000000' : (stroke.color || '#000000');
+        finalContext.beginPath();
+        finalContext.moveTo(
+          stroke.points[0].x - selection.left,
+          stroke.points[0].y - selection.top
+        );
+        stroke.points.slice(1).forEach(point => {
+          finalContext.lineTo(
+            point.x - selection.left,
+            point.y - selection.top
+          );
+        });
+        finalContext.lineCap = 'round';
+        finalContext.lineJoin = 'round';
+        finalContext.strokeStyle = exportedStrokeColor;
+        finalContext.lineWidth = stroke.width || 2;
+        finalContext.stroke();
+      });
+      
+      console.log("Canvas criado com sucesso");
+      return finalCanvas;
+    };
+
+    window.abrirModalDownloadFormat = function() {
+      console.log("Abrindo modal de download");
+      const activeSelection = boardWritingSelection || boardWritingSelectionSnapshot;
+      console.log("boardWritingSelection:", activeSelection);
+      
+      const minSelectionSize = 5;
+      if (!activeSelection || activeSelection.width < minSelectionSize || activeSelection.height < minSelectionSize) {
+        alert("⚠️ Nenhuma seleção válida. Faça uma seleção maior primeiro!");
+        return;
+      }
+
+      boardWritingSelectionSnapshot = { ...activeSelection };
+      document.getElementById('download-format-modal').classList.remove('hidden');
+    };
+
+    window.fecharModalDownloadFormat = function() {
+      console.log("Fechando modal de download");
+      document.getElementById('download-format-modal').classList.add('hidden');
+    };
+
+    window.executarDownloadBoard = function(format) {
+      console.log("Executando download no formato:", format);
+      
+      try {
+        const canvas = downloadBoardSelection();
+        if (!canvas) {
+          console.error("Canvas não foi criado");
+          alert("Erro: não foi possível criar a imagem");
+          return;
+        }
+        
+        console.log("Canvas criado, size:", canvas.width, "x", canvas.height);
+        
+        fecharModalDownloadFormat();
+        
+        const timestamp = Date.now();
+        
+        if (format === 'png') {
+          try {
+            const dataUrl = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = `dexi-nota-${timestamp}.png`;
+            link.href = dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            console.log("PNG baixado");
+            hideBoardWritingSelection();
+          } catch (e) {
+            console.error("Erro ao gerar PNG:", e);
+            alert("Erro ao gerar PNG: " + e.message);
+          }
+        } else if (format === 'jpg') {
+          try {
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+            const link = document.createElement('a');
+            link.download = `dexi-nota-${timestamp}.jpg`;
+            link.href = dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            console.log("JPG baixado");
+            hideBoardWritingSelection();
+          } catch (e) {
+            console.error("Erro ao gerar JPG:", e);
+            alert("Erro ao gerar JPG: " + e.message);
+          }
+        } else if (format === 'pdf') {
+          try {
+            if (!window.jspdf || !window.jspdf.jsPDF) {
+              alert('Erro: jsPDF não está disponível');
+              console.error("jsPDF não disponível");
+              return;
+            }
+            
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const imgData = canvas.toDataURL('image/jpeg', 1.0);
+            const width = canvas.width;
+            const height = canvas.height;
+            const ratio = width / height;
+            
+            // Calcula dimensões para caber no A4
+            let pdfWidth = 190; // margem de 10mm
+            let pdfHeight = pdfWidth / ratio;
+            
+            if (pdfHeight > 277) {
+              pdfHeight = 277;
+              pdfWidth = pdfHeight * ratio;
+            }
+            
+            const xOffset = (210 - pdfWidth) / 2;
+            const yOffset = (297 - pdfHeight) / 2;
+            
+            pdf.addImage(imgData, 'JPEG', xOffset, yOffset, pdfWidth, pdfHeight);
+            pdf.save(`dexi-nota-${timestamp}.pdf`);
+            console.log("PDF baixado");
+            hideBoardWritingSelection();
+          } catch (e) {
+            console.error("Erro ao gerar PDF:", e);
+            alert("Erro ao gerar PDF: " + e.message);
+          }
+        }
+      } catch (e) {
+        console.error("Erro geral ao baixar:", e);
+        alert("Erro ao baixar: " + e.message);
+      }
     };
 
     loadBoardWriting();
@@ -1061,6 +1531,15 @@
     window.addEventListener('touchend', endPan);
 
     document.addEventListener('click', (e) => {
+      const downloadModal = document.getElementById('download-format-modal');
+      const downloadModalOpen = downloadModal && !downloadModal.classList.contains('hidden');
+      const clickedDownloadTrigger = e.target.closest('#download-board-selection');
+      const clickedInsideDownloadModal = e.target.closest('#download-format-modal');
+
+      if (downloadModalOpen || clickedDownloadTrigger || clickedInsideDownloadModal) {
+        return;
+      }
+
       if (boardSelectionJustCreated) {
         boardSelectionJustCreated = false;
         return;
@@ -1130,6 +1609,56 @@
     atualizarCorCanetaPeloTema();
 
     function triggerFolderSelector() { document.getElementById('folder-selector').click(); }
+
+    function detectarMotorBusca() {
+      const ua = navigator.userAgent || '';
+      if (/OPR\//.test(ua) || /Opera/.test(ua)) {
+        return { nome: 'Opera', url: 'https://search.opera.com/search?query=' };
+      }
+      if (/EdgA?\//.test(ua) || /EdgiOS\//.test(ua)) {
+        return { nome: 'Edge', url: 'https://www.bing.com/search?q=' };
+      }
+      if (/Chrome|CriOS/.test(ua)) {
+        return { nome: 'Google', url: 'https://www.google.com/search?q=' };
+      }
+      if (/Firefox/.test(ua)) {
+        return { nome: 'DuckDuckGo', url: 'https://duckduckgo.com/?q=' };
+      }
+      if (/Safari/.test(ua)) {
+        return { nome: 'Google', url: 'https://www.google.com/search?q=' };
+      }
+      return { nome: 'Google', url: 'https://www.google.com/search?q=' };
+    }
+
+    function atualizarBadgeBusca() {
+      const badge = document.getElementById('search-engine-badge');
+      const input = document.getElementById('top-web-search-input');
+      if (!badge || !input) return;
+      const motor = detectarMotorBusca();
+      badge.textContent = motor.nome;
+      input.placeholder = `Pesquisar no ${motor.nome}...`;
+    }
+
+    function executarPesquisaWeb() {
+      const input = document.getElementById('top-web-search-input');
+      const query = input ? input.value.trim() : '';
+      if (!query) {
+        if (input) input.focus();
+        return;
+      }
+      const motor = detectarMotorBusca();
+      const url = `${motor.url}${encodeURIComponent(query)}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
+    document.getElementById('top-web-search-input')?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        executarPesquisaWeb();
+      }
+    });
+
+    atualizarBadgeBusca();
 
     // Entrada de arquivos e links: transforma cada item em um card do quadro.
     async function handleFolderSelection(files) {
@@ -1211,6 +1740,9 @@
       if (selecionados.length === 0) return;
       if (confirm(`Pretende mesmo excluir os ${selecionados.length} cards selecionados?`)) {
         selecionados.forEach(card => {
+          // Salva no histórico antes de deletar
+          adicionarAoHistoricoDeleted(card.cloneNode(true));
+          
           const viewerEl = card.querySelector('[data-viewerid]');
           if (viewerEl && viewerEl.dataset.pdfsourceid) removerPdfDoDb(viewerEl.dataset.pdfsourceid);
           const videoEl = card.querySelector('[data-mediasourceid]');
@@ -1835,6 +2367,9 @@
     window.excluirCard = function(button) {
       const card = button.closest('.codex-card');
       if (card) {
+        // Salva no histórico antes de deletar
+        adicionarAoHistoricoDeleted(card.cloneNode(true));
+        
         const viewerEl = card.querySelector('[data-viewerid]');
         if (viewerEl && viewerEl.dataset.pdfsourceid) removerPdfDoDb(viewerEl.dataset.pdfsourceid);
         const videoEl = card.querySelector('[data-mediasourceid]');
@@ -2217,6 +2752,12 @@
     }
 
     window.limparQuadro = function() {
+      // Salva cards antes de deletar
+      const cards = document.querySelectorAll('.codex-card');
+      if (cards.length > 0) {
+        cards.forEach(card => adicionarAoHistoricoDeleted(card.cloneNode(true)));
+      }
+      
       document.querySelectorAll('.codex-card').forEach(card => card.remove());
       localStorage.removeItem('dexi_codex_cards');
       atualizarToolbarSelecao();
@@ -2228,6 +2769,172 @@
       }
       if (googleAccessToken) agendarSyncDrive('[]');
     }
+
+    // ========================================== 
+    // SISTEMA DE HISTÓRICO DE DELETADOS (INÍCIO)
+    // ========================================== 
+    let deletedItems = [];
+    const MAX_DELETED_ITEMS = 50;
+
+    function adicionarAoHistoricoDeleted(elemento) {
+      const htmlContent = elemento.outerHTML;
+      const timestamp = new Date().toLocaleString('pt-BR');
+      const deletedItem = {
+        id: Date.now(),
+        html: htmlContent,
+        timestamp: timestamp,
+        tipo: elemento.querySelector('.card-header')?.textContent?.trim() || 'Card'
+      };
+      
+      deletedItems.unshift(deletedItem);
+      
+      // Limita o histórico a 50 itens
+      if (deletedItems.length > MAX_DELETED_ITEMS) {
+        deletedItems = deletedItems.slice(0, MAX_DELETED_ITEMS);
+      }
+      
+      // Salva no localStorage
+      try {
+        localStorage.setItem('dexi_deleted_items', JSON.stringify(deletedItems));
+      } catch (e) {
+        console.warn("Erro ao salvar histórico de deletados:", e);
+      }
+    }
+
+    function carregarHistoricoDeleted() {
+      try {
+        const saved = localStorage.getItem('dexi_deleted_items');
+        if (saved) {
+          deletedItems = JSON.parse(saved);
+        }
+      } catch (e) {
+        console.warn("Erro ao carregar histórico de deletados:", e);
+        deletedItems = [];
+      }
+    }
+
+    window.abrirModalRecuperaveis = function() {
+      carregarHistoricoDeleted();
+      const modal = document.getElementById('recuperaveis-modal');
+      const content = document.getElementById('recuperaveis-content');
+      
+      if (deletedItems.length === 0) {
+        content.innerHTML = '<p class="text-center text-slate-500 dark:text-slate-400 text-sm py-8">Nenhum item deletado. O histórico está vazio.</p>';
+        document.getElementById('recuperaveis-recuperar-todos').disabled = true;
+        document.getElementById('recuperaveis-limpar-todos').disabled = true;
+      } else {
+        let html = '<div class="space-y-2">';
+        deletedItems.forEach((item, index) => {
+          const isDrawing = item.type === 'drawing';
+          const icon = isDrawing ? '✏️' : '📄';
+          const tipo = isDrawing ? item.title : escapeHTML(item.tipo || 'Card');
+          const badgeClass = isDrawing ? 'bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200' : 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200';
+          const tipoBadge = isDrawing ? 'Desenho' : 'Card';
+          
+          html += `
+            <div class="flex items-center justify-between p-3 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-lg">${icon}</span>
+                  <p class="text-sm font-semibold text-slate-800 dark:text-slate-200 flex-1">${tipo}</p>
+                  <span class="text-xs px-2 py-1 rounded ${badgeClass} font-bold">${tipoBadge}</span>
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400 ml-7">${item.timestamp}</p>
+              </div>
+              <button onclick="recuperarItemDeletado(${item.id})" class="ml-3 bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex-shrink-0">Recuperar</button>
+              <button onclick="removerDoHistorico(${item.id})" class="ml-2 bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex-shrink-0">Deletar</button>
+            </div>
+          `;
+        });
+        html += '</div>';
+        content.innerHTML = html;
+        document.getElementById('recuperaveis-recuperar-todos').disabled = false;
+        document.getElementById('recuperaveis-limpar-todos').disabled = false;
+      }
+      
+      modal.classList.remove('hidden');
+    }
+
+    window.fecharModalRecuperaveis = function() {
+      document.getElementById('recuperaveis-modal').classList.add('hidden');
+    }
+
+    window.recuperarItemDeletado = function(itemId) {
+      const item = deletedItems.find(i => i.id === itemId);
+      if (!item) return;
+      
+      if (item.type === 'drawing') {
+        // Recupera desenho
+        boardWritingStrokes = boardWritingStrokes.concat(item.strokes);
+        saveBoardWriting();
+        renderBoardWriting();
+      } else {
+        // Recupera card (HTML)
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = item.html;
+        const card = tempDiv.firstChild;
+        document.getElementById('canvas').appendChild(card);
+      }
+      
+      // Remove do histórico
+      deletedItems = deletedItems.filter(i => i.id !== itemId);
+      localStorage.setItem('dexi_deleted_items', JSON.stringify(deletedItems));
+      
+      // Recarrega o modal
+      abrirModalRecuperaveis();
+      
+      // Salva o estado
+      salvarEstadoNoStorage();
+    }
+
+    window.recuperarTodosDeletados = function() {
+      if (deletedItems.length === 0) return;
+      
+      deletedItems.forEach(item => {
+        if (item.type === 'drawing') {
+          // Recupera desenho
+          boardWritingStrokes = boardWritingStrokes.concat(item.strokes);
+        } else {
+          // Recupera card (HTML)
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = item.html;
+          const card = tempDiv.firstChild;
+          document.getElementById('canvas').appendChild(card);
+        }
+      });
+      
+      // Salva desenhos
+      saveBoardWriting();
+      renderBoardWriting();
+      
+      deletedItems = [];
+      localStorage.removeItem('dexi_deleted_items');
+      abrirModalRecuperaveis();
+      salvarEstadoNoStorage();
+    }
+
+    window.removerDoHistorico = function(itemId) {
+      if (confirm('Tem certeza que deseja remover permanentemente este item do histórico?')) {
+        deletedItems = deletedItems.filter(i => i.id !== itemId);
+        localStorage.setItem('dexi_deleted_items', JSON.stringify(deletedItems));
+        abrirModalRecuperaveis();
+      }
+    }
+
+    window.limparTodoHistorico = function() {
+      if (confirm('Tem certeza que deseja remover PERMANENTEMENTE todos os itens do histórico? Esta ação não pode ser desfeita.')) {
+        deletedItems = [];
+        localStorage.removeItem('dexi_deleted_items');
+        abrirModalRecuperaveis();
+      }
+    }
+
+    // Carrega histórico ao iniciar
+    carregarHistoricoDeleted();
+    // ========================================== 
+    // SISTEMA DE HISTÓRICO DE DELETADOS (FIM)
+    // ========================================== 
+
 
     function escapeHTML(str) {
       return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
@@ -2246,6 +2953,10 @@
 
     document.getElementById('preview-modal').addEventListener('click', function (e) {
       if (e.target === this) closeModal();
+    });
+
+    document.getElementById('download-format-modal').addEventListener('click', function (e) {
+      if (e.target === this) fecharModalDownloadFormat();
     });
 
     function endAllInteractions() {
@@ -2463,12 +3174,56 @@
       canvases.forEach((canvasEl, index) => {
         if (index > 0) pdf.addPage(format, orientation);
         
+        // Canvas temporário apenas com os traços (fundo transparente)
+        const strokesCanvas = document.createElement('canvas');
+        strokesCanvas.width = canvasEl.width;
+        strokesCanvas.height = canvasEl.height;
+        const sCtx = strokesCanvas.getContext('2d');
+        sCtx.drawImage(canvasEl, 0, 0);
+        
+        // Detecta se há traços brancos
+        const strokeData = sCtx.getImageData(0, 0, strokesCanvas.width, strokesCanvas.height);
+        const data = strokeData.data;
+        let hasWhiteStrokes = false;
+        
+        for (let i = 0; i < data.length; i += 4) {
+          const a = data[i + 3];
+          if (a > 128) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            if (r > 200 && g > 200 && b > 200) {
+              hasWhiteStrokes = true;
+              break;
+            }
+          }
+        }
+        
+        // Se detectou traços brancos, inverte apenas os traços
+        if (hasWhiteStrokes) {
+          for (let i = 0; i < data.length; i += 4) {
+            const a = data[i + 3];
+            if (a > 128) {
+              data[i] = 255 - data[i];           // R
+              data[i + 1] = 255 - data[i + 1];   // G
+              data[i + 2] = 255 - data[i + 2];   // B
+            }
+          }
+          sCtx.putImageData(strokeData, 0, 0);
+        }
+        
+        // Canvas final: fundo branco + traços processados
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = canvasEl.width;
         tempCanvas.height = canvasEl.height;
         const tCtx = tempCanvas.getContext('2d');
         
-        tCtx.drawImage(canvasEl, 0, 0);
+        // Fundo branco
+        tCtx.fillStyle = '#ffffff';
+        tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+        
+        // Traços processados
+        tCtx.drawImage(strokesCanvas, 0, 0);
 
         const wrapper = canvasEl.closest('.canvas-item-wrapper');
         const textarea = wrapper ? wrapper.querySelector('.note-textarea') : null;
