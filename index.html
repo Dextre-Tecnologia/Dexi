@@ -1,25 +1,51 @@
 <!DOCTYPE html>
 <html lang="pt-BR" class="dark">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Dexi</title>
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
   <meta name="description" content="Seu Codex de Conteúdos">
-  
-  <!-- Dependências externas: estilos utilitários, interação, PDF, React e TLDraw. -->
+  <!-- Bibliotecas usadas para estilos, arraste, PDFs, ZIP e notas TLDraw. -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/tldraw/tldraw.css">
+  <!-- Estilos do editor de texto livre sobre o quadro. -->
   <style>
     .board-text-element { pointer-events: auto; }
-    .board-text-input { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .board-text-input {
+      display: block;
+      box-sizing: border-box;
+      min-width: 24px;
+      min-height: 30px;
+      padding: 3px 5px;
+      border: 1px solid transparent;
+      border-radius: 3px;
+      outline: none;
+      background: transparent;
+      color: inherit;
+      font: 16px/1.4 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      white-space: pre-wrap;
+      overflow: auto;
+      resize: both;
+      caret-color: #d97706;
+      touch-action: auto;
+    }
+    .board-text-input:focus {
+      border-color: #f59e0b;
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.16);
+    }
+    .writing-eraser .board-text-element,
+    .writing-eraser .board-text-input {
+      pointer-events: none !important;
+    }
   </style>
+  <!-- Carrega TLDraw como módulo opcional para notas que usam esse editor. -->
   <script type="module">
     try {
       const ReactModule = await import('https://esm.sh/react@18.3.1');
@@ -39,13 +65,10 @@
       console.error('Erro ao carregar TLDraw:', error);
     }
   </script>
-  <!-- API do Google para Login e Sincronização 
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-  -->
-  
+  <!-- Configura a paleta utilitária e o worker de leitura de PDFs. -->
   <script>
     tailwind.config = {
-      darkMode: 'class', 
+      darkMode: 'class',
       theme: {
         extend: {
           colors: {
@@ -68,13 +91,29 @@
  
 </head>
 
-<!-- Interface principal: barra lateral, quadro infinito, ferramentas flutuantes e modais. -->
 <body class="bg-[#f8f7f4] dark:bg-[#0f172a] text-[#1e293b] dark:text-[#f8f7f4] min-h-screen overflow-hidden font-sans transition-colors duration-200 relative">
 
-  <input type="file" id="folder-selector" multiple class="hidden" onchange="handleFolderSelection(this.files)">
+  <!-- Seletores invisíveis acionados pelos comandos Arquivar. -->
+  <input type="file" id="folder-selector" webkitdirectory directory multiple class="hidden" onchange="handleFolderSelection(this.files)">
+  <input type="file" id="archive-files-selector" multiple class="hidden" onchange="handleIndividualFileSelection(this.files)">
+
+  <!-- Escolha entre importar uma pasta completa ou arquivos independentes. -->
+  <div id="archive-source-modal" class="fixed inset-0 z-[110] hidden items-center justify-center bg-black/50 p-4" onclick="if (event.target === this) fecharSeletorArquivamento()">
+    <div class="w-full max-w-xs rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-700 dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="archive-source-title">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 id="archive-source-title" class="text-sm font-bold text-slate-800 dark:text-slate-100">O que deseja arquivar?</h2>
+        <button type="button" onclick="fecharSeletorArquivamento()" class="h-8 w-8 rounded-lg text-lg text-slate-400 hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-slate-800" aria-label="Fechar">×</button>
+      </div>
+      <div class="grid gap-2">
+        <button type="button" onclick="abrirSeletorDePastas()" class="rounded-xl border border-green-200 bg-green-50 px-3 py-3 text-left text-sm font-semibold text-green-800 hover:bg-green-100 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300 dark:hover:bg-green-950/70">Pasta inteira <span class="mt-0.5 block text-xs font-normal opacity-75">Cria um card FOLDERS</span></button>
+        <button type="button" onclick="abrirSeletorDeArquivos()" class="rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-left text-sm font-semibold text-blue-800 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/70">Arquivos isolados <span class="mt-0.5 block text-xs font-normal opacity-75">Cria um card para cada arquivo</span></button>
+      </div>
+    </div>
+  </div>
 
   <button id="trigger-left" onclick="toggleMenu(true)" class="fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-amber-500 hover:bg-amber-600 text-white p-3 rounded-r-xl shadow-lg transition-all font-bold hidden">&gt;</button>
 
+  <!-- Ações em lote para os cards selecionados no quadro. -->
   <div id="selection-toolbar" class="fixed top-2 sm:top-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 backdrop-blur border border-slate-800 text-white px-2.5 sm:px-5 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl shadow-2xl flex flex-wrap items-center justify-center gap-1.5 sm:gap-4 transition-all duration-200 transform scale-95 opacity-0 pointer-events-none w-[95vw] sm:w-auto max-w-xl">
     <span id="selection-count" class="text-[10px] sm:text-xs font-mono font-bold text-amber-400 whitespace-nowrap">0 selecionados</span>
     <div class="hidden sm:block w-px h-4 bg-slate-700"></div>
@@ -83,6 +122,7 @@
     <button onclick="excluirSelecionados()" class="text-[10px] sm:text-xs bg-rose-600 hover:bg-rose-700 text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-bold transition-all shadow-sm whitespace-nowrap">Excluir</button>
   </div>
 
+  <!-- Ferramentas de escrita, seleção e exportação do quadro. -->
   <div id="writing-toolbar" class="fixed bottom-2 left-2 right-2 sm:bottom-4 sm:left-1/2 sm:-translate-x-1/2 z-[90] hidden flex-wrap justify-center items-center gap-1 sm:gap-2 bg-slate-900/95 backdrop-blur border border-slate-700 text-white px-2 sm:px-3 py-2 rounded-xl sm:rounded-2xl shadow-2xl max-w-[calc(100vw-1rem)]">
     <button onclick="toggleBoardWriting(true); setBoardWritingMode('pen')" data-writing-mode="pen" class="writing-tool-button active w-7 h-7 sm:w-8 sm:h-8 text-sm sm:text-base" title="Caneta">✏️</button>
     <button onclick="setBoardWritingMode('eraser')" data-writing-mode="eraser" class="writing-tool-button w-7 h-7 sm:w-8 sm:h-8 text-sm sm:text-base" title="Borracha">🧽</button>
@@ -90,13 +130,13 @@
     <button onclick="setBoardWritingMode('move')" data-writing-mode="move" class="writing-tool-button w-7 h-7 sm:w-8 sm:h-8 text-sm sm:text-base" title="Mover pelo quadro">↔️</button>
     <button onclick="setBoardWritingMode('text')" data-writing-mode="text" class="writing-tool-button w-7 h-7 sm:w-8 sm:h-8 text-sm sm:text-base" title="Teclado">⌨️</button>
     <button onclick="criarStickyNote()" class="writing-tool-button w-7 h-7 sm:w-8 sm:h-8 text-sm sm:text-base" title="Criar sticky note">🗒️</button>
-    <input id="board-stroke-width" type="number" min="1" max="50" value="4" class="writing-size-input w-10 h-7 sm:w-12 sm:h-8 text-xs sm:text-sm" title="Espessura do traço" aria-label="Espessura do traço">
+    <input id="board-stroke-width" type="number" min="1" max="50" value="4" class="writing-size-input w-10 h-7 sm:w-12 sm:h-8 text-xs sm:text-sm" title="Espessura do traço / tamanho do texto" aria-label="Espessura do traço e tamanho do texto">
     <input id="board-stroke-color" type="color" value="#1e293b" class="writing-color-input w-7 h-7 sm:w-8 sm:h-8" title="Cor do traço" aria-label="Cor do traço">
-    <button onclick="clearBoardWriting()" class="writing-tool-button w-7 h-7 sm:w-8 sm:h-8 text-sm sm:text-base" title="Apagar tudo">🗑️</button>
     <button id="download-board-selection" onclick="abrirModalDownloadFormat()" class="writing-command-button px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm rounded-lg" disabled title="Baixar seleção">Baixar</button>
     <button onclick="toggleBoardWriting(false)" class="writing-close-button px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm rounded-lg" title="Fechar Notar">Fechar</button>
   </div>
 
+  <!-- Controles flutuantes de zoom e multisseleção. -->
   <div class="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2">
     <button onclick="toggleFloatingTools()" id="floating-toggle-btn" class="w-10 h-10 rounded-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all font-bold text-sm flex items-center justify-center shadow-xl text-slate-500 dark:text-slate-400 z-50" title="Ocultar Ferramentas">▼</button>
     <div id="floating-tools-panel" class="flex flex-col gap-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur border border-slate-200 dark:border-slate-800 p-2 rounded-2xl shadow-xl transition-all duration-300 transform origin-bottom">
@@ -108,7 +148,9 @@
     </div>
   </div>
 
+  <!-- Layout principal: barra lateral e superfície do quadro infinito. -->
   <div class="flex h-screen w-screen relative overflow-hidden">
+    <!-- Identidade, ações globais e atalhos de navegação. -->
     <aside id="sidebar" class="fixed top-0 left-0 h-full w-[280px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-6 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between z-50 overflow-y-auto transition-colors duration-200 shadow-2xl transform none">
       <div>
         <div class="flex justify-between items-center mb-2">
@@ -125,22 +167,12 @@
           <p class="text-[0.72rem] tracking-[0.18em] uppercase text-slate-500 dark:text-slate-400 m-0">Codex</p>
         </div>
 
-        <!-- BOTAO GOOGLE LOGIN PARA SINCRONIZACAO
-        <div class="mb-4">
-          <button id="google-login-btn" onclick="handleGoogleLogin()" class="w-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 transition-all text-xs flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm">
-            Sincronizar
-          </button>
-        </div>
-      -->
-
         <div class="flex flex-col gap-2 mb-6">
           <button onclick="triggerFolderSelector()" class="w-full bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 font-medium py-2 px-4 rounded-xl border border-green-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Arquivar</button>
           <button onclick="colarLinkManual()" class="w-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium py-2 px-4 rounded-xl border border-blue-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Colar</button>
           <button onclick="toggleBoardWriting(true)" class="w-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-medium py-2 px-4 rounded-xl border border-amber-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Notar</button>
-          <br>
           <button onclick="limparQuadro()" class="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-medium py-2 px-4 rounded-xl border border-rose-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Deletar</button>
           <button onclick="abrirModalRecuperaveis()" class="w-full bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 font-medium py-2 px-4 rounded-xl border border-purple-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Gerenciar</button>
-        
       </div>
 
       <a href="https://github.com/Dextre-Tecnologia/Dexi" target="_blank" rel="noopener noreferrer" class="absolute bottom-4 left-4 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-lg shadow-slate-400/20 transition-transform duration-200 hover:scale-105 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Abrir GitHub">
@@ -148,17 +180,18 @@
       </a>
     </aside>
 
+    <!-- Camadas de cards, traços livres e área de seleção. -->
     <div id="board-wrapper" class="bg-grid-light dark:bg-grid-dark transition-all duration-200" style="background-size: 32px 32px;">
       <div id="canvas-container">
         <main class="w-full h-full relative select-none" id="canvas"></main>
         <canvas id="board-writing-layer" width="100%" height="100%" aria-label="Camada de escrita do quadro"></canvas>
         <svg id="board-writing-svg" width="100%" height="100%" aria-label="Traços do quadro"></svg>
         <div id="board-writing-selection" aria-hidden="true"></div>
-        
       </div>
     </div>
   </div>
 
+  <!-- Modal reutilizado para visualizar arquivos e conteúdo de cards. -->
   <div id="preview-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
     <div class="relative bg-white dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-2xl max-w-5xl w-full h-[90vh] flex flex-col shadow-2xl transition-all duration-200">
       <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center shrink-0">
@@ -169,6 +202,7 @@
     </div>
   </div>
 
+  <!-- Modal para nomear e escolher o formato de uma nova nota. -->
   <div id="paper-select-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
     <div class="relative bg-white dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-2xl w-full max-w-sm flex flex-col shadow-2xl transition-all duration-200 overflow-hidden">
       <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
@@ -178,7 +212,6 @@
       <div class="p-5 flex flex-col">
         <label class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Título da Nota</label>
         <input type="text" id="nota-nome-input" value="Folha Rascunho" class="mb-5 w-full text-sm px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-white focus:outline-none focus:border-amber-500 transition-colors" placeholder="Nome da folha">
-        
         <label class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Formato da Folha</label>
         <div class="grid grid-cols-3 gap-3 mb-2">
           <button onclick="criarNotaFromModal('A4')" class="py-4 px-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-amber-500 hover:text-white transition-all flex flex-col items-center justify-center gap-2 border border-slate-200 dark:border-slate-700 shadow-sm group">
@@ -198,6 +231,7 @@
     </div>
   </div>
 
+  <!-- Histórico de cards e desenhos removidos, com ações de recuperação. -->
   <div id="recuperaveis-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
     <div class="relative bg-white dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-2xl w-full max-w-2xl flex flex-col shadow-2xl transition-all duration-200 overflow-hidden h-[80vh]">
       <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
@@ -215,7 +249,7 @@
     </div>
   </div>
 
-  <!-- Modal de Escolha de Formato de Download -->
+  <!-- Modal que escolhe PNG, JPG ou PDF para a seleção do quadro. -->
   <div id="download-format-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
     <div class="relative bg-white dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-2xl w-full max-w-sm flex flex-col shadow-2xl transition-all duration-200 overflow-hidden">
       <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
@@ -239,6 +273,7 @@
     </div>
   </div>
 
+  <!-- Busca web responsiva e indicador do mecanismo de pesquisa. -->
   <div id="top-web-search" class="fixed left-2 right-2 top-3 z-40 max-w-[calc(100%-1rem)] sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-[min(58vw,620px)]">
     <div class="flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-white/90 p-2 shadow-xl backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/80">
       <div id="search-engine-badge" class="flex h-9 min-w-[70px] items-center justify-center rounded-xl bg-slate-100 px-2 text-[9px] font-black uppercase tracking-[0.16em] text-slate-700 dark:bg-slate-800 dark:text-slate-200 sm:text-[10px]">Google</div>
@@ -247,10 +282,11 @@
     </div>
   </div>
 
+  <!-- Relógio e painéis sobrepostos de favoritos e tarefas do calendário. -->
   <div id="digital-clock-widget" class="fixed right-2 top-[5.5rem] z-50 flex flex-col items-center rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/80 sm:right-6 sm:top-6 sm:min-w-[220px]">
-    <div id="clock-display" class="text-2xl font-mono font-black tracking-wider text-slate-800 dark:text-slate-100 sm:text-3xl">
+    <button id="clock-display" type="button" class="cursor-pointer text-2xl font-mono font-black tracking-wider text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 dark:text-slate-100 sm:text-3xl" title="Abrir calendário e tarefas" aria-label="Abrir calendário e tarefas">
       00:00:00
-    </div>
+    </button>
     <div id="date-display" class="mb-2 text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 sm:text-[10px]">
       Carregando...
     </div>
@@ -268,13 +304,13 @@
       <button id="favorite-sites-toggle" type="button" class="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 bg-amber-100 text-base font-bold text-amber-700 transition hover:bg-amber-200 dark:border-amber-700 dark:bg-amber-500/10 dark:text-amber-300" title="Favoritos" aria-label="Abrir favoritos">★</button>
     </div>
 
-    <div id="favorite-sites-panel" class="absolute right-0 top-full z-[80] mt-2 hidden w-[300px] max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur dark:border-slate-700 dark:bg-slate-950/95">
+    <div id="favorite-sites-panel" class="absolute right-0 top-full z-[80] mt-2 hidden max-h-[calc(100dvh-8rem)] w-[300px] max-w-[calc(100vw-1rem)] flex-col overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur dark:border-slate-700 dark:bg-slate-950/95">
       <div class="mb-2 flex items-center justify-between">
         <h4 class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-700 dark:text-slate-200">Favoritos</h4>
         <button id="close-favorite-panel" type="button" class="text-lg font-bold text-slate-400 transition hover:text-rose-500" aria-label="Fechar favoritos">×</button>
       </div>
-      <div id="favorite-sites-list" class="grid gap-2"></div>
-      <div class="mt-3 border-t border-slate-200 pt-3 dark:border-slate-700">
+      <div id="favorite-sites-list" class="grid max-h-[min(42dvh,320px)] gap-2 overflow-y-auto overscroll-contain pr-1"></div>
+      <div class="mt-3 shrink-0 border-t border-slate-200 pt-3 dark:border-slate-700">
         <div class="grid grid-cols-2 gap-2">
           <input id="favorite-name-input" type="text" placeholder="Nome" class="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-[10px] text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500">
           <input id="favorite-url-input" type="url" placeholder="https://site.com" class="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-[10px] text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500">
@@ -282,6 +318,36 @@
         <button id="add-favorite-btn" type="button" class="mt-2 w-full rounded-xl bg-amber-500 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-900 transition hover:bg-amber-400">Adicionar</button>
       </div>
     </div>
+    <section id="calendar-alarm-panel" class="absolute right-0 top-full z-[80] mt-2 hidden w-[min(340px,calc(100vw-1rem))] rounded-xl border border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur dark:border-slate-700 dark:bg-slate-950/95" aria-label="Calendário e tarefas">
+      <div class="mb-2 flex items-center justify-between">
+        <button id="calendar-previous-month" type="button" class="h-8 w-8 rounded-lg text-lg hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Mês anterior">‹</button>
+        <h3 id="calendar-month-label" class="text-xs font-black uppercase text-slate-700 dark:text-slate-200"></h3>
+        <button id="calendar-next-month" type="button" class="h-8 w-8 rounded-lg text-lg hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Próximo mês">›</button>
+      </div>
+      <div class="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400"><span>Do</span><span>Se</span><span>Te</span><span>Qu</span><span>Qi</span><span>Se</span><span>Sa</span></div>
+      <div id="calendar-days" class="mt-1 grid grid-cols-7 gap-1"></div>
+      <div class="mt-3 border-t border-slate-200 pt-3 dark:border-slate-700">
+        <div class="mb-2 grid gap-2">
+          <input id="task-title" type="text" maxlength="120" placeholder="Nome da tarefa" aria-label="Nome da tarefa" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+          <div class="flex items-center gap-2">
+            <input id="task-date" type="date" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" aria-label="Data da tarefa">
+            <input id="task-time" type="time" value="09:00" class="w-24 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" aria-label="Horário da tarefa">
+            <button id="add-task-button" type="button" class="rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400" title="Adicionar tarefa" aria-label="Adicionar tarefa">+</button>
+          </div>
+        </div>
+        <div class="mb-2 flex items-center gap-2">
+          <label for="task-sound-select" class="shrink-0 text-[10px] font-semibold text-slate-500 dark:text-slate-400">Som do aviso</label>
+          <select id="task-sound-select" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10px] text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+            <option value="bell">Sino</option>
+            <option value="double">Dois toques</option>
+            <option value="soft">Suave</option>
+            <option value="none">Sem som</option>
+          </select>
+          <button id="test-task-sound" type="button" class="rounded-lg border border-slate-200 px-2 py-1.5 text-[10px] font-bold text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" title="Testar som selecionado">Testar</button>
+        </div>
+        <ul id="task-list" class="max-h-32 space-y-1 overflow-auto" aria-label="Lista de tarefas"></ul>
+      </div>
+    </section>
   </div>
 
 
@@ -308,7 +374,7 @@
 
 
 
-  <!-- FUNCIONALIDADES -->
+  <!-- Script principal: calendário, quadro, arquivamento, cards e notas. -->
   <script>
     // Relógio digital e seleção de fuso horário.
     // ==========================================
@@ -357,11 +423,246 @@
     // Inicia a rotina de atualização (1000ms = 1 segundo)
     setInterval(updateClock, 1000);
     setTimeout(updateClock, 100); // Roda imediatamente na abertura
+
+    // Estado do calendário, tarefas salvas e escolha de som das notificações.
+    const calendarAlarmPanel = document.getElementById('calendar-alarm-panel');
+    const taskSoundSelect = document.getElementById('task-sound-select');
+    const savedTaskSound = localStorage.getItem('dexi_task_sound');
+    if (savedTaskSound && taskSoundSelect.querySelector(`option[value="${savedTaskSound}"]`)) taskSoundSelect.value = savedTaskSound;
+    let calendarMonth = new Date();
+    let selectedTaskDate = new Date();
+    let scheduledTasks = [];
+    let taskAudioContext = null;
+    try {
+      const savedTasks = JSON.parse(localStorage.getItem('dexi_tasks') || '[]');
+      if (Array.isArray(savedTasks)) scheduledTasks = savedTasks;
+    } catch (error) {
+      scheduledTasks = [];
+    }
+
+    function formatLocalDate(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    // Renderiza o mês atual e marca os dias que possuem tarefas pendentes.
+    function renderCalendar() {
+      const year = calendarMonth.getFullYear();
+      const month = calendarMonth.getMonth();
+      const firstWeekday = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      document.getElementById('calendar-month-label').textContent = calendarMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+      const days = document.getElementById('calendar-days');
+      days.replaceChildren();
+      for (let blank = 0; blank < firstWeekday; blank++) days.appendChild(document.createElement('span'));
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day);
+        const dateValue = formatLocalDate(date);
+        const hasTask = scheduledTasks.some(task => task.date === dateValue && !task.completed);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `relative flex h-8 items-center justify-center rounded-lg text-xs transition hover:bg-amber-100 dark:hover:bg-slate-800 ${dateValue === formatLocalDate(selectedTaskDate) ? 'bg-amber-500 font-bold text-slate-900' : 'text-slate-700 dark:text-slate-200'} ${dateValue === formatLocalDate(new Date()) ? 'ring-1 ring-amber-500' : ''}`;
+        button.setAttribute('aria-label', `${date.toLocaleDateString('pt-BR', { dateStyle: 'full' })}${hasTask ? ', tem tarefa' : ''}`);
+        button.append(document.createTextNode(String(day)));
+        if (hasTask) {
+          const marker = document.createElement('span');
+          marker.className = 'absolute bottom-0.5 h-1 w-1 rounded-full bg-rose-500';
+          button.appendChild(marker);
+        }
+        button.addEventListener('click', () => {
+          selectedTaskDate = date;
+          document.getElementById('task-date').value = dateValue;
+          renderCalendar();
+          renderTasks();
+        });
+        days.appendChild(button);
+      }
+      document.getElementById('task-date').value = formatLocalDate(selectedTaskDate);
+    }
+
+    function saveTasks() {
+      localStorage.setItem('dexi_tasks', JSON.stringify(scheduledTasks));
+    }
+
+    // Atualiza a lista do dia selecionado e os controles de conclusão.
+    function renderTasks() {
+      const list = document.getElementById('task-list');
+      list.replaceChildren();
+      const selectedDate = formatLocalDate(selectedTaskDate);
+      const visibleTasks = scheduledTasks.filter(task => task.date === selectedDate);
+      if (!visibleTasks.length) {
+        const empty = document.createElement('li');
+        empty.className = 'py-2 text-center text-[10px] text-slate-400';
+        empty.textContent = 'Nenhuma tarefa nesta data';
+        list.appendChild(empty);
+      }
+      visibleTasks.forEach(task => {
+        const row = document.createElement('li');
+        row.className = 'flex items-center gap-2 rounded-lg bg-slate-100 px-2 py-1.5 text-[10px] dark:bg-slate-900';
+        const complete = document.createElement('input');
+        complete.type = 'checkbox';
+        complete.checked = Boolean(task.completed);
+        complete.className = 'h-4 w-4 shrink-0 accent-amber-500';
+        complete.setAttribute('aria-label', `Marcar ${task.title} como concluída`);
+        complete.addEventListener('change', () => {
+          task.completed = complete.checked;
+          saveTasks();
+          renderTasks();
+          renderCalendar();
+        });
+        const label = document.createElement('span');
+        label.className = `min-w-0 flex-1 ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700 dark:text-slate-200'}`;
+        const localDate = new Date(`${task.date}T00:00:00`);
+        label.textContent = `${task.title} · ${localDate.toLocaleDateString('pt-BR')} ${task.time || '09:00'}`;
+        label.title = label.textContent;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = '×';
+        remove.className = 'px-1 text-base font-bold text-slate-400 hover:text-rose-500';
+        remove.setAttribute('aria-label', `Remover tarefa ${task.title}`);
+        remove.addEventListener('click', () => {
+          scheduledTasks = scheduledTasks.filter(item => item.id !== task.id);
+          saveTasks();
+          renderTasks();
+          renderCalendar();
+        });
+        row.append(complete, label, remove);
+        list.appendChild(row);
+      });
+    }
+
+    // Mostra o aviso do navegador e toca o som escolhido para a tarefa vencida.
+    function showTaskNotification(task) {
+      let toast = document.getElementById('task-toast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'task-toast';
+        toast.className = 'fixed left-1/2 top-4 z-[120] -translate-x-1/2 rounded-xl border border-amber-400 bg-amber-100 px-4 py-3 text-sm font-bold text-slate-900 shadow-2xl dark:bg-amber-300';
+        toast.setAttribute('role', 'alert');
+        document.body.appendChild(toast);
+      }
+      toast.textContent = `Tarefa: ${task.title}`;
+      try {
+        if ('Notification' in window && Notification.permission === 'granted') new Notification('Dexi: tarefa', { body: task.title, tag: task.id });
+      } catch (error) {}
+      toast.onclick = () => toast.remove();
+      playTaskSound();
+    }
+
+    function enableTaskSound() {
+      try {
+        const AudioContextType = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextType) return;
+        if (!taskAudioContext) taskAudioContext = new AudioContextType();
+        if (taskAudioContext.state === 'suspended') taskAudioContext.resume().catch(() => {});
+      } catch (error) {}
+    }
+
+    async function playTaskSound() {
+      const pattern = {
+        bell: [{ frequency: 880, delay: 0, duration: 0.55 }, { frequency: 1175, delay: 0.16, duration: 0.65 }],
+        double: [{ frequency: 740, delay: 0, duration: 0.18 }, { frequency: 740, delay: 0.28, duration: 0.18 }],
+        soft: [{ frequency: 523, delay: 0, duration: 0.5 }, { frequency: 659, delay: 0.22, duration: 0.55 }]
+      }[taskSoundSelect.value];
+      if (!pattern) return;
+      enableTaskSound();
+      if (!taskAudioContext) return;
+      try {
+        if (taskAudioContext.state === 'suspended') await taskAudioContext.resume();
+        pattern.forEach(note => {
+          const startAt = taskAudioContext.currentTime + note.delay;
+          const oscillator = taskAudioContext.createOscillator();
+          const gain = taskAudioContext.createGain();
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(note.frequency, startAt);
+          gain.gain.setValueAtTime(0.0001, startAt);
+          gain.gain.exponentialRampToValueAtTime(0.18, startAt + 0.025);
+          gain.gain.exponentialRampToValueAtTime(0.0001, startAt + note.duration);
+          oscillator.connect(gain);
+          gain.connect(taskAudioContext.destination);
+          oscillator.start(startAt);
+          oscillator.stop(startAt + note.duration + 0.03);
+        });
+      } catch (error) {}
+    }
+
+    taskSoundSelect.addEventListener('change', () => localStorage.setItem('dexi_task_sound', taskSoundSelect.value));
+    document.getElementById('test-task-sound').addEventListener('click', playTaskSound);
+
+    document.getElementById('clock-display').addEventListener('click', () => {
+      enableTaskSound();
+      document.getElementById('favorite-sites-panel').classList.add('hidden');
+      calendarAlarmPanel.classList.toggle('hidden');
+      const clockWidget = document.getElementById('digital-clock-widget');
+      clockWidget.classList.remove('clock-widget-pop');
+      requestAnimationFrame(() => clockWidget.classList.add('clock-widget-pop'));
+      renderCalendar();
+      renderTasks();
+    });
+    document.getElementById('calendar-previous-month').addEventListener('click', () => {
+      calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
+      renderCalendar();
+    });
+    document.getElementById('calendar-next-month').addEventListener('click', () => {
+      calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
+      renderCalendar();
+    });
+    document.getElementById('task-date').addEventListener('change', event => {
+      const [year, month, day] = event.target.value.split('-').map(Number);
+      if (!year) return;
+      selectedTaskDate = new Date(year, month - 1, day);
+      calendarMonth = new Date(year, month - 1, 1);
+      renderCalendar();
+      renderTasks();
+    });
+    document.getElementById('add-task-button').addEventListener('click', () => {
+      enableTaskSound();
+      const titleInput = document.getElementById('task-title');
+      const title = titleInput.value.trim();
+      const date = document.getElementById('task-date').value;
+      const time = document.getElementById('task-time').value || '09:00';
+      if (!title || !date || Number.isNaN(new Date(`${date}T${time}`).getTime())) {
+        alert('Informe o nome, a data e o horário da tarefa.');
+        return;
+      }
+      scheduledTasks.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, title, date, time, completed: false, notified: false });
+      scheduledTasks.sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+      titleInput.value = '';
+      try {
+        if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
+      } catch (error) {}
+      saveTasks();
+      renderTasks();
+      renderCalendar();
+    });
+    document.addEventListener('click', event => {
+      if (!calendarAlarmPanel.classList.contains('hidden') && !calendarAlarmPanel.contains(event.target) && !document.getElementById('clock-display').contains(event.target)) calendarAlarmPanel.classList.add('hidden');
+    });
+    setInterval(() => {
+      const now = new Date();
+      const dueTasks = scheduledTasks.filter(task => {
+        if (task.completed || task.notified) return false;
+        const dueAt = new Date(`${task.date}T${task.time || '09:00'}`);
+        return dueAt <= now;
+      });
+      if (!dueTasks.length) return;
+      dueTasks.forEach(task => {
+        task.notified = true;
+        showTaskNotification(task);
+      });
+      saveTasks();
+      renderTasks();
+      renderCalendar();
+    }, 1000);
     // ==========================================
     // LÓGICA DO RELÓGIO DIGITAL (FIM)
     // ==========================================
 
-    const defaultFavorites = [
+    // Lista legada usada apenas para remover os favoritos que vinham pré-carregados.
+    // Lê, salva, ordena e remove atalhos do painel de favoritos.
+    const seededFavoritesToRemove = [
       { name: 'Gmail', url: 'https://mail.google.com' },
       { name: 'Mapas', url: 'https://maps.google.com' },
       { name: 'Drive', url: 'https://drive.google.com' },
@@ -370,13 +671,26 @@
 
     function getFavoriteSites() {
       try {
-        const saved = JSON.parse(localStorage.getItem('dexi_favorite_sites') || 'null');
-        if (Array.isArray(saved) && saved.length) return saved;
+        const rawSaved = localStorage.getItem('dexi_favorite_sites');
+        if (rawSaved === null) {
+          localStorage.setItem('dexi_favorite_sites', '[]');
+          return [];
+        }
+        const saved = JSON.parse(rawSaved);
+        if (Array.isArray(saved)) {
+          const isOldSeed = saved.length === seededFavoritesToRemove.length &&
+            saved.every((site, index) => site.name === seededFavoritesToRemove[index].name && site.url === seededFavoritesToRemove[index].url);
+          if (isOldSeed) {
+            localStorage.setItem('dexi_favorite_sites', '[]');
+            return [];
+          }
+          return saved;
+        }
       } catch (e) {
         console.warn('Erro ao ler favoritos:', e);
       }
-      localStorage.setItem('dexi_favorite_sites', JSON.stringify(defaultFavorites));
-      return defaultFavorites;
+      localStorage.setItem('dexi_favorite_sites', '[]');
+      return [];
     }
 
     function saveFavoriteSites(items) {
@@ -392,6 +706,9 @@
       }
     }
 
+    let draggedFavoriteIndex = null;
+
+    // Desenha a lista de favoritos e conecta remoção, ordenação e arraste.
     function renderFavoriteSites() {
       const list = document.getElementById('favorite-sites-list');
       if (!list) return;
@@ -399,9 +716,11 @@
       list.innerHTML = favorites.map((site, index) => {
         const faviconUrl = getFaviconUrl(site.url);
         return `
-        <div class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 dark:border-slate-700 dark:bg-slate-900 group hover:border-amber-300 dark:hover:border-amber-600 transition">
+        <div draggable="true" data-index="${index}" class="favorite-site-row flex cursor-grab items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 dark:border-slate-700 dark:bg-slate-900 group hover:border-amber-300 dark:hover:border-amber-600 transition">
           <img src="${faviconUrl}" alt="${site.name}" class="w-5 h-5 rounded-sm flex-shrink-0 object-contain bg-white dark:bg-slate-800 p-0.5" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23999%22><circle cx=%2212%22 cy=%2212%22 r=%2210%22/></svg>'">
           <a href="${site.url}" target="_blank" rel="noopener noreferrer" class="flex-1 text-left text-[10px] font-bold text-slate-700 transition hover:text-amber-600 dark:text-slate-200 dark:hover:text-amber-400 truncate">${site.name}</a>
+          <button type="button" data-index="${index}" data-direction="-1" class="favorite-move-btn px-1 text-xs text-slate-400 hover:text-amber-600" aria-label="Mover ${site.name} para cima" title="Mover para cima">↑</button>
+          <button type="button" data-index="${index}" data-direction="1" class="favorite-move-btn px-1 text-xs text-slate-400 hover:text-amber-600" aria-label="Mover ${site.name} para baixo" title="Mover para baixo">↓</button>
           <button type="button" data-index="${index}" class="favorite-remove-btn text-lg font-black text-slate-300 transition hover:text-rose-500 opacity-0 group-hover:opacity-100" aria-label="Remover ${site.name}">×</button>
         </div>
       `;
@@ -415,6 +734,40 @@
           favorites.splice(index, 1);
           saveFavoriteSites(favorites);
           renderFavoriteSites();
+        });
+      });
+      list.querySelectorAll('.favorite-move-btn').forEach(button => {
+        button.addEventListener('click', event => {
+          event.stopPropagation();
+          const favorites = getFavoriteSites();
+          const index = Number(button.dataset.index);
+          const targetIndex = index + Number(button.dataset.direction);
+          if (targetIndex < 0 || targetIndex >= favorites.length) return;
+          [favorites[index], favorites[targetIndex]] = [favorites[targetIndex], favorites[index]];
+          saveFavoriteSites(favorites);
+          renderFavoriteSites();
+        });
+      });
+      list.querySelectorAll('.favorite-site-row').forEach(row => {
+        row.addEventListener('dragstart', (event) => {
+          draggedFavoriteIndex = Number(row.dataset.index);
+          event.dataTransfer.effectAllowed = 'move';
+          row.classList.add('opacity-40');
+        });
+        row.addEventListener('dragover', event => event.preventDefault());
+        row.addEventListener('drop', event => {
+          event.preventDefault();
+          const targetIndex = Number(row.dataset.index);
+          if (draggedFavoriteIndex === null || draggedFavoriteIndex === targetIndex) return;
+          const favorites = getFavoriteSites();
+          const [favorite] = favorites.splice(draggedFavoriteIndex, 1);
+          favorites.splice(targetIndex, 0, favorite);
+          saveFavoriteSites(favorites);
+          renderFavoriteSites();
+        });
+        row.addEventListener('dragend', () => {
+          draggedFavoriteIndex = null;
+          row.classList.remove('opacity-40');
         });
       });
     }
@@ -519,10 +872,14 @@
         });
         const text = await res.text();
         if (text && text.length > 10) {
-          localStorage.setItem('dexi_codex_cards', text);
+          try {
+            localStorage.setItem('dexi_codex_cards', text);
+            localStorage.setItem('dexi_codex_cards_saved_at', String(Date.now()));
+          } catch (error) { console.warn('Estado da nuvem mantido fora do localStorage:', error); }
+          salvarSnapshotQuadroNoDb(text, Date.now());
           // Limpa tudo visualmente antes de carregar o novo
           document.querySelectorAll('.codex-card').forEach(c => c.remove());
-          carregarEstadoDoStorage();
+          carregarEstadoDoStorage(text);
         }
       } else {
          // Primeira vez na nuvem, faz upload do estado local atual
@@ -575,7 +932,6 @@
     const boardWrapper = document.getElementById('board-wrapper');
     const canvasContainer = document.getElementById('canvas-container');
     
-    let localizedFiles = [];
     let isPanning = false;
     let forcePanMode = false;
     let startX = 0, startY = 0;
@@ -601,6 +957,8 @@
     let boardWritingCurrentStroke = [];
     let boardWritingStrokes = [];
     let boardWritingTexts = [];
+    const boardUndoStack = [];
+    let boardWritingSelectionMove = null;
     let activeStickyNote = null;
     let activeTextEditor = null;
     let boardSelectionJustCreated = false;
@@ -659,8 +1017,8 @@
       const needsHeightGrowth = y >= boardWritingHeight - boardWritingEdgeMargin;
       if (!needsWidthGrowth && !needsHeightGrowth) return;
 
-      if (needsWidthGrowth) boardWritingWidth += boardWritingGrowthStep;
-      if (needsHeightGrowth) boardWritingHeight += boardWritingGrowthStep;
+      while (x >= boardWritingWidth - boardWritingEdgeMargin) boardWritingWidth += boardWritingGrowthStep;
+      while (y >= boardWritingHeight - boardWritingEdgeMargin) boardWritingHeight += boardWritingGrowthStep;
       boardWritingSvg.setAttribute('width', boardWritingWidth);
       boardWritingSvg.setAttribute('height', boardWritingHeight);
       boardWritingSvg.style.width = `${boardWritingWidth}px`;
@@ -676,9 +1034,44 @@
       const rawY = (point.clientY - rect.top) / zoom;
       expandBoardWritingLayerIfNeeded(rawX, rawY);
       return {
-        x: Math.max(0, Math.min(boardWritingWidth, (point.clientX - rect.left) / zoom)),
-        y: Math.max(0, Math.min(boardWritingHeight, (point.clientY - rect.top) / zoom))
+        x: rawX,
+        y: rawY
       };
+    }
+
+    function pushBoardUndoSnapshot() {
+      boardUndoStack.push({
+        type: 'writing',
+        strokes: JSON.parse(JSON.stringify(boardWritingStrokes)),
+        texts: JSON.parse(JSON.stringify(boardWritingTexts))
+      });
+      if (boardUndoStack.length > 50) boardUndoStack.shift();
+    }
+
+    function undoBoardAction() {
+      const action = boardUndoStack.pop();
+      if (!action) return;
+      if (action.type === 'writing') {
+        boardWritingStrokes = action.strokes;
+        boardWritingTexts = action.texts;
+        renderBoardWriting();
+        renderBoardWritingTexts();
+        saveBoardWriting();
+        saveBoardWritingTexts();
+      } else if (action.type === 'cards') {
+        action.ids.forEach(id => document.querySelector(`[data-board-undo-id="${id}"]`)?.remove());
+        salvarEstadoNoStorage();
+      }
+    }
+
+    function pushPastedCardsUndo(beforeCards) {
+      const ids = Array.from(document.querySelectorAll('.codex-card'))
+        .filter(card => !beforeCards.has(card))
+        .map(card => card.dataset.boardUndoId)
+        .filter(Boolean);
+      if (!ids.length) return;
+      boardUndoStack.push({ type: 'cards', ids });
+      if (boardUndoStack.length > 50) boardUndoStack.shift();
     }
 
     function updateBoardWritingSelection(start, end) {
@@ -727,9 +1120,49 @@
       localStorage.setItem('dexi_board_writing_strokes', JSON.stringify(boardWritingStrokes));
     }
 
+    // Persiste e renderiza caixas de texto livres junto às camadas de desenho.
     function saveBoardWritingTexts() {
       localStorage.setItem('dexi_board_writing_texts', JSON.stringify(boardWritingTexts));
     }
+
+    function resizeBoardTextInput(textarea) {
+      if (textarea.dataset.manualSize === 'true') return;
+      const style = getComputedStyle(textarea);
+      boardWritingContext.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      const widestLine = textarea.value.split('\n').reduce((width, line) => Math.max(width, boardWritingContext.measureText(line || ' ').width), 0);
+      const maxWidth = Math.max(80, Math.min(520, (window.innerWidth * 0.72) / zoom));
+      textarea.style.width = `${Math.min(maxWidth, Math.max(24, widestLine + 12))}px`;
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.max(30, textarea.scrollHeight)}px`;
+    }
+
+    function getBoardTextFontSize() {
+      const pxValue = Number(document.getElementById('board-stroke-width').value) || 4;
+      return Math.max(12, Math.min(120, pxValue * 4));
+    }
+
+    function getActiveBoardText() {
+      if (boardWritingMode !== 'text' || !activeTextEditor) return null;
+      const textId = activeTextEditor.closest('.board-text-element')?.dataset.textId;
+      return boardWritingTexts.find(item => item.id === textId) || null;
+    }
+
+    document.getElementById('board-stroke-width').addEventListener('input', () => {
+      const text = getActiveBoardText();
+      if (!text) return;
+      text.fontSize = getBoardTextFontSize();
+      activeTextEditor.style.fontSize = `${text.fontSize}px`;
+      resizeBoardTextInput(activeTextEditor);
+      saveBoardWritingTexts();
+    });
+
+    document.getElementById('board-stroke-color').addEventListener('input', event => {
+      const text = getActiveBoardText();
+      if (!text) return;
+      text.color = event.target.value;
+      activeTextEditor.style.color = text.color;
+      saveBoardWritingTexts();
+    });
 
     function renderBoardWritingTexts() {
       const textElements = document.querySelectorAll('.board-text-element');
@@ -748,31 +1181,87 @@
           textEl.style.left = `${text.x}px`;
           textEl.style.top = `${text.y}px`;
           textEl.style.zIndex = '40';
-          textEl.innerHTML = `
-            <div class="bg-white/95 dark:bg-slate-900/95 border-2 border-amber-500 rounded-lg p-2 shadow-lg backdrop-blur" 
-                 onmousedown="event.stopPropagation()" 
-                 ontouchstart="event.stopPropagation()">
-              <textarea class="board-text-input w-40 h-24 text-sm p-2 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 resize-none focus:outline-none focus:border-amber-500" 
-                        onblur="saveBoardTextElement('${text.id}')"
-                        ondblclick="event.stopPropagation()">${escapeHTML(text.content)}</textarea>
-              <div class="flex gap-1 mt-2">
-                <button onclick="deleteBoardTextElement('${text.id}')" class="text-xs px-2 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded font-bold">Deletar</button>
-              </div>
-            </div>
-          `;
+          const textarea = document.createElement('textarea');
+          textarea.className = 'board-text-input';
+          textarea.value = text.content;
+          textarea.rows = 1;
+          textarea.dataset.manualSize = text.manualSize ? 'true' : 'false';
+          textarea.style.fontSize = `${text.fontSize || 16}px`;
+          if (text.color) textarea.style.color = text.color;
+          if (text.manualSize && text.width && text.height) {
+            textarea.style.width = `${text.width}px`;
+            textarea.style.height = `${text.height}px`;
+          }
+          textarea.spellcheck = true;
+          textarea.setAttribute('aria-label', 'Texto no quadro');
+          textarea.addEventListener('pointerdown', event => event.stopPropagation());
+          textarea.addEventListener('mousedown', event => event.stopPropagation());
+          textarea.addEventListener('touchstart', event => event.stopPropagation(), { passive: true });
+          textarea.addEventListener('click', event => {
+            if (!boardWritingActive || boardWritingMode !== 'select') return;
+            event.preventDefault();
+            event.stopPropagation();
+            const bounds = textarea.getBoundingClientRect();
+            const rect = canvasContainer.getBoundingClientRect();
+            const left = (bounds.left - rect.left) / zoom;
+            const top = (bounds.top - rect.top) / zoom;
+            updateBoardWritingSelection(
+              { x: left, y: top },
+              { x: left + textarea.offsetWidth, y: top + textarea.offsetHeight }
+            );
+            boardSelectionJustCreated = true;
+          });
+          textarea.addEventListener('focus', () => { activeTextEditor = textarea; });
+          textarea.addEventListener('input', () => {
+            text.content = textarea.value;
+            resizeBoardTextInput(textarea);
+            saveBoardWritingTexts();
+          });
+          let pointerStartSize = null;
+          textarea.addEventListener('pointerdown', () => {
+            pointerStartSize = { width: textarea.offsetWidth, height: textarea.offsetHeight };
+          });
+          const persistManualSize = () => {
+            if (textarea.offsetWidth <= 0 || textarea.offsetHeight <= 0) return;
+            if (!pointerStartSize || (Math.abs(textarea.offsetWidth - pointerStartSize.width) < 2 && Math.abs(textarea.offsetHeight - pointerStartSize.height) < 2)) return;
+            text.width = textarea.offsetWidth;
+            text.height = textarea.offsetHeight;
+            text.manualSize = true;
+            textarea.dataset.manualSize = 'true';
+            saveBoardWritingTexts();
+            pointerStartSize = null;
+          };
+          textarea.addEventListener('pointerup', persistManualSize);
+          textarea.addEventListener('blur', () => saveBoardTextElement(text.id));
+          textarea.addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+              if (!textarea.value.trim()) deleteBoardTextElement(text.id);
+              else textarea.blur();
+            } else if (event.key === 'Backspace' && !textarea.value && event.target.selectionStart === 0) {
+              deleteBoardTextElement(text.id);
+            }
+          });
+          textEl.appendChild(textarea);
           canvasContainer.appendChild(textEl);
+          resizeBoardTextInput(textarea);
         }
+        textEl.style.left = `${text.x}px`;
+        textEl.style.top = `${text.y}px`;
       });
     }
 
     window.createBoardTextElement = function(x, y) {
       if (boardWritingMode !== 'text') return;
+      pushBoardUndoSnapshot();
       const textId = Date.now().toString();
       boardWritingTexts.push({
         id: textId,
         x: x,
         y: y,
-        content: ''
+        content: '',
+        fontSize: getBoardTextFontSize(),
+        color: getBoardInkColor(),
+        manualSize: false
       });
       renderBoardWritingTexts();
       const textarea = document.querySelector(`[data-text-id="${textId}"] .board-text-input`);
@@ -792,13 +1281,21 @@
           saveBoardWritingTexts();
         }
       }
-      activeTextEditor = null;
+      const editor = activeTextEditor;
+      if (editor?.closest('.board-text-element')?.dataset.textId === textId) {
+        setTimeout(() => {
+          if (activeTextEditor !== editor) return;
+          const focusedElement = document.activeElement;
+          if (focusedElement?.id !== 'board-stroke-width' && focusedElement?.id !== 'board-stroke-color') activeTextEditor = null;
+        }, 0);
+      }
     };
 
     window.deleteBoardTextElement = function(textId) {
       boardWritingTexts = boardWritingTexts.filter(t => t.id !== textId);
       const textEl = document.querySelector(`[data-text-id="${textId}"]`);
       if (textEl) textEl.remove();
+      if (activeTextEditor?.closest('.board-text-element')?.dataset.textId === textId) activeTextEditor = null;
       saveBoardWritingTexts();
     };
 
@@ -924,6 +1421,7 @@
       boardWritingLayer.style.pointerEvents = active ? 'auto' : 'none';
       boardWritingSvg.style.pointerEvents = active ? 'auto' : 'none';
       boardWrapper.style.cursor = active ? 'crosshair' : '';
+      if (!active) boardWrapper.classList.remove('writing-eraser');
       if (!active) {
         boardWritingDrawing = false;
         boardWritingSelectionEl.style.display = 'none';
@@ -935,6 +1433,7 @@
 
     window.setBoardWritingMode = function(mode) {
       boardWritingMode = mode;
+      boardWrapper.classList.toggle('writing-eraser', mode === 'eraser' && boardWritingActive);
       document.querySelectorAll('[data-writing-mode]').forEach(button => {
         button.classList.toggle('active', button.dataset.writingMode === mode);
       });
@@ -954,6 +1453,8 @@
 
     function startBoardWriting(event) {
       if (!boardWritingActive) return;
+      if (boardWritingMode === 'text') return;
+      if (event.target.closest?.('.codex-card, .board-text-element, #writing-toolbar')) return;
       if (event.touches && event.touches.length > 1) {
         boardWritingDrawing = false;
         boardWritingCurrentStroke = [];
@@ -962,16 +1463,28 @@
       event.stopPropagation();
       if (event.cancelable) event.preventDefault();
       const position = getBoardWritingPosition(event);
-      boardWritingStart = position;
-      boardWritingDrawing = true;
-      if (boardWritingMode === 'text') {
-        if (activeTextEditor) {
-          saveBoardTextElement(activeTextEditor.closest('.board-text-element').dataset.textId);
-        }
-        createBoardTextElement(position.x, position.y);
+      if (boardWritingMode === 'select' && boardWritingSelection &&
+          position.x >= boardWritingSelection.left && position.x <= boardWritingSelection.left + boardWritingSelection.width &&
+          position.y >= boardWritingSelection.top && position.y <= boardWritingSelection.top + boardWritingSelection.height) {
+        pushBoardUndoSnapshot();
+        const selectedStrokeIndexes = boardWritingStrokes.reduce((indexes, stroke, index) => {
+          if (stroke.points.some(point => point.x >= boardWritingSelection.left && point.x <= boardWritingSelection.left + boardWritingSelection.width && point.y >= boardWritingSelection.top && point.y <= boardWritingSelection.top + boardWritingSelection.height)) indexes.push(index);
+          return indexes;
+        }, []);
+        const selectedTexts = boardWritingTexts.filter(text => text.x >= boardWritingSelection.left && text.x <= boardWritingSelection.left + boardWritingSelection.width && text.y >= boardWritingSelection.top && text.y <= boardWritingSelection.top + boardWritingSelection.height);
+        boardWritingSelectionMove = {
+          start: position,
+          selection: { ...boardWritingSelection },
+          strokes: selectedStrokeIndexes.map(index => ({ index, points: boardWritingStrokes[index].points.map(point => ({ ...point })) })),
+          texts: selectedTexts.map(text => ({ id: text.id, x: text.x, y: text.y }))
+        };
+        boardWritingDrawing = true;
         return;
       }
+      boardWritingStart = position;
+      boardWritingDrawing = true;
       if (boardWritingMode === 'eraser') {
+        pushBoardUndoSnapshot();
         eraseBoardWritingAt(position);
         return;
       }
@@ -987,11 +1500,33 @@
         startY = pageY - panY;
         return;
       }
+      if (boardWritingMode === 'pen') pushBoardUndoSnapshot();
       boardWritingCurrentStroke = [position];
+    }
+
+    function createBoardTextOnDoubleClick(event) {
+      if (!boardWritingActive || boardWritingMode !== 'text') return;
+      if (!(event.target instanceof Element) || event.target.closest('.codex-card, .board-text-element, #writing-toolbar, button, input, select')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (activeTextEditor) {
+        const activeElement = activeTextEditor.closest('.board-text-element');
+        if (activeElement) saveBoardTextElement(activeElement.dataset.textId);
+      }
+      const position = getBoardWritingPosition(event);
+      createBoardTextElement(position.x, position.y);
     }
 
     function eraseBoardWritingAt(position) {
       const eraserRadius = Math.max(8, Number(document.getElementById('board-stroke-width').value) * 2);
+      const hitText = boardWritingTexts.find(text => {
+        const textElement = document.querySelector(`[data-text-id="${CSS.escape(text.id)}"] .board-text-input`);
+        const width = textElement?.offsetWidth || 24;
+        const height = textElement?.offsetHeight || 30;
+        return position.x >= text.x - eraserRadius && position.x <= text.x + width + eraserRadius &&
+          position.y >= text.y - eraserRadius && position.y <= text.y + height + eraserRadius;
+      });
+      if (hitText) window.deleteBoardTextElement(hitText.id);
       const remainingStrokes = boardWritingStrokes.filter(stroke => {
         const hitRadius = eraserRadius + (stroke.width / 2);
         return !stroke.points.some(point => {
@@ -1022,6 +1557,24 @@
         return;
       }
       const position = getBoardWritingPosition(event);
+      if (boardWritingSelectionMove) {
+        const deltaX = position.x - boardWritingSelectionMove.start.x;
+        const deltaY = position.y - boardWritingSelectionMove.start.y;
+        boardWritingSelectionMove.strokes.forEach(({ index, points }) => {
+          boardWritingStrokes[index].points = points.map(point => ({ x: point.x + deltaX, y: point.y + deltaY }));
+        });
+        boardWritingSelectionMove.texts.forEach(original => {
+          const text = boardWritingTexts.find(item => item.id === original.id);
+          if (text) { text.x = original.x + deltaX; text.y = original.y + deltaY; }
+        });
+        updateBoardWritingSelection(
+          { x: boardWritingSelectionMove.selection.left + deltaX, y: boardWritingSelectionMove.selection.top + deltaY },
+          { x: boardWritingSelectionMove.selection.left + boardWritingSelectionMove.selection.width + deltaX, y: boardWritingSelectionMove.selection.top + boardWritingSelectionMove.selection.height + deltaY }
+        );
+        renderBoardWriting();
+        renderBoardWritingTexts();
+        return;
+      }
       if (boardWritingMode === 'eraser') {
         eraseBoardWritingAt(position);
         return;
@@ -1046,6 +1599,13 @@
       if (boardWritingMode === 'select' && boardWritingSelection) {
         boardSelectionJustCreated = true;
       }
+      if (boardWritingSelectionMove) {
+        boardWritingSelectionMove = null;
+        renderBoardWriting();
+        renderBoardWritingTexts();
+        saveBoardWriting();
+        saveBoardWritingTexts();
+      }
       if (boardWritingMode === 'pen' && boardWritingCurrentStroke.length > 0) {
         boardWritingStrokes.push({
           points: boardWritingCurrentStroke,
@@ -1062,6 +1622,7 @@
     }
 
     boardWrapper.addEventListener('mousedown', startBoardWriting);
+    boardWrapper.addEventListener('dblclick', createBoardTextOnDoubleClick);
     boardWrapper.addEventListener('mousemove', moveBoardWriting);
     boardWrapper.addEventListener('mouseup', stopBoardWriting);
     boardWrapper.addEventListener('mouseleave', stopBoardWriting);
@@ -1070,6 +1631,7 @@
     boardWrapper.addEventListener('touchend', stopBoardWriting, { passive: false });
 
     window.clearBoardWriting = function() {
+      pushBoardUndoSnapshot();
       // Salva os traços e textos antes de limpar
       if (boardWritingStrokes.length > 0 || boardWritingTexts.length > 0) {
         const timestamp = new Date().toLocaleString('pt-BR');
@@ -1103,6 +1665,7 @@
       hideBoardWritingSelection();
     };
 
+    // Compõe traços e textos dentro da seleção num canvas exportável.
     window.downloadBoardSelection = function() {
       const selection = boardWritingSelection || boardWritingSelectionSnapshot;
       console.log("downloadBoardSelection chamada");
@@ -1127,11 +1690,11 @@
       
       finalContext.fillStyle = '#ffffff';
       finalContext.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
-      
-      if (!boardWritingStrokes || boardWritingStrokes.length === 0) {
-        console.log("Nenhum traço para desenhar");
-        return finalCanvas;
-      }
+
+      finalContext.save();
+      finalContext.beginPath();
+      finalContext.rect(0, 0, finalCanvas.width, finalCanvas.height);
+      finalContext.clip();
       
       const selectionStrokes = boardWritingStrokes.filter(stroke => {
         if (!stroke.points || stroke.points.length === 0) return false;
@@ -1165,6 +1728,58 @@
         finalContext.lineWidth = stroke.width || 2;
         finalContext.stroke();
       });
+
+      const selectedTexts = boardWritingTexts.filter(text => {
+        const textarea = document.querySelector(`[data-text-id="${CSS.escape(text.id)}"] .board-text-input`);
+        const textWidth = text.width || textarea?.offsetWidth || 24;
+        const textHeight = text.height || textarea?.offsetHeight || (text.fontSize || 16) * 1.8;
+        return text.x < selection.left + selection.width && text.x + textWidth > selection.left &&
+          text.y < selection.top + selection.height && text.y + textHeight > selection.top;
+      });
+
+      selectedTexts.forEach(text => {
+        const textarea = document.querySelector(`[data-text-id="${CSS.escape(text.id)}"] .board-text-input`);
+        const style = textarea ? getComputedStyle(textarea) : null;
+        const fontSize = parseFloat(style?.fontSize) || text.fontSize || 16;
+        const fontFamily = style?.fontFamily || 'sans-serif';
+        const fontWeight = style?.fontWeight || '400';
+        const textColor = style?.color || '#000000';
+        finalContext.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+        finalContext.fillStyle = /rgba?\(\s*255\s*,\s*255\s*,\s*255/i.test(textColor) || textColor.toLowerCase() === '#fff' || textColor.toLowerCase() === '#ffffff'
+          ? '#000000'
+          : textColor;
+        finalContext.textBaseline = 'alphabetic';
+
+        const maxTextWidth = Math.max(8, (text.width || textarea?.offsetWidth || 520) - 10);
+        const lineHeight = parseFloat(style?.lineHeight) || fontSize * 1.4;
+        const lines = [];
+        String(text.content || '').split('\n').forEach(paragraph => {
+          const words = paragraph.split(/\s+/);
+          let line = '';
+          words.forEach(word => {
+            const candidate = line ? `${line} ${word}` : word;
+            if (line && finalContext.measureText(candidate).width > maxTextWidth) {
+              lines.push(line);
+              line = word;
+            } else {
+              line = candidate;
+            }
+          });
+          lines.push(line);
+        });
+
+        const offsetX = (textarea ? parseFloat(style.paddingLeft) : 5) || 5;
+        const offsetY = (textarea ? parseFloat(style.paddingTop) : 3) || 3;
+        lines.forEach((line, index) => {
+          finalContext.fillText(
+            line,
+            text.x + offsetX - selection.left,
+            text.y + offsetY + fontSize + index * lineHeight - selection.top,
+            maxTextWidth
+          );
+        });
+      });
+      finalContext.restore();
       
       console.log("Canvas criado com sucesso");
       return finalCanvas;
@@ -1190,6 +1805,7 @@
       document.getElementById('download-format-modal').classList.add('hidden');
     };
 
+    // Converte o canvas selecionado para PNG, JPG ou PDF e inicia o download.
     window.executarDownloadBoard = function(format) {
       console.log("Executando download no formato:", format);
       
@@ -1293,7 +1909,15 @@
 
     // IndexedDB guarda arquivos binários, como PDFs e vídeos, fora do localStorage.
     let db;
-    const dbRequest = indexedDB.open("DexiDatabase", 2);
+    let resolveDexiDatabase;
+    const dexiDatabaseReady = new Promise(resolve => { resolveDexiDatabase = resolve; });
+    let boardRestoreStarted = false;
+    function iniciarRestauracaoDoQuadro() {
+      if (boardRestoreStarted) return;
+      boardRestoreStarted = true;
+      carregarEstadoDoStorage();
+    }
+    const dbRequest = indexedDB.open("DexiDatabase");
     dbRequest.onupgradeneeded = (e) => {
       db = e.target.result;
       if (!db.objectStoreNames.contains("pdfs")) db.createObjectStore("pdfs");
@@ -1301,32 +1925,318 @@
     };
     dbRequest.onsuccess = (e) => {
       db = e.target.result;
-      carregarEstadoDoStorage();
+      db.onversionchange = () => db.close();
+      resolveDexiDatabase(db);
+      iniciarRestauracaoDoQuadro();
     };
-    dbRequest.onerror = (e) => { console.error("Erro ao abrir IndexedDB", e); };
+    dbRequest.onerror = (e) => {
+      console.error("Erro ao abrir IndexedDB", e);
+      resolveDexiDatabase(null);
+      iniciarRestauracaoDoQuadro();
+    };
+    dbRequest.onblocked = () => {
+      console.warn('A abertura do IndexedDB está aguardando outra aba do Dexi fechar.');
+      iniciarRestauracaoDoQuadro();
+    };
 
-    function guardarPdfNoDb(id, blob) {
-      if (!db) return;
-      const transaction = db.transaction(["pdfs"], "readwrite");
-      transaction.objectStore(["pdfs"]).put(blob, id);
+    async function guardarPdfNoDb(id, blob) {
+      await solicitarArmazenamentoPersistente();
+      const database = db || await dexiDatabaseReady;
+      if (!database) {
+        folderFileMemoryCache.set(id, blob);
+        lastMediaStorageFailure = 'IndexedDB indisponível ou bloqueado';
+        return false;
+      }
+      return new Promise(resolve => {
+        let settled = false;
+        const fallback = error => {
+          if (settled) return;
+          settled = true;
+          folderFileMemoryCache.set(id, blob);
+          lastMediaStorageFailure = descreverFalhaDeArmazenamento(error);
+          resolve(false);
+        };
+        try {
+          const transaction = database.transaction(['pdfs'], 'readwrite');
+          const request = transaction.objectStore('pdfs').put(blob, id);
+          request.onsuccess = () => {};
+          transaction.oncomplete = () => { if (!settled) { settled = true; resolve(true); } };
+          transaction.onerror = () => fallback(transaction.error);
+          transaction.onabort = () => fallback(transaction.error);
+        } catch (error) {
+          fallback(error);
+        }
+      });
+    }
+
+    async function obterPdfDoDb(id) {
+      if (folderFileMemoryCache.has(id)) return folderFileMemoryCache.get(id);
+      const database = db || await dexiDatabaseReady;
+      if (!database) return null;
+      return new Promise(resolve => {
+        try {
+          const request = database.transaction(['pdfs'], 'readonly').objectStore('pdfs').get(id);
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => resolve(null);
+        } catch (error) { resolve(null); }
+      });
     }
 
     function removerPdfDoDb(id) {
+      folderFileMemoryCache.delete(id);
       if (!db) return;
       const transaction = db.transaction(["pdfs"], "readwrite");
       transaction.objectStore(["pdfs"]).delete(id);
     }
 
-    function guardarMediaNoDb(id, blob) {
-      if (!db) return;
-      const transaction = db.transaction(["media"], "readwrite");
-      transaction.objectStore(["media"]).put(blob, id);
+    const folderFileMemoryCache = new Map();
+    let persistentStorageRequest = null;
+    let lastMediaStorageFailure = 'falha anterior de armazenamento (motivo não registrado)';
+
+    function descreverFalhaDeArmazenamento(error) {
+      if (!error) return 'transação do IndexedDB abortada';
+      return `${error.name || 'Erro'}${error.message ? `: ${error.message}` : ''}`;
+    }
+
+    async function solicitarArmazenamentoPersistente() {
+      if (!persistentStorageRequest) {
+        persistentStorageRequest = (async () => {
+          try {
+            if (!navigator.storage?.persist || !navigator.storage?.persisted) return false;
+            if (await navigator.storage.persisted()) return true;
+            return await navigator.storage.persist();
+          } catch (error) {
+            return false;
+          }
+        })();
+      }
+      return persistentStorageRequest;
+    }
+
+    function mostrarAvisoArmazenamentoArquivo(filename, count = 1) {
+      let notice = document.getElementById('media-storage-warning');
+      if (!notice) {
+        notice = document.createElement('div');
+        notice.id = 'media-storage-warning';
+        notice.className = 'fixed bottom-4 right-4 z-[130] flex w-[min(360px,calc(100vw-2rem))] items-start gap-3 rounded-lg border border-rose-300 bg-white/95 px-3 py-2.5 text-xs text-rose-800 shadow-lg backdrop-blur dark:border-rose-900 dark:bg-slate-950/95 dark:text-rose-200';
+        const message = document.createElement('span');
+        message.dataset.noticeMessage = 'true';
+        message.className = 'min-w-0 flex-1 leading-relaxed';
+        const dismiss = document.createElement('button');
+        dismiss.type = 'button';
+        dismiss.className = 'shrink-0 px-1 text-base leading-none text-slate-400 hover:text-rose-600';
+        dismiss.textContent = '×';
+        dismiss.setAttribute('aria-label', 'Fechar aviso');
+        dismiss.addEventListener('click', () => notice.remove());
+        notice.append(message, dismiss);
+        document.body.appendChild(notice);
+      }
+      const message = notice.querySelector('[data-notice-message]');
+      message.textContent = `${count > 1 ? `${count} arquivos não foram salvos` : `${filename} não foi salvo`} (${lastMediaStorageFailure}). Reimporte após corrigir o armazenamento.`;
+      clearTimeout(notice.dismissTimer);
+      notice.dismissTimer = setTimeout(() => notice.remove(), 12000);
+      if (navigator.storage?.estimate) {
+        navigator.storage.estimate().then(({ usage, quota }) => {
+          if (!usage || !quota || !notice.isConnected) return;
+          message.textContent += ` Uso: ${(usage / 1024 / 1024).toFixed(0)} de ${(quota / 1024 / 1024).toFixed(0)} MB.`;
+        }).catch(() => {});
+      }
+    }
+
+    function marcarCardComoTemporario(card, fileType, filename) {
+      if (!card) return;
+      card.dataset.mediaTemporary = 'true';
+      card.dataset.mediaStorageFailure = lastMediaStorageFailure;
+      const badge = card.querySelector('.card-header span');
+      if (badge) {
+        badge.textContent = `${fileType} · TEMP`;
+        badge.title = 'Arquivo disponível somente até fechar/recarregar esta página';
+      }
+      mostrarAvisoArmazenamentoArquivo(filename);
+    }
+
+    async function guardarMediaNoDb(id, blob) {
+      await solicitarArmazenamentoPersistente();
+      const database = db || await dexiDatabaseReady;
+      if (!database) {
+        folderFileMemoryCache.set(id, blob);
+        lastMediaStorageFailure = 'IndexedDB indisponível ou bloqueado';
+        return false;
+      }
+      return new Promise(resolve => {
+        let requestSucceeded = false;
+        let settled = false;
+        const fallback = error => {
+          if (settled) return;
+          settled = true;
+          folderFileMemoryCache.set(id, blob);
+          lastMediaStorageFailure = descreverFalhaDeArmazenamento(error);
+          resolve(false);
+        };
+        try {
+          const transaction = database.transaction(['media'], 'readwrite');
+          const request = transaction.objectStore('media').put(blob, id);
+          request.onsuccess = () => { requestSucceeded = true; };
+          request.onerror = event => { event.preventDefault(); fallback(request.error); };
+          transaction.oncomplete = () => {
+            if (settled) return;
+            settled = true;
+            resolve(requestSucceeded);
+          };
+          transaction.onerror = () => fallback(transaction.error);
+          transaction.onabort = () => fallback(transaction.error);
+        } catch (error) {
+          fallback(error);
+        }
+      });
+    }
+
+    async function obterMediaDoDb(id) {
+      if (folderFileMemoryCache.has(id)) return folderFileMemoryCache.get(id);
+      const database = db || await dexiDatabaseReady;
+      if (!database) return null;
+      return new Promise(resolve => {
+        try {
+          const request = database.transaction(['media'], 'readonly').objectStore('media').get(id);
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => resolve(null);
+        } catch (error) {
+          resolve(null);
+        }
+      });
     }
 
     function removerMediaDoDb(id) {
+      folderFileMemoryCache.delete(id);
       if (!db) return;
-      const transaction = db.transaction(["media"], "readwrite");
-      transaction.objectStore(["media"]).delete(id);
+      try { db.transaction(['media'], 'readwrite').objectStore('media').delete(id); } catch (error) {}
+    }
+
+    function salvarSnapshotQuadroNoDb(jsonData, updatedAt) {
+      const database = db;
+      if (!database) return Promise.resolve(false);
+      return new Promise(resolve => {
+        try {
+          const transaction = database.transaction(['media'], 'readwrite');
+          transaction.objectStore('media').put({ jsonData, updatedAt }, 'dexi_board_state_v1');
+          transaction.oncomplete = () => resolve(true);
+          transaction.onerror = error => {
+            console.error('Falha ao gravar snapshot do quadro:', error);
+            resolve(false);
+          };
+          transaction.onabort = () => resolve(false);
+        } catch (error) {
+          console.error('Falha ao gravar snapshot do quadro:', error);
+          resolve(false);
+        }
+      });
+    }
+
+    async function lerSnapshotQuadroDoDb() {
+      const database = db;
+      if (!database) return null;
+      return new Promise(resolve => {
+        try {
+          const request = database.transaction(['media'], 'readonly').objectStore('media').get('dexi_board_state_v1');
+          request.onsuccess = () => {
+            const value = request.result;
+            resolve(typeof value === 'string' ? { jsonData: value, updatedAt: 0 } : value?.jsonData ? value : null);
+          };
+          request.onerror = () => resolve(null);
+        } catch (error) { resolve(null); }
+      });
+    }
+
+    let archiveStorageCleanup = null;
+
+    function coletarReferenciasArmazenadas(rawCards, mediaIds, pdfIds) {
+      if (!rawCards) return;
+      try {
+        const cards = JSON.parse(rawCards);
+        if (!Array.isArray(cards)) return;
+        cards.forEach(card => {
+          if (card.mediaSourceId) mediaIds.add(card.mediaSourceId);
+          if (card.pdfSourceId) pdfIds.add(card.pdfSourceId);
+          if (!card.bodyContent) return;
+          const template = document.createElement('template');
+          template.innerHTML = card.bodyContent;
+          template.content.querySelectorAll('[data-mediasourceid]').forEach(el => mediaIds.add(el.dataset.mediasourceid));
+          template.content.querySelectorAll('[data-pdfsourceid]').forEach(el => pdfIds.add(el.dataset.pdfsourceid));
+          template.content.querySelectorAll('[data-kind="file"][data-entry-id]').forEach(el => mediaIds.add(el.dataset.entryId));
+        });
+      } catch (error) {
+        console.warn('Não foi possível analisar referências para liberar espaço:', error);
+      }
+    }
+
+    function coletarReferenciasDoHistorico(mediaIds, pdfIds) {
+      try {
+        const deleted = JSON.parse(localStorage.getItem('dexi_deleted_items') || '[]');
+        deleted.forEach(item => {
+          if (!item.html) return;
+          const template = document.createElement('template');
+          template.innerHTML = item.html;
+          template.content.querySelectorAll('[data-mediasourceid]').forEach(el => mediaIds.add(el.dataset.mediasourceid));
+          template.content.querySelectorAll('[data-pdfsourceid]').forEach(el => pdfIds.add(el.dataset.pdfsourceid));
+          template.content.querySelectorAll('[data-kind="file"][data-entry-id]').forEach(el => mediaIds.add(el.dataset.entryId));
+        });
+      } catch (error) {}
+    }
+
+    async function liberarBlobsOrfaos() {
+      const database = db || await dexiDatabaseReady;
+      if (!database) return 0;
+      const mediaIds = new Set(['dexi_board_state_v1']);
+      const pdfIds = new Set();
+      document.querySelectorAll('.codex-card').forEach(card => {
+        const media = card.querySelector('[data-mediasourceid]');
+        const pdf = card.querySelector('[data-pdfsourceid]');
+        if (media?.dataset.mediasourceid) mediaIds.add(media.dataset.mediasourceid);
+        if (pdf?.dataset.pdfsourceid) pdfIds.add(pdf.dataset.pdfsourceid);
+        card.querySelectorAll('[data-kind="file"][data-entry-id]').forEach(row => mediaIds.add(row.dataset.entryId));
+      });
+      coletarReferenciasArmazenadas(localStorage.getItem('dexi_codex_cards'), mediaIds, pdfIds);
+      const snapshot = await lerSnapshotQuadroDoDb();
+      coletarReferenciasArmazenadas(snapshot?.jsonData, mediaIds, pdfIds);
+      coletarReferenciasDoHistorico(mediaIds, pdfIds);
+      return new Promise(resolve => {
+        let removed = 0;
+        try {
+          const transaction = database.transaction(['media', 'pdfs'], 'readwrite');
+          const mediaStore = transaction.objectStore('media');
+          const pdfStore = transaction.objectStore('pdfs');
+          const mediaKeys = mediaStore.getAllKeys();
+          const pdfKeys = pdfStore.getAllKeys();
+          mediaKeys.onsuccess = () => mediaKeys.result.forEach(key => {
+            if (!mediaIds.has(String(key))) { mediaStore.delete(key); removed += 1; }
+          });
+          pdfKeys.onsuccess = () => pdfKeys.result.forEach(key => {
+            if (!pdfIds.has(String(key))) { pdfStore.delete(key); removed += 1; }
+          });
+          transaction.oncomplete = () => resolve(removed);
+          transaction.onerror = () => resolve(0);
+          transaction.onabort = () => resolve(0);
+        } catch (error) { resolve(0); }
+      });
+    }
+
+    function prepararArmazenamentoParaArquivar() {
+      if (!archiveStorageCleanup) {
+        archiveStorageCleanup = liberarBlobsOrfaos().finally(() => { archiveStorageCleanup = null; });
+      }
+      return archiveStorageCleanup;
+    }
+
+    async function guardarArquivoPastaNoDb(id, file) {
+      return guardarMediaNoDb(id, file);
+    }
+
+    async function obterArquivoPastaDoDb(id) {
+      return obterMediaDoDb(id);
+    }
+
+    function removerArquivoPastaDoDb(id) {
+      removerMediaDoDb(id);
     }
 
     // Navegação do quadro infinito: zoom, arraste, pinça e coordenadas do mouse.
@@ -1608,8 +2518,41 @@
     }
     atualizarCorCanetaPeloTema();
 
-    function triggerFolderSelector() { document.getElementById('folder-selector').click(); }
+    // Controla a escolha entre arquivar uma pasta inteira e arquivos isolados.
+    window.fecharSeletorArquivamento = function() {
+      const modal = document.getElementById('archive-source-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    };
 
+    window.triggerFolderSelector = function() {
+      const modal = document.getElementById('archive-source-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    };
+
+    // Abre seletores nativos e envia os itens escolhidos aos criadores de cards.
+    window.abrirSeletorDePastas = function() {
+      fecharSeletorArquivamento();
+      const selector = document.getElementById('folder-selector');
+      if (!('webkitdirectory' in selector) && window.showDirectoryPicker) {
+        window.showDirectoryPicker().then(async handle => {
+          const files = await readDirectoryHandle(handle);
+          if (files.length) await createFolderCard(handle.name, files);
+        }).catch(error => {
+          if (error.name !== 'AbortError') console.error('Falha ao abrir diretório:', error);
+        });
+        return;
+      }
+      selector.click();
+    };
+
+    window.abrirSeletorDeArquivos = function() {
+      fecharSeletorArquivamento();
+      document.getElementById('archive-files-selector').click();
+    };
+
+    // Detecta o mecanismo de busca pelo navegador e monta a consulta web.
     function detectarMotorBusca() {
       const ua = navigator.userAgent || '';
       if (/OPR\//.test(ua) || /Opera/.test(ua)) {
@@ -1661,14 +2604,354 @@
     atualizarBadgeBusca();
 
     // Entrada de arquivos e links: transforma cada item em um card do quadro.
-    async function handleFolderSelection(files) {
-      localizedFiles = Array.from(files);
-      if (localizedFiles.length === 0) return;
-      for (const file of localizedFiles) {
-        if (file.size > 0 || file.type !== "") await processAndCreateCard(file);
+    // Cada entrada de pasta recebe um ID estável para ligar o card ao blob no IndexedDB.
+    function createFolderEntryId() {
+      return `folder-entry-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+
+    function renderFolderEntryRow(entry) {
+      const isFolder = entry.kind === 'folder';
+      const icon = isFolder ? '📁' : (entry.type || '').startsWith('image/') ? '▧' : entry.type === 'application/pdf' ? '▤' : '▫';
+      return `<li data-folder-entry="true" data-entry-id="${escapeHTML(entry.id)}" data-kind="${entry.kind}" data-temporary="${entry.temporary ? 'true' : 'false'}" data-storage-failure="${escapeHTML(entry.storageFailure || '')}" data-path="${escapeHTML(entry.path)}" data-search="${escapeHTML(entry.path.toLowerCase())}" class="folder-file-row flex flex-wrap items-center gap-1.5 border-b border-slate-200/70 px-2 py-1.5 last:border-0 dark:border-slate-700/70">
+        <button type="button" data-folder-action="open" class="order-1 flex min-w-0 basis-full items-center gap-2 overflow-hidden py-1 text-left" aria-label="${isFolder ? 'Abrir pasta' : 'Visualizar arquivo'} ${escapeHTML(entry.path)}">
+          <span class="shrink-0 text-amber-500">${icon}</span><span data-entry-label="true" class="min-w-0 flex-1 truncate text-xs text-slate-700 dark:text-slate-200" title="${escapeHTML(entry.path)}">${escapeHTML(entry.path)}</span>
+          <span class="shrink-0 text-[10px] text-slate-400" title="${entry.temporary ? escapeHTML(entry.storageFailure || 'Arquivo não persistido') : ''}">${isFolder ? '' : entry.temporary ? 'temp.' : `${(entry.size / 1024).toFixed(1)} KB`}</span>
+        </button>
+        <button type="button" draggable="true" data-folder-drag-handle="true" class="h-7 w-7 shrink-0 cursor-grab touch-none rounded-md text-sm text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-100" title="Arrastar para reordenar" aria-label="Arrastar para reordenar">⠿</button>
+        <button type="button" data-folder-action="up" class="h-7 w-7 shrink-0 touch-manipulation rounded-md text-sm text-slate-500 hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-slate-700" title="Mover para cima" aria-label="Mover para cima">↑</button>
+        <button type="button" data-folder-action="down" class="h-7 w-7 shrink-0 touch-manipulation rounded-md text-sm text-slate-500 hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-slate-700" title="Mover para baixo" aria-label="Mover para baixo">↓</button>
+        <button type="button" data-folder-action="download" class="h-7 w-7 shrink-0 touch-manipulation rounded-md text-sm text-slate-500 hover:bg-blue-100 hover:text-blue-700 dark:hover:bg-slate-700 ${isFolder ? 'hidden' : ''}" title="Baixar arquivo" aria-label="Baixar arquivo">⤓</button>
+        <button type="button" data-folder-action="rename" class="h-7 w-7 shrink-0 touch-manipulation rounded-md text-sm text-slate-500 hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-slate-700" title="Renomear" aria-label="Renomear">✎</button>
+        <button type="button" data-folder-action="delete" class="h-7 w-7 shrink-0 touch-manipulation rounded-md text-base text-slate-500 hover:bg-rose-100 hover:text-rose-700 dark:hover:bg-slate-700" title="Excluir" aria-label="Excluir">×</button>
+      </li>`;
+    }
+
+    // Armazena os blobs e monta um card navegável com entradas e subpastas.
+    async function createFolderCard(folderName, entries) {
+      await prepararArmazenamentoParaArquivar();
+      const folderEntries = new Map();
+      const fileEntries = [];
+      for (const { file, path } of entries) {
+        const normalizedPath = String(path || file.name).replace(/\\/g, '/').split('/').filter(part => part && part !== '.' && part !== '..').join('/') || file.name;
+        const parts = normalizedPath.split('/').filter(Boolean);
+        let currentPath = '';
+        parts.slice(0, -1).forEach(part => {
+          currentPath = currentPath ? `${currentPath}/${part}` : part;
+          if (!folderEntries.has(currentPath)) folderEntries.set(currentPath, { id: createFolderEntryId(), kind: 'folder', path: currentPath });
+        });
+        const id = createFolderEntryId();
+        const storedPersistently = await guardarArquivoPastaNoDb(id, file);
+        fileEntries.push({ id, kind: 'file', path: normalizedPath, name: parts[parts.length - 1] || file.name, type: file.type || '', size: file.size || 0, temporary: !storedPersistently, storageFailure: storedPersistently ? '' : lastMediaStorageFailure });
       }
+      const temporaryFiles = fileEntries.filter(entry => entry.temporary);
+      if (temporaryFiles.length) mostrarAvisoArmazenamentoArquivo(temporaryFiles[0].name, temporaryFiles.length);
+      const renderedEntries = [...folderEntries.values(), ...fileEntries].sort((a, b) => a.path.localeCompare(b.path, 'pt-BR'));
+      const rows = renderedEntries.map(renderFolderEntryRow).join('');
+      const bodyHtml = `<div class="folder-card-body flex h-full min-h-0 flex-col bg-slate-50 dark:bg-slate-950/40" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
+        <div class="flex shrink-0 gap-1 border-b border-slate-200 p-2 dark:border-slate-700">
+          <input type="search" placeholder="Filtrar arquivos..." aria-label="Filtrar arquivos da pasta" oninput="filtrarArquivosPasta(this)" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+          <button type="button" data-folder-action="new-folder" class="shrink-0 rounded-lg bg-slate-200 px-2 text-xs font-bold text-slate-700 hover:bg-amber-200 dark:bg-slate-800 dark:text-slate-200" title="Criar pasta" aria-label="Criar pasta">+ Pasta</button>
+          <button type="button" data-folder-action="zip" class="shrink-0 rounded-lg bg-amber-500 px-2 text-xs font-bold text-slate-900 hover:bg-amber-400" title="Baixar como ZIP" aria-label="Baixar pasta como ZIP">ZIP</button>
+        </div>
+        <ul class="folder-file-list min-h-0 flex-1 list-none overflow-auto overscroll-contain p-0">${rows}</ul>
+        <div data-folder-count="true" class="shrink-0 border-t border-slate-200 px-3 py-1.5 text-[10px] text-slate-500 dark:border-slate-700 dark:text-slate-400">${fileEntries.length} arquivo${fileEntries.length === 1 ? '' : 's'} · ${folderEntries.size} pasta${folderEntries.size === 1 ? '' : 's'}${fileEntries.some(entry => entry.temporary) ? ` · ${fileEntries.filter(entry => entry.temporary).length} temporário(s), não persistido(s)` : ''}</div>
+      </div>`;
+      const card = createCard('FOLDERS', folderName, bodyHtml, 360);
+      card.dataset.folderCardId = createFolderEntryId();
+      bindFolderCardInteractions(card);
+      await salvarEstadoNoStorage();
+      return card;
+    }
+
+    let draggedFolderEntry = null;
+    let activeFolderPreviewUrl = null;
+    const folderListsWithEvents = new WeakSet();
+
+    function bindFolderCardInteractions(card) {
+      const body = card.querySelector('.folder-card-body');
+      const list = card.querySelector('.folder-file-list');
+      if (!body || !list || folderListsWithEvents.has(list)) return;
+      folderListsWithEvents.add(list);
+      delete list.dataset.eventsBound;
+      body.addEventListener('click', handleFolderCardAction);
+      list.addEventListener('dragstart', handleFolderEntryDragStart);
+      list.addEventListener('dragover', handleFolderEntryDragOver);
+      list.addEventListener('drop', handleFolderEntryDrop);
+      list.addEventListener('dragend', handleFolderEntryDragEnd);
+    }
+
+    function handleFolderEntryDragStart(event) {
+      if (!event.target.closest('[data-folder-drag-handle]')) {
+        event.preventDefault();
+        return;
+      }
+      draggedFolderEntry = event.target.closest('[data-folder-entry]');
+      if (!draggedFolderEntry) return;
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', draggedFolderEntry.dataset.entryId);
+      draggedFolderEntry.classList.add('opacity-40');
+    }
+
+    function handleFolderEntryDragOver(event) {
+      event.preventDefault();
+      const target = event.target.closest('[data-folder-entry]');
+      if (!target || !draggedFolderEntry || target === draggedFolderEntry) return;
+      const bounds = target.getBoundingClientRect();
+      target.parentElement.insertBefore(draggedFolderEntry, event.clientY < bounds.top + bounds.height / 2 ? target : target.nextSibling);
+    }
+
+    function handleFolderEntryDrop(event) {
+      event.preventDefault();
+      const card = event.target.closest('.codex-card');
+      if (card) salvarEstadoNoStorage();
+    }
+
+    function handleFolderEntryDragEnd() {
+      draggedFolderEntry?.classList.remove('opacity-40');
+      draggedFolderEntry = null;
+      salvarEstadoNoStorage();
+    }
+
+    function updateFolderCardCount(card) {
+      const rows = Array.from(card.querySelectorAll('[data-folder-entry]'));
+      const files = rows.filter(row => row.dataset.kind === 'file').length;
+      const folders = rows.filter(row => row.dataset.kind === 'folder').length;
+      const temporary = rows.filter(row => row.dataset.temporary === 'true').length;
+      const counter = card.querySelector('[data-folder-count]');
+      if (counter) counter.textContent = `${files} arquivo${files === 1 ? '' : 's'} · ${folders} pasta${folders === 1 ? '' : 's'}${temporary ? ` · ${temporary} temporário(s), não persistido(s)` : ''}`;
+    }
+
+    async function previewFolderFile(row) {
+      const file = await obterArquivoPastaDoDb(row.dataset.entryId);
+      if (!file) { alert('Este arquivo não está mais disponível.'); return; }
+      if (activeFolderPreviewUrl) URL.revokeObjectURL(activeFolderPreviewUrl);
+      const url = URL.createObjectURL(file);
+      activeFolderPreviewUrl = url;
+      const safeName = escapeHTML(row.dataset.path);
+      let content;
+      if (file.type.startsWith('image/')) content = `<div class="flex h-full items-center justify-center bg-slate-950"><img src="${url}" alt="${safeName}" class="max-h-full max-w-full object-contain"></div>`;
+      else if (file.type === 'application/pdf') content = `<iframe src="${url}" title="${safeName}" class="h-full w-full border-0"></iframe>`;
+      else if (file.type.startsWith('video/')) content = `<div class="flex h-full items-center justify-center bg-slate-950"><video src="${url}" controls class="max-h-full max-w-full"></video></div>`;
+      else if (file.type.startsWith('audio/')) content = `<div class="flex h-full items-center justify-center p-6"><audio src="${url}" controls class="w-full"></audio></div>`;
+      else if (file.type.startsWith('text/') || /\.(txt|md|json|csv|xml|html|css|js|ts|py|log)$/i.test(file.name)) content = `<pre class="h-full overflow-auto whitespace-pre-wrap break-words bg-white p-4 text-xs text-slate-800 dark:bg-slate-950 dark:text-slate-100"></pre>`;
+      else content = `<div class="flex h-full flex-col items-center justify-center gap-3 p-6 text-center"><p class="text-sm text-slate-600 dark:text-slate-300">Prévia indisponível para este formato.</p><a href="${url}" download="${escapeHTML(file.name)}" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-900">Baixar arquivo</a></div>`;
+      openModal(row.dataset.path, content);
+      const pre = document.querySelector('#modal-content pre');
+      if (pre) pre.textContent = await file.text();
+    }
+
+    async function downloadFolderFile(row) {
+      const file = await obterArquivoPastaDoDb(row.dataset.entryId);
+      if (!file) { alert('Este arquivo não está mais disponível.'); return; }
+      const url = URL.createObjectURL(file);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = row.dataset.path.split('/').pop();
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    async function downloadFolderCardZip(card) {
+      if (!window.JSZip) { alert('Não foi possível carregar a função ZIP. Verifique sua conexão.'); return; }
+      const zip = new JSZip();
+      const root = (card.dataset.filename || 'FOLDERS').replace(/[\\/:*?"<>|]/g, '_');
+      for (const row of card.querySelectorAll('[data-folder-entry]')) {
+        const path = row.dataset.path.replace(/\\/g, '/').split('/').filter(part => part && part !== '.' && part !== '..').join('/');
+        if (!path) continue;
+        if (row.dataset.kind === 'folder') zip.folder(`${root}/${path}`);
+        else {
+          const file = await obterArquivoPastaDoDb(row.dataset.entryId);
+          if (file) zip.file(`${root}/${path}`, file);
+        }
+      }
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${root}.zip`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    async function handleFolderCardAction(event) {
+      const button = event.target.closest('[data-folder-action]');
+      if (!button) return;
+      event.stopPropagation();
+      const action = button.dataset.folderAction;
+      const card = button.closest('.codex-card');
+      const list = card.querySelector('.folder-file-list');
+      const row = button.closest('[data-folder-entry]');
+      if (action === 'new-folder') {
+        const name = prompt('Nome da nova pasta (use / para criar subpastas):');
+        if (!name?.trim()) return;
+        const parts = name.trim().replace(/\\/g, '/').split('/').map(part => part.trim()).filter(part => part && part !== '.' && part !== '..');
+        let folderPath = '';
+        parts.forEach(part => {
+          folderPath = folderPath ? `${folderPath}/${part}` : part;
+          if (Array.from(list.querySelectorAll('[data-kind="folder"]')).some(item => item.dataset.path === folderPath)) return;
+          const wrapper = document.createElement('ul');
+          wrapper.innerHTML = renderFolderEntryRow({ id: createFolderEntryId(), kind: 'folder', path: folderPath });
+          list.appendChild(wrapper.firstElementChild);
+        });
+        updateFolderCardCount(card);
+      } else if (action === 'zip') {
+        await downloadFolderCardZip(card).catch(error => {
+          console.error('Falha ao baixar pasta ZIP:', error);
+          alert('Não foi possível criar o ZIP desta pasta.');
+        });
+        return;
+      } else if (!row) return;
+      else if (action === 'open') {
+        if (row.dataset.kind === 'folder') {
+          const prefix = `${row.dataset.path}/`;
+          const descendants = Array.from(list.querySelectorAll('[data-folder-entry]')).filter(item => item !== row && item.dataset.path.startsWith(prefix));
+          const hideChildren = descendants.some(child => !child.classList.contains('hidden'));
+          descendants.forEach(child => child.classList.toggle('hidden', hideChildren));
+        } else await previewFolderFile(row).catch(error => {
+          console.error('Falha ao abrir arquivo da pasta:', error);
+          alert('Não foi possível abrir este arquivo.');
+        });
+        return;
+      } else if (action === 'download') {
+        await downloadFolderFile(row).catch(error => {
+          console.error('Falha ao baixar arquivo da pasta:', error);
+          alert('Não foi possível baixar este arquivo.');
+        });
+        return;
+      } else if (action === 'rename') {
+        const oldPath = row.dataset.path;
+        const oldName = oldPath.split('/').pop();
+        const newName = prompt('Novo nome:', oldName)?.trim().replace(/[\\/]/g, '-');
+        if (!newName || newName === oldName) return;
+        const parentPath = oldPath.includes('/') ? oldPath.slice(0, oldPath.lastIndexOf('/') + 1) : '';
+        const newPath = `${parentPath}${newName}`;
+        const pathPrefix = row.dataset.kind === 'folder' ? `${oldPath}/` : null;
+        Array.from(list.querySelectorAll('[data-folder-entry]')).forEach(item => {
+          if (item === row) item.dataset.path = newPath;
+          else if (pathPrefix && item.dataset.path.startsWith(pathPrefix)) item.dataset.path = `${newPath}${item.dataset.path.slice(oldPath.length)}`;
+          item.dataset.search = item.dataset.path.toLowerCase();
+          const label = item.querySelector('[data-entry-label]');
+          if (label) { label.textContent = item.dataset.path; label.title = item.dataset.path; }
+        });
+      } else if (action === 'delete') {
+        const path = row.dataset.path;
+        const isFolder = row.dataset.kind === 'folder';
+        if (!confirm(`Excluir ${isFolder ? 'a pasta' : 'o arquivo'} "${path}"?`)) return;
+        const rowsToDelete = isFolder
+          ? [row, ...Array.from(list.querySelectorAll('[data-folder-entry]')).filter(item => item.dataset.path.startsWith(`${path}/`))]
+          : [row];
+        rowsToDelete.forEach(item => {
+          if (item.dataset.kind === 'file') removerArquivoPastaDoDb(item.dataset.entryId);
+          item.remove();
+        });
+        updateFolderCardCount(card);
+      } else if (action === 'up' || action === 'down') {
+        const sibling = action === 'up' ? row.previousElementSibling : row.nextElementSibling;
+        if (sibling) list.insertBefore(row, action === 'up' ? sibling : sibling.nextElementSibling);
+      }
+      salvarEstadoNoStorage();
+    }
+
+    async function handleFolderSelection(files) {
+      const selectedFiles = Array.from(files);
+      if (selectedFiles.length === 0) {
+        document.getElementById('folder-selector').value = '';
+        return;
+      }
+      const folders = new Map();
+      selectedFiles.forEach(file => {
+        const relativePath = file.webkitRelativePath || '';
+        const pathParts = relativePath.split('/').filter(Boolean);
+        const folderName = pathParts.length > 1 ? pathParts.shift() : 'Pasta selecionada';
+        if (!folders.has(folderName)) folders.set(folderName, []);
+        folders.get(folderName).push({ file, path: pathParts.join('/') || file.name });
+      });
+      await Promise.all(Array.from(folders, ([folderName, entries]) => createFolderCard(folderName, entries)));
       document.getElementById('folder-selector').value = '';
     }
+
+    async function handleIndividualFileSelection(files) {
+      const selectedFiles = Array.from(files);
+      try {
+        for (const file of selectedFiles) await processAndCreateCard(file);
+      } finally {
+        document.getElementById('archive-files-selector').value = '';
+      }
+    }
+
+    function readDroppedDirectory(entry, parentPath = '') {
+      return new Promise(resolve => {
+        if (entry.isFile) {
+          entry.file(file => resolve([{ file, path: parentPath ? `${parentPath}/${entry.name}` : entry.name }]), () => resolve([]));
+          return;
+        }
+        if (!entry.isDirectory) { resolve([]); return; }
+        const reader = entry.createReader();
+        const children = [];
+        const readNextBatch = () => reader.readEntries(async entries => {
+          if (!entries.length) { resolve(children.flat()); return; }
+          const batch = await Promise.all(entries.map(child => {
+            const childPath = child.isDirectory
+              ? (parentPath ? `${parentPath}/${child.name}` : child.name)
+              : parentPath;
+            return readDroppedDirectory(child, childPath);
+          }));
+          children.push(...batch);
+          readNextBatch();
+        }, () => resolve(children.flat()));
+        readNextBatch();
+      });
+    }
+
+    async function readDirectoryHandle(handle, parentPath = '') {
+      if (handle.kind === 'file') return [{ file: await handle.getFile(), path: parentPath || handle.name }];
+      const files = [];
+      for await (const [name, child] of handle.entries()) {
+        files.push(...await readDirectoryHandle(child, parentPath ? `${parentPath}/${name}` : name));
+      }
+      return files;
+    }
+
+    // Lê arquivos e diretórios arrastados e cria cards no quadro.
+    async function processDroppedItems(dataTransfer, fileSystemHandles = null, capturedDirectoryEntries = null) {
+      const items = Array.from(dataTransfer.items || []);
+      const directoryEntries = capturedDirectoryEntries || items.map(item => item.webkitGetAsEntry?.()).filter(entry => entry?.isDirectory);
+      const directoryHandles = fileSystemHandles || await Promise.all(items.map(async item => {
+        try { return await item.getAsFileSystemHandle?.(); } catch (error) { return null; }
+      }));
+      const folderSources = directoryEntries.length
+        ? directoryEntries.map(entry => ({ name: entry.name, read: () => readDroppedDirectory(entry) }))
+        : directoryHandles.filter(handle => handle?.kind === 'directory').map(handle => ({ name: handle.name, read: () => readDirectoryHandle(handle) }));
+      if (folderSources.length) {
+        const folders = await Promise.all(folderSources.map(async folder => ({ name: folder.name, files: await folder.read() })));
+        await Promise.all(folders.filter(folder => folder.files.length).map(folder => createFolderCard(folder.name, folder.files)));
+        return;
+      }
+      const files = Array.from(dataTransfer.files || []);
+      const droppedFolders = new Map();
+      const individualFiles = [];
+      files.forEach(file => {
+        const relativePath = file.webkitRelativePath || '';
+        if (!relativePath.includes('/')) {
+          individualFiles.push(file);
+          return;
+        }
+        const [folderName, ...pathParts] = relativePath.split('/').filter(Boolean);
+        if (!droppedFolders.has(folderName)) droppedFolders.set(folderName, []);
+        droppedFolders.get(folderName).push({ file, path: pathParts.join('/') || file.name });
+      });
+      await Promise.all([
+        ...Array.from(droppedFolders, ([name, folderFiles]) => createFolderCard(name, folderFiles)),
+        ...individualFiles.map(file => processAndCreateCard(file))
+      ]);
+    }
+
+    window.filtrarArquivosPasta = function(input) {
+      const query = input.value.trim().toLowerCase();
+      input.closest('.card-body-holder').querySelectorAll('.folder-file-row').forEach(row => {
+        row.classList.toggle('hidden', !row.dataset.search.includes(query));
+      });
+    };
 
     const dropZone = boardWrapper;
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -1676,16 +2959,20 @@
     });
     dropZone.addEventListener('dragover', () => dropZone.classList.add('bg-slate-200/40', 'dark:bg-slate-800/40'));
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('bg-slate-200/40', 'dark:bg-slate-800/40'));
-    dropZone.addEventListener('drop', (e) => {
+    dropZone.addEventListener('drop', async (e) => {
       dropZone.classList.remove('bg-slate-200/40', 'dark:bg-slate-800/40');
       const linkData = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
       if (linkData && (linkData.startsWith('http://') || linkData.startsWith('https://'))) {
         tratarLinkColado(linkData);
         return;
       }
-      const files = e.dataTransfer.files;
-      if (files.length > 0) {
-        Array.from(files).forEach(file => processAndCreateCard(file));
+      if (e.dataTransfer.files.length || e.dataTransfer.items.length) {
+        try {
+          await processDroppedItems(e.dataTransfer);
+        } catch (error) {
+          console.error('Falha ao arquivar itens arrastados:', error);
+          alert('Não foi possível concluir o arquivamento de todos os itens.');
+        }
       }
     });
 
@@ -1711,6 +2998,7 @@
       atualizarToolbarSelecao();
     }
 
+    // Agrupa e desagrupa cards selecionados e atualiza a barra contextual.
     window.agruparSelecionados = function() {
       const selecionados = document.querySelectorAll('.selected-card');
       if (selecionados.length < 2) { alert("Selecione pelo menos 2 cards para agrupar."); return; }
@@ -1832,7 +3120,6 @@
       e.preventDefault(); 
       const overItem = e.target.closest('.link-item-row');
       if (!overItem || overItem === draggedLinkItem || !draggedLinkItem) return;
-      
       const container = overItem.parentElement;
       const rect = overItem.getBoundingClientRect();
       const isAfter = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
@@ -1893,63 +3180,79 @@
       salvarEstadoNoStorage();
     }
 
-    // Leitura de arquivos locais e criação de cards para texto, imagens, áudio, vídeo e PDF.
+    async function criarConteudoArquivoPersistente(fileType, filename, mediaId, blob) {
+      const shellStart = `<div data-mediasourceid="${escapeHTML(mediaId)}" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">`;
+      if (!blob) return `${shellStart}<div class="flex h-full items-center justify-center p-4 text-center text-xs text-rose-600">Arquivo não disponível neste navegador. Reimporte este arquivo.</div></div>`;
+      const url = URL.createObjectURL(blob);
+      const lowerName = filename.toLowerCase();
+      const mime = blob.type || '';
+      if (mime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(lowerName)) {
+        return `${shellStart}<div class="flex h-full items-center justify-center overflow-hidden bg-slate-100 dark:bg-slate-950"><img src="${url}" alt="${escapeHTML(filename)}" class="h-full w-full cursor-pointer object-contain"></div></div>`;
+      }
+      if (mime.startsWith('video/') || /\.(mp4|webm|ogg|mov)$/i.test(lowerName)) {
+        return `${shellStart}<div class="flex h-full items-center justify-center bg-slate-950"><video src="${url}" controls class="h-full w-full object-contain pointer-events-auto"></video></div></div>`;
+      }
+      if (mime.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac)$/i.test(lowerName)) {
+        return `${shellStart}<div class="flex h-full flex-col items-center justify-center gap-3 bg-slate-50 p-4 dark:bg-slate-950"><span class="text-3xl">🎵</span><audio src="${url}" controls class="w-full pointer-events-auto"></audio></div></div>`;
+      }
+      if (mime.startsWith('text/') || /\.(txt|md|json|csv|xml|html|css|js|ts|py|log)$/i.test(lowerName)) {
+        return `${shellStart}<div class="h-full overflow-auto whitespace-pre-wrap break-words bg-slate-50 p-4 text-xs text-slate-700 dark:bg-slate-950 dark:text-slate-200">${escapeHTML(await blob.text())}</div></div>`;
+      }
+      return `${shellStart}<div class="flex h-full flex-col items-center justify-center gap-3 p-5 text-center"><span class="text-3xl">📄</span><span class="break-all text-xs text-slate-500">${escapeHTML(blob.type || fileType)}</span><a href="${url}" download="${escapeHTML(filename)}" class="rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-slate-900">Baixar arquivo</a></div></div>`;
+    }
+
+    async function criarCardDeArquivoPersistente(file, fileType, width) {
+      const mediaId = `media_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const persisted = await guardarMediaNoDb(mediaId, file);
+      const bodyHtml = await criarConteudoArquivoPersistente(fileType, file.name, mediaId, file);
+      const card = createCard(fileType, file.name, bodyHtml, width);
+      if (!persisted) marcarCardComoTemporario(card, fileType, file.name);
+      await salvarEstadoNoStorage();
+      return card;
+    }
+
+    async function migrarMidiasDataUrlLegadas() {
+      let changed = false;
+      const mediaTypes = new Set(['JPG', 'JPEG', 'PNG', 'GIF', 'WEBP', 'SVG', 'MP3', 'WAV', 'OGG', 'M4A', 'FLAC', 'MP4', 'WEBM', 'MOV']);
+      for (const card of document.querySelectorAll('.codex-card')) {
+        if (!mediaTypes.has((card.dataset.filetype || '').toUpperCase())) continue;
+        if (card.querySelector('[data-mediasourceid]')) continue;
+        const source = card.querySelector('img[src^="data:"], audio[src^="data:"], video[src^="data:"]');
+        const bodyHolder = card.querySelector('.card-body-holder');
+        if (!source || !bodyHolder) continue;
+        try {
+          const blob = await (await fetch(source.getAttribute('src'))).blob();
+          const mediaId = `media_legacy_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+          if (!await guardarMediaNoDb(mediaId, blob)) continue;
+          bodyHolder.innerHTML = await criarConteudoArquivoPersistente(card.dataset.filetype, card.dataset.filename, mediaId, blob);
+          changed = true;
+        } catch (error) {
+          console.warn('Não foi possível migrar uma mídia antiga:', error);
+        }
+      }
+      if (changed) salvarEstadoNoStorage();
+    }
+
+    // Guarda arquivos binários fora do localStorage e escolhe a prévia adequada.
     async function processAndCreateCard(file) {
+      await prepararArmazenamentoParaArquivar();
       const fileNameLower = file.name.toLowerCase();
       const extension = file.name.includes('.') ? file.name.split('.').pop().toUpperCase() : 'ARQUIVO';
-      let bodyHtml = '';
-
-      if (fileNameLower.endsWith('.txt') || fileNameLower.endsWith('.md')) {
-        const text = await file.text();
-        bodyHtml = `<div class="p-4 text-sm h-full overflow-y-auto text-slate-700 dark:text-slate-300 font-mono bg-slate-50/50 dark:bg-slate-950/50 whitespace-pre-wrap" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">${escapeHTML(text)}</div>`;
-        createCard(extension, file.name, bodyHtml);
+      if (fileNameLower.endsWith('.pdf')) {
+        const pdfId = `pdf_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        const persisted = await guardarPdfNoDb(pdfId, file);
+        const card = montarEGerarLeitorPdf(pdfId, file.name, 1);
+        if (!persisted) {
+          marcarCardComoTemporario(card, extension, file.name);
+          salvarEstadoNoStorage();
+        }
+        return;
       }
-      else if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(fileNameLower)) {
-        bodyHtml = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            resolve(`<div class="bg-slate-100 dark:bg-slate-950 overflow-hidden h-full flex items-center justify-center cursor-pointer" onclick="openModal('${file.name}', '<img src=\\'${e.target.result}\\' class=\\'max-w-full max-h-[75vh] mx-auto object-contain\\'>')">
-                        <img src="${e.target.result}" alt="${file.name}" class="w-full h-full object-contain">
-                      </div>`);
-          };
-          reader.readAsDataURL(file);
-        });
-        createCard(extension, file.name, bodyHtml, 320);
-      }
-      else if (/\.(mp4|webm|ogg|mov)$/i.test(fileNameLower)) {
-        const mediaId = "video_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
-        guardarMediaNoDb(mediaId, file); 
-        const videoUrl = URL.createObjectURL(file);
-        bodyHtml = `<div class="w-full h-full bg-slate-950 flex items-center justify-center" data-mediasourceid="${mediaId}" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
-                      <video src="${videoUrl}" controls class="w-full h-full object-contain pointer-events-auto"></video>
-                    </div>`;
-        createCard(extension, file.name, bodyHtml, 360);
-      }
-      else if (/\.(mp3|wav|ogg|m4a|flac)$/i.test(fileNameLower)) {
-        bodyHtml = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            resolve(`<div class="p-4 bg-slate-50 dark:bg-slate-950 h-full flex flex-col justify-center items-center gap-2" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
-                        <span class="text-[2rem]">🎵</span>
-                        <audio src="${e.target.result}" controls class="w-full pointer-events-auto"></audio>
-                      </div>`);
-          };
-          reader.readAsDataURL(file);
-        });
-        createCard(extension, file.name, bodyHtml, 300);
-      }
-      else if (fileNameLower.endsWith('.pdf')) {
-        const pdfId = "pdf_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
-        guardarPdfNoDb(pdfId, file); 
-        montarEGerarLeitorPdf(pdfId, file.name, 1);
-      }
-      else {
-        bodyHtml = `<div class="p-5 text-center bg-slate-50 dark:bg-slate-950/40 h-full flex flex-col justify-center items-center">
-                      <p class="text-xs text-slate-400 mb-2">Arquivo carregado na sessão.</p>
-                      <span class="text-xs font-mono text-slate-600 dark:text-slate-400 bg-slate-500/10 px-2 py-1 rounded border border-slate-500/20">${file.type || 'Binary/Data'}</span>
-                    </div>`;
-        createCard(extension, file.name, bodyHtml, 260);
-      }
+      const width = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(fileNameLower) ? 320
+        : /\.(mp4|webm|ogg|mov)$/i.test(fileNameLower) ? 360
+          : /\.(mp3|wav|ogg|m4a|flac)$/i.test(fileNameLower) ? 300
+            : /\.(txt|md|json|csv|xml|html|css|js|ts|py|log)$/i.test(fileNameLower) ? 290 : 260;
+      await criarCardDeArquivoPersistente(file, extension, width);
     }
 
     window.criarStickyNote = function(savedProps = null, savedText = '', savedFilename = 'Sticky note', savedStyle = {}) {
@@ -2174,20 +3477,16 @@
         props = { width: `${customWidth}px`, height: `550px`, left: `${targetLeft}px`, top: `${targetTop}px` };
       }
 
-      createCard('PDF', filename, readerContentHtml, customWidth, props);
+      const card = createCard('PDF', filename, readerContentHtml, customWidth, props);
       setTimeout(() => { renderizarPaginaVisualizador(viewerId, id); }, 150);
+      return card;
     }
 
-    function renderizarPaginaVisualizador(viewerId, pdfId) {
-      if (!db) return;
+    async function renderizarPaginaVisualizador(viewerId, pdfId) {
       const container = document.querySelector(`[data-viewerid="${viewerId}"]`);
       if (!container) return;
-
-      const transaction = db.transaction(["pdfs"], "readonly");
-      const request = transaction.objectStore(["pdfs"]).get(pdfId);
-
-      request.onsuccess = (e) => {
-        const blob = e.target.result;
+      try {
+        const blob = await obterPdfDoDb(pdfId);
         if (!blob) return;
 
         const fileReader = new FileReader();
@@ -2227,7 +3526,9 @@
           }).catch(err => console.error("Erro ao renderizar PDF:", err));
         };
         fileReader.readAsArrayBuffer(blob);
-      };
+      } catch (error) {
+        console.error('Falha ao carregar PDF:', error);
+      }
     }
 
     window.mudarPaginaCard = function(viewerId, delta) {
@@ -2262,13 +3563,14 @@
       renderizarPaginaVisualizador(viewerId, pdfId);
     }
 
-    // Fábrica central de cards: cria cabeçalho, conteúdo, exclusão, arraste e redimensionamento.
+    // Cria o card base e conecta seleção, arraste e redimensionamento.
     function createCard(fileType, filename, bodyContent, customWidth = 280, savedProps = null) {
       const card = document.createElement('div');
       card.className = `codex-card absolute bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg dark:shadow-2xl z-10 hover:border-slate-400 dark:hover:border-slate-600 overflow-hidden flex flex-col transform-none transition-shadow duration-150`;
 
       card.dataset.filetype = fileType;
       card.dataset.filename = filename;
+      card.dataset.boardUndoId = `card-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
       const finalWidth = customWidth;
       const finalHeight = savedProps && savedProps.height ? parseFloat(savedProps.height) : 280;
@@ -2312,6 +3614,8 @@
           ${bodyContent}
         </div>
         <div class="resize-handle"></div>`;
+
+      if (fileType === 'FOLDERS') bindFolderCardInteractions(card);
 
       const header = card.querySelector('.card-header');
       header.addEventListener('pointerdown', (e) => {
@@ -2479,16 +3783,40 @@
         });
     }
 
+    // Lê a área de transferência e encaminha arquivos ou texto para o quadro.
     async function colarLinkManual() {
       try {
+        if (navigator.clipboard.read) {
+          const clipboardItems = await navigator.clipboard.read();
+          const files = [];
+          let pastedText = '';
+          for (const item of clipboardItems) {
+            for (const type of item.types) {
+              if (type === 'text/plain') {
+                pastedText = await (await item.getType(type)).text();
+              } else if (type !== 'text/html' && !type.startsWith('text/')) {
+                const blob = await item.getType(type);
+                const extension = type.split('/')[1]?.replace(/[^a-z0-9]/gi, '') || 'bin';
+                files.push({ file: new File([blob], `arquivo-colado-${files.length + 1}.${extension}`, { type }), path: `arquivo-colado-${files.length + 1}.${extension}` });
+              }
+            }
+          }
+          if (files.length) {
+            await createFolderCard('Itens colados', files);
+            return;
+          }
+          if (pastedText.trim()) { tratarLinkColado(pastedText.trim()); return; }
+        }
         const pastedText = await navigator.clipboard.readText();
-        tratarLinkColado(pastedText.trim());
+        if (pastedText.trim()) tratarLinkColado(pastedText.trim());
+        else alert('A área de transferência não contém arquivos ou texto compatível.');
       } catch (err) {
         const urlManual = prompt("Cole ou digite a URL do link aqui:");
         if (urlManual) tratarLinkColado(urlManual.trim());
       }
     }
 
+    // Converte URLs coladas em cards de PDF, mídia ou central de links.
     function tratarLinkColado(pastedText) {
       if (pastedText.startsWith('http://') || pastedText.startsWith('https://')) {
         let finalUrl = pastedText;
@@ -2577,6 +3905,7 @@
     }
 
     let timerSalvamento = null;
+    let restoringBoardState = false;
     window.agendarSalvamento = function() {
       clearTimeout(timerSalvamento);
       timerSalvamento = setTimeout(() => {
@@ -2586,6 +3915,7 @@
 
     // Serializa o quadro inteiro para restaurar cards após atualizar a página.
     function salvarEstadoNoStorage() {
+      if (restoringBoardState) return Promise.resolve(false);
       const cardsData = [];
       document.querySelectorAll('.codex-card').forEach(card => {
         card.querySelectorAll('input[type="text"]').forEach(input => {
@@ -2651,6 +3981,8 @@
           currentPage: savedCurrentPage,
           pdfSourceId: savedPdfSourceId,
           mediaSourceId: savedMediaSourceId,
+          mediaTemporary: card.dataset.mediaTemporary === 'true',
+          mediaStorageFailure: card.dataset.mediaStorageFailure || '',
           pagesArray: savedPagesArray,
           groupId: card.dataset.groupId || "",
           globalColor: card.dataset.currentGlobalColor || "#1e293b",
@@ -2672,43 +4004,90 @@
       });
       
       const jsonDataStr = JSON.stringify(cardsData);
-      localStorage.setItem('dexi_codex_cards', jsonDataStr);
+      const savedAt = Date.now();
+      try {
+        localStorage.setItem('dexi_codex_cards', jsonDataStr);
+        localStorage.setItem('dexi_codex_cards_saved_at', String(savedAt));
+      } catch (error) {
+        console.error('Não foi possível salvar o quadro no armazenamento local:', error);
+        let notice = document.getElementById('board-storage-warning');
+        if (!notice) {
+          notice = document.createElement('div');
+          notice.id = 'board-storage-warning';
+          notice.className = 'fixed bottom-4 left-1/2 z-[130] -translate-x-1/2 rounded-lg border border-amber-400 bg-amber-100 px-4 py-3 text-xs font-semibold text-slate-900 shadow-xl';
+          notice.textContent = 'O armazenamento do navegador está cheio. O estado anterior foi preservado; exporte ou remova mídias grandes para continuar salvando.';
+          document.body.appendChild(notice);
+        }
+      }
+      const snapshotSaved = salvarSnapshotQuadroNoDb(jsonDataStr, savedAt);
       
       // SINCRONIZA COM A NUVEM SE ESTIVER LOGADO
       if (googleAccessToken) {
          agendarSyncDrive(jsonDataStr);
       }
+      return snapshotSaved;
     }
 
+    window.addEventListener('pagehide', () => {
+      if (!restoringBoardState && document.querySelector('.codex-card')) salvarEstadoNoStorage();
+    });
+
     // Recria os cards persistidos no localStorage e reabre seus recursos associados.
-    function carregarEstadoDoStorage() {
-      const rawData = localStorage.getItem('dexi_codex_cards');
+    async function carregarEstadoDoStorage(preferredData = null) {
       const menuVisible = localStorage.getItem('dexi_menu_visible');
       toggleMenu(menuVisible !== 'false'); 
 
+      let rawData = preferredData;
+      if (!rawData) {
+        const localData = localStorage.getItem('dexi_codex_cards');
+        const localSavedAt = Number(localStorage.getItem('dexi_codex_cards_saved_at')) || 0;
+        const durableSnapshot = await lerSnapshotQuadroDoDb();
+        rawData = durableSnapshot && durableSnapshot.updatedAt > localSavedAt ? durableSnapshot.jsonData : localData;
+      }
       if (!rawData) return;
       try {
         const cardsData = JSON.parse(rawData);
-        const usedNoteUrls = new Set();
+        restoringBoardState = true;
+        let pendingMediaRestore = cardsData.filter(cardData => cardData.mediaSourceId).length;
+        const finishMediaRestore = () => {
+          pendingMediaRestore -= 1;
+          if (pendingMediaRestore <= 0) finishBoardRestore();
+        };
+        const finishBoardRestore = () => {
+          if (!restoringBoardState) return;
+          restoringBoardState = false;
+          migrarMidiasDataUrlLegadas();
+          salvarEstadoNoStorage();
+        };
         cardsData.forEach(c => {
           if ((c.filetype === 'PDF' || c.filetype === 'LEITOR PDF') && c.pdfSourceId) {
-            montarEGerarLeitorPdf(c.pdfSourceId, c.filename, c.currentPage, {
+            const pdfCard = montarEGerarLeitorPdf(c.pdfSourceId, c.filename, c.currentPage, {
               width: c.width, height: c.height, left: c.left, top: c.top, groupId: c.groupId
             });
+            if (c.mediaTemporary) {
+              lastMediaStorageFailure = c.mediaStorageFailure || 'arquivo antigo sem motivo da falha registrado';
+              marcarCardComoTemporario(pdfCard, c.filetype, c.filename);
+            }
           } else if (c.mediaSourceId) {
-            const transaction = db.transaction(["media"], "readonly");
-            const request = transaction.objectStore(["media"]).get(c.mediaSourceId);
-            request.onsuccess = (e) => {
-              const blob = e.target.result;
-              if (!blob) return;
-              const videoUrl = URL.createObjectURL(blob);
-              const bodyHtml = `<div class="w-full h-full bg-slate-950 flex items-center justify-center" data-mediasourceid="${c.mediaSourceId}" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
-                                  <video src="${videoUrl}" controls class="w-full h-full object-contain pointer-events-auto"></video>
-                                </div>`;
-              createCard(c.filetype, c.filename, bodyHtml, 360, {
+            obterMediaDoDb(c.mediaSourceId).then(async blob => {
+              const bodyHtml = await criarConteudoArquivoPersistente(c.filetype, c.filename, c.mediaSourceId, blob);
+              const mediaCard = createCard(c.filetype, c.filename, bodyHtml, c.width ? parseFloat(c.width) : 290, {
                 width: c.width, height: c.height, left: c.left, top: c.top, groupId: c.groupId
               });
-            };
+              if (!blob || c.mediaTemporary) {
+                lastMediaStorageFailure = c.mediaStorageFailure || 'arquivo não encontrado no IndexedDB; reimporte o original';
+                marcarCardComoTemporario(mediaCard, c.filetype, c.filename);
+              }
+              finishMediaRestore();
+            }).catch(error => {
+              console.error('Falha ao restaurar mídia:', error);
+              const bodyHtml = `<div data-mediasourceid="${escapeHTML(c.mediaSourceId)}" class="flex h-full items-center justify-center p-4 text-center text-xs text-rose-600">Arquivo não disponível neste navegador. Reimporte este arquivo.</div>`;
+              const mediaCard = createCard(c.filetype, c.filename, bodyHtml, c.width ? parseFloat(c.width) : 290, {
+                width: c.width, height: c.height, left: c.left, top: c.top, groupId: c.groupId
+              });
+              marcarCardComoTemporario(mediaCard, c.filetype, c.filename);
+              finishMediaRestore();
+            });
           } else if (c.filetype === 'NOTAS') {
             if (c.noteMode === 'tldraw-local' || c.noteMode === 'tldraw' || c.noteId || c.noteUrl || (c.bodyContent && c.bodyContent.includes('<iframe'))) {
               const noteUrl = c.noteUrl || 'https://www.tldraw.com/';
@@ -2747,10 +4126,11 @@
             });
           }
         });
-        salvarEstadoNoStorage();
+        if (pendingMediaRestore === 0) finishBoardRestore();
       } catch (e) { console.error("Erro ao carregar dados", e); }
     }
 
+    // Limpa o quadro, mantém a opção de recuperação e grava o estado vazio.
     window.limparQuadro = function() {
       // Salva cards antes de deletar
       const cards = document.querySelectorAll('.codex-card');
@@ -2759,7 +4139,11 @@
       }
       
       document.querySelectorAll('.codex-card').forEach(card => card.remove());
-      localStorage.removeItem('dexi_codex_cards');
+      const clearedAt = Date.now();
+      try {
+        localStorage.setItem('dexi_codex_cards', '[]');
+        localStorage.setItem('dexi_codex_cards_saved_at', String(clearedAt));
+      } catch (error) {}
       atualizarToolbarSelecao();
       if (db) {
         const transaction = db.transaction(["pdfs"], "readwrite");
@@ -2767,6 +4151,8 @@
         const mediaTransaction = db.transaction(["media"], "readwrite");
         mediaTransaction.objectStore(["media"]).clear();
       }
+      folderFileMemoryCache.clear();
+      salvarSnapshotQuadroNoDb('[]', clearedAt);
       if (googleAccessToken) agendarSyncDrive('[]');
     }
 
@@ -2949,6 +4335,10 @@
     window.closeModal = function() {
       document.getElementById('preview-modal').classList.add('hidden');
       document.getElementById('modal-content').innerHTML = '';
+      if (activeFolderPreviewUrl) {
+        URL.revokeObjectURL(activeFolderPreviewUrl);
+        activeFolderPreviewUrl = null;
+      }
     }
 
     document.getElementById('preview-modal').addEventListener('click', function (e) {
@@ -2971,10 +4361,30 @@
     window.addEventListener('mouseup', endAllInteractions);
     window.addEventListener('touchend', endAllInteractions);
 
+    document.addEventListener('keydown', (event) => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'z' || event.shiftKey) return;
+      if (event.target.matches('input, textarea, [contenteditable="true"]')) return;
+      if (!boardUndoStack.length) return;
+      event.preventDefault();
+      undoBoardAction();
+    });
+
     window.addEventListener('paste', async (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      
-      const items = (e.clipboardData || window.clipboardData).items;
+      const cardsBeforePaste = new Set(document.querySelectorAll('.codex-card'));
+      const clipboard = e.clipboardData || window.clipboardData;
+      const items = Array.from(clipboard.items || []);
+      const directoryEntries = items.map(item => item.webkitGetAsEntry?.()).filter(entry => entry?.isDirectory);
+      const pastedDirectory = directoryEntries.length > 0;
+      const fileSystemHandles = await Promise.all(items.map(async item => {
+        try { return await item.getAsFileSystemHandle?.(); } catch (error) { return null; }
+      }));
+      if (pastedDirectory || fileSystemHandles.some(handle => handle?.kind === 'directory')) {
+        e.preventDefault();
+        await processDroppedItems(clipboard, fileSystemHandles, directoryEntries);
+        requestAnimationFrame(() => pushPastedCardsUndo(cardsBeforePaste));
+        return;
+      }
       let imagemDetectada = false;
       
       for (let item of items) {
@@ -2990,6 +4400,7 @@
         const pastedText = (e.clipboardData || window.clipboardData).getData('text').trim();
         if (pastedText) tratarLinkColado(pastedText);
       }
+      requestAnimationFrame(() => pushPastedCardsUndo(cardsBeforePaste));
     });
 
     window.toggleFullscreenCard = function(card) {
@@ -3090,6 +4501,7 @@
     }
 
     // Operações específicas das notas: páginas, zoom, PDF, cor, texto e limpeza.
+    // Cria uma nova página de desenho dentro do card de notas escolhido.
     window.adicionarNovaPaginaAoCard = function(card) {
       if (!card) return;
       const scrollContainer = card.querySelector('.scroll-container-a4');
@@ -3319,7 +4731,7 @@
       salvarEstadoNoStorage();
     }
 
-    // CONTINUAÇÃO E FINALIZAÇÃO DO CÓDIGO (Que estava cortado no arquivo original)
+    // Reconstrói cards de notas e suas páginas salvas a partir dos dados persistidos.
     function reconstruirCardNotasComPaginas(c) {
       const paperType = c.paperType || "A4";
       const config = paperConfigs[paperType] || paperConfigs['A4'];
@@ -3407,7 +4819,7 @@
       });
     }
 
-    // Inicialização do desenho manual usado como fallback quando o módulo TLDraw não carrega.
+    // Inicializa o desenho manual usado como fallback quando TLDraw não está disponível.
     function initDrawingCanvas(canvas) {
       let isDrawing = false;
       let ctx = canvas.getContext('2d');
