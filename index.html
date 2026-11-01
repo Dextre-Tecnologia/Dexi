@@ -5532,6 +5532,14 @@
       canvas.addEventListener('touchmove', draw, {passive: false});
       canvas.addEventListener('touchend', stop);
     }
+
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js').catch(error => {
+          console.warn('Não foi possível ativar o modo offline:', error);
+        });
+      });
+    }
   </script>
 </body>
 </html>
