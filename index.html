@@ -2467,7 +2467,7 @@
     }
 
     function handleWheel(e) {
-      if (e.target.closest('.folder-file-list')) return;
+      if (e.target.closest('.codex-card')) return;
       if (boardWritingActive && e.target === boardWritingSvg && (Math.abs(e.deltaX) > 0 || Math.abs(e.deltaY) > 0)) {
         e.preventDefault();
         panX -= e.deltaX;
