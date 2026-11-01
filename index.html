@@ -2908,6 +2908,7 @@
     }
 
     let draggedFolderEntry = null;
+    let draggedBoardFileCard = null;
     let activeFolderPreviewUrl = null;
     const folderListsWithEvents = new WeakSet();
 
@@ -2919,8 +2920,8 @@
       delete list.dataset.eventsBound;
       body.addEventListener('click', handleFolderCardAction);
       list.addEventListener('dragstart', handleFolderEntryDragStart);
-      list.addEventListener('dragover', handleFolderEntryDragOver);
-      list.addEventListener('drop', handleFolderEntryDrop);
+      body.addEventListener('dragover', handleFolderEntryDragOver);
+      body.addEventListener('drop', handleFolderEntryDrop);
       list.addEventListener('dragend', handleFolderEntryDragEnd);
     }
 
@@ -2931,13 +2932,21 @@
       }
       draggedFolderEntry = event.target.closest('[data-folder-entry]');
       if (!draggedFolderEntry) return;
-      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.effectAllowed = 'copyMove';
       event.dataTransfer.setData('text/plain', draggedFolderEntry.dataset.entryId);
+      event.dataTransfer.setData('application/x-dexi-folder-entry', draggedFolderEntry.dataset.entryId);
       draggedFolderEntry.classList.add('opacity-40');
     }
 
     function handleFolderEntryDragOver(event) {
       event.preventDefault();
+      if (Array.from(event.dataTransfer.types).includes('application/x-dexi-board-file')) {
+        const list = event.currentTarget.querySelector('.folder-file-list');
+        document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
+        list?.classList.add('folder-drop-target');
+        event.dataTransfer.dropEffect = 'copy';
+        return;
+      }
       const target = event.target.closest('[data-folder-entry]');
       if (!target || !draggedFolderEntry || target === draggedFolderEntry) return;
       if (target.dataset.kind === 'folder') {
@@ -2955,10 +2964,18 @@
       target.parentElement.insertBefore(draggedFolderEntry, insertAfter ? target.nextSibling : target);
     }
 
-    function handleFolderEntryDrop(event) {
+    async function handleFolderEntryDrop(event) {
       event.preventDefault();
       const card = event.target.closest('.codex-card');
       const target = event.target.closest('[data-folder-entry]');
+      if (Array.from(event.dataTransfer.types).includes('application/x-dexi-board-file')) {
+        const sourceId = event.dataTransfer.getData('application/x-dexi-board-file');
+        const sourceCard = draggedBoardFileCard || Array.from(document.querySelectorAll('.codex-card')).find(item => item.dataset.boardUndoId === sourceId);
+        const destinationPath = target?.dataset.kind === 'folder' ? target.dataset.path : (card?.dataset.folderViewPath || '');
+        if (card && sourceCard) await arquivarCardDoQuadroNaPasta(sourceCard, card, destinationPath);
+        document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
+        return;
+      }
       if (card && draggedFolderEntry && target?.dataset.kind === 'folder' && target !== draggedFolderEntry) {
         const sourcePath = draggedFolderEntry.dataset.path;
         const destinationPath = target.dataset.path;
@@ -2970,6 +2987,66 @@
         row.classList.remove('folder-drop-target', 'folder-drop-before', 'folder-drop-after');
       });
       if (card) salvarEstadoNoStorage();
+    }
+
+    async function arquivarCardDoQuadroNaPasta(sourceCard, targetCard, destinationPath) {
+      const source = sourceCard.querySelector('[data-pdfsourceid], [data-mediasourceid]');
+      const fileName = (sourceCard.dataset.filename || 'arquivo').split(/[\\/]/).pop() || 'arquivo';
+      const blob = source?.dataset.pdfsourceid
+        ? await obterPdfDoDb(source.dataset.pdfsourceid)
+        : source?.dataset.mediasourceid ? await obterMediaDoDb(source.dataset.mediasourceid) : null;
+      if (!blob) {
+        alert('Não foi possível acessar o arquivo original deste card.');
+        return;
+      }
+
+      const rootCardId = targetCard.dataset.folderRootCardId || targetCard.dataset.folderCardId;
+      const rootCard = Array.from(document.querySelectorAll('.folder-card'))
+        .find(item => item.dataset.folderCardId === rootCardId && item.dataset.temporaryFolderView !== 'true') || targetCard;
+      const list = rootCard.querySelector('.folder-file-list');
+      if (!list) return;
+      const path = destinationPath ? `${destinationPath}/${fileName}` : fileName;
+      if (Array.from(list.querySelectorAll('[data-folder-entry]')).some(row => row.dataset.path === path)) {
+        alert('Já existe um arquivo ou pasta com esse nome no destino.');
+        return;
+      }
+
+      const file = new File([blob], fileName, { type: blob.type || '' });
+      const id = createFolderEntryId();
+      const storedPersistently = await guardarArquivoPastaNoDb(id, file);
+      const entry = {
+        id,
+        kind: 'file',
+        path,
+        name: fileName,
+        type: file.type,
+        size: file.size,
+        temporary: !storedPersistently,
+        storageFailure: storedPersistently ? '' : lastMediaStorageFailure
+      };
+      const wrapper = document.createElement('ul');
+      wrapper.innerHTML = renderFolderEntryRow(entry);
+      const row = wrapper.firstElementChild;
+      row.classList.toggle('hidden', getFolderEntryParentPath(path) !== (rootCard.dataset.folderViewPath || ''));
+      list.appendChild(row);
+      Array.from(list.querySelectorAll('[data-folder-entry]'))
+        .sort((left, right) => left.dataset.path.localeCompare(right.dataset.path, 'pt-BR'))
+        .forEach(item => list.appendChild(item));
+
+      if (targetCard !== rootCard && destinationPath === (targetCard.dataset.folderViewPath || '')) {
+        const viewList = targetCard.querySelector('.folder-file-list');
+        const viewRow = row.cloneNode(true);
+        viewRow.classList.remove('hidden');
+        const label = viewRow.querySelector('[data-entry-label]');
+        if (label) { label.textContent = fileName; label.title = path; }
+        viewRow.querySelectorAll('[data-folder-drag-handle], [data-folder-action="up"], [data-folder-action="down"], [data-folder-action="rename"], [data-folder-action="delete"]').forEach(button => button.remove());
+        viewList?.appendChild(viewRow);
+        updateFolderCardCount(targetCard);
+      }
+
+      if (!storedPersistently) mostrarAvisoArmazenamentoArquivo(fileName);
+      updateFolderCardCount(rootCard);
+      await salvarEstadoNoStorage();
     }
 
     function handleFolderEntryDragEnd() {
@@ -3070,7 +3147,13 @@
           label.textContent = row.dataset.path.split('/').pop();
           label.title = row.dataset.path;
         }
-        clone.querySelectorAll('[data-folder-drag-handle], [data-folder-action="up"], [data-folder-action="down"], [data-folder-action="rename"], [data-folder-action="delete"]').forEach(button => button.remove());
+        clone.querySelectorAll('[data-folder-action="up"], [data-folder-action="down"], [data-folder-action="rename"], [data-folder-action="delete"]').forEach(button => button.remove());
+        const dragHandle = clone.querySelector('[data-folder-drag-handle]');
+        if (row.dataset.kind === 'folder') dragHandle?.remove();
+        else if (dragHandle) {
+          dragHandle.title = 'Arrastar arquivo para o quadro';
+          dragHandle.setAttribute('aria-label', 'Arrastar arquivo para o quadro');
+        }
         clone.removeAttribute('draggable');
         return clone.outerHTML;
       }).join('');
@@ -3272,19 +3355,20 @@
     // Lê arquivos e diretórios arrastados e cria cards no quadro.
     async function processDroppedItems(dataTransfer, fileSystemHandles = null, capturedDirectoryEntries = null) {
       const items = Array.from(dataTransfer.items || []);
-      const directoryEntries = capturedDirectoryEntries || items.map(item => item.webkitGetAsEntry?.()).filter(entry => entry?.isDirectory);
+      const itemEntries = items.map(item => item.webkitGetAsEntry?.() || null);
+      const directoryEntries = capturedDirectoryEntries || itemEntries.filter(entry => entry?.isDirectory);
+      const droppedFiles = Array.from(dataTransfer.files || []);
+      const itemFiles = items
+        .filter((item, index) => item.kind === 'file' && !itemEntries[index]?.isDirectory)
+        .map(item => item.getAsFile?.())
+        .filter(Boolean);
       const directoryHandles = fileSystemHandles || await Promise.all(items.map(async item => {
         try { return await item.getAsFileSystemHandle?.(); } catch (error) { return null; }
       }));
       const folderSources = directoryEntries.length
         ? directoryEntries.map(entry => ({ name: entry.name, read: () => readDroppedDirectory(entry) }))
         : directoryHandles.filter(handle => handle?.kind === 'directory').map(handle => ({ name: handle.name, read: () => readDirectoryHandle(handle) }));
-      if (folderSources.length) {
-        const folders = await Promise.all(folderSources.map(async folder => ({ name: folder.name, files: await folder.read() })));
-        await Promise.all(folders.filter(folder => folder.files.length).map(folder => createFolderCard(folder.name, folder.files)));
-        return;
-      }
-      const files = Array.from(dataTransfer.files || []);
+      const files = itemFiles.length ? itemFiles : droppedFiles;
       const droppedFolders = new Map();
       const individualFiles = [];
       files.forEach(file => {
@@ -3298,9 +3382,26 @@
         droppedFolders.get(folderName).push({ file, path: pathParts.join('/') || file.name });
       });
       await Promise.all([
+        ...folderSources.map(async folder => {
+          const folderFiles = await folder.read();
+          if (folderFiles.length) await createFolderCard(folder.name, folderFiles);
+        }),
         ...Array.from(droppedFolders, ([name, folderFiles]) => createFolderCard(name, folderFiles)),
         ...individualFiles.map(file => processAndCreateCard(file))
       ]);
+    }
+
+    async function criarCardDoArquivoDaPasta(entryId) {
+      const row = Array.from(document.querySelectorAll('[data-folder-entry][data-kind="file"]'))
+        .find(item => item.dataset.entryId === entryId);
+      if (!row) return;
+      const blob = await obterArquivoPastaDoDb(entryId);
+      if (!blob) {
+        alert('Não foi possível acessar este arquivo da pasta.');
+        return;
+      }
+      const fileName = row.dataset.path.split('/').pop() || 'arquivo';
+      await processAndCreateCard(new File([blob], fileName, { type: blob.type || '' }));
     }
 
     window.filtrarArquivosPasta = function(input) {
@@ -3317,16 +3418,31 @@
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
       dropZone.addEventListener(eventName, e => e.preventDefault(), false);
     });
-    dropZone.addEventListener('dragover', () => dropZone.classList.add('bg-slate-200/40', 'dark:bg-slate-800/40'));
+    dropZone.addEventListener('dragover', (event) => {
+      dropZone.classList.add('bg-slate-200/40', 'dark:bg-slate-800/40');
+      if (Array.from(event.dataTransfer.types).includes('application/x-dexi-folder-entry')) {
+        event.dataTransfer.dropEffect = 'copy';
+      }
+    });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('bg-slate-200/40', 'dark:bg-slate-800/40'));
     dropZone.addEventListener('drop', async (e) => {
       dropZone.classList.remove('bg-slate-200/40', 'dark:bg-slate-800/40');
+      if (Array.from(e.dataTransfer.types).includes('application/x-dexi-board-file')) return;
+      if (Array.from(e.dataTransfer.types).includes('application/x-dexi-folder-entry')) {
+        try {
+          await criarCardDoArquivoDaPasta(e.dataTransfer.getData('application/x-dexi-folder-entry'));
+        } catch (error) {
+          console.error('Falha ao criar card do arquivo da pasta:', error);
+          alert('Não foi possível adicionar este arquivo ao quadro.');
+        }
+        return;
+      }
       const linkData = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
       if (linkData && (linkData.startsWith('http://') || linkData.startsWith('https://'))) {
         tratarLinkColado(linkData);
         return;
       }
-      if (e.dataTransfer.files.length || e.dataTransfer.items.length) {
+      if (e.dataTransfer.files.length || e.dataTransfer.items.length || Array.from(e.dataTransfer.types).includes('Files')) {
         try {
           await processDroppedItems(e.dataTransfer);
         } catch (error) {
@@ -3986,6 +4102,7 @@
             <span class="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-500 text-[10px] tracking-wide uppercase shrink-0 pointer-events-none">${fileType}</span>
             <input type="text" value="${escapeHTML(filename || '')}" onchange="this.closest('.codex-card').dataset.filename = this.value; salvarEstadoNoStorage();" class="bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-slate-700 focus:border-amber-500 focus:bg-white dark:focus:bg-slate-800 rounded px-1 text-slate-600 dark:text-slate-300 font-bold text-xs truncate w-full cursor-text transition-all outline-none pointer-events-auto" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();" title="Renomear Card">
           </div>
+          <button type="button" draggable="true" data-board-file-drag-handle="true" class="hidden h-7 w-7 shrink-0 cursor-grab touch-none rounded-md text-sm text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-100" title="Arrastar arquivo para uma pasta" aria-label="Arrastar arquivo para uma pasta" onpointerdown="event.stopPropagation();">⠿</button>
           <button onclick="excluirCard(this)" class="text-slate-400 hover:text-rose-500 font-bold text-sm px-1.5 py-0.5 rounded transition-colors pointer-events-auto" title="Excluir Card">&times;</button>
         </div>
         <div class="flex-1 overflow-hidden rounded-b-2xl card-body-holder">
@@ -3994,6 +4111,22 @@
         <div class="resize-handle"></div>`;
 
       if (fileType === 'FOLDERS') bindFolderCardInteractions(card);
+      const boardFileSource = card.querySelector('[data-pdfsourceid], [data-mediasourceid]');
+      const boardFileDragHandle = card.querySelector('[data-board-file-drag-handle]');
+      if (boardFileSource && boardFileDragHandle) {
+        boardFileDragHandle.classList.remove('hidden');
+        boardFileDragHandle.addEventListener('dragstart', event => {
+          draggedBoardFileCard = card;
+          card.classList.add('opacity-60');
+          event.dataTransfer.effectAllowed = 'copy';
+          event.dataTransfer.setData('application/x-dexi-board-file', card.dataset.boardUndoId);
+        });
+        boardFileDragHandle.addEventListener('dragend', () => {
+          card.classList.remove('opacity-60');
+          draggedBoardFileCard = null;
+          document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
+        });
+      }
 
       const header = card.querySelector('.card-header');
       header.addEventListener('pointerdown', (e) => {
@@ -4062,6 +4195,7 @@
       interact(element)
         .draggable({
           allowFrom: '.card-header', 
+          ignoreFrom: '[data-board-file-drag-handle]',
           inertia: false,
           listeners: {
             start(event) {
