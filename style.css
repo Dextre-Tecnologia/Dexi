@@ -71,6 +71,9 @@
     .links-container-list {
       min-height: 0;
       flex: 1 1 0%;
+      display: grid !important;
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 132px), 1fr));
+      align-content: start;
       overflow-y: auto !important;
       overscroll-behavior: contain;
       touch-action: pan-y;
@@ -81,12 +84,23 @@
     .links-container-list::-webkit-scrollbar { display: block !important; width: 8px !important; }
     .links-container-list::-webkit-scrollbar-thumb { border-radius: 999px; background: #94a3b8; }
     .links-container-list::-webkit-scrollbar-track { background: transparent; }
+    .links-container-list .link-item-row {
+      min-width: 0;
+      border-bottom: 3px solid #c9a227;
+      box-shadow: 0 3px 0 rgba(100, 116, 139, 0.18);
+    }
+    .links-container-list .url-input-field { width: 100%; min-width: 0; }
     #preview-modal > div,
     #modal-content { min-height: 0; min-width: 0; }
     #modal-content > iframe { min-height: 0; }
     .folder-file-list {
       min-height: 0;
       flex: 1 1 0%;
+      display: grid !important;
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 104px), 1fr));
+      align-content: start;
+      gap: 6px;
+      padding: 8px !important;
       overflow-x: hidden !important;
       overflow-y: auto !important;
       overscroll-behavior: contain;
@@ -94,6 +108,41 @@
       scrollbar-width: thin !important;
       scrollbar-color: #94a3b8 transparent;
       -ms-overflow-style: auto !important;
+    }
+    .folder-file-list .folder-file-row {
+      min-width: 0;
+      align-content: start;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-bottom: 3px solid #c9a227;
+      border-radius: 0.75rem;
+      background: #fff;
+      box-shadow: 0 3px 0 rgba(100, 116, 139, 0.18);
+    }
+    .dark .folder-file-list .folder-file-row { background: rgba(15, 23, 42, 0.72); }
+    .folder-file-row [data-folder-action="open"] {
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.25rem;
+      padding: 0.5rem 0.2rem;
+    }
+    .folder-file-row [data-folder-action="open"] > span:first-child { font-size: 1.25rem; }
+    .folder-file-row [data-entry-label] {
+      width: 100%;
+      flex: none;
+      overflow-wrap: anywhere;
+      text-align: center;
+      white-space: normal;
+    }
+    .folder-file-row [data-folder-action="open"] > span:last-child { align-self: center; }
+    .folder-file-row [data-folder-drag-handle],
+    .folder-file-row [data-folder-action="up"],
+    .folder-file-row [data-folder-action="down"],
+    .folder-file-row [data-folder-action="download"],
+    .folder-file-row [data-folder-action="rename"],
+    .folder-file-row [data-folder-action="delete"] {
+      width: 24px;
+      height: 24px;
     }
     .folder-file-list::-webkit-scrollbar { display: block !important; width: 8px !important; height: 8px !important; }
     .folder-file-list::-webkit-scrollbar-thumb { border-radius: 999px; background: #94a3b8; }

@@ -3552,14 +3552,11 @@
 
           <div class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full pr-1 opacity-0 group-hover/item:opacity-100 cursor-grab text-slate-300 dark:text-slate-600 hidden sm:block pointer-events-none" title="Arrastar para reordenar">⋮⋮</div>
 
-          <div class="flex gap-2 items-center w-full">
-            <button type="button" onclick="abrirLinkDoCard(this)" data-link-favicon="true" class="link-favicon-button shrink-0 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-slate-700 transition-colors" title="Abrir página" aria-label="Abrir página">
+          <div class="flex w-full flex-col items-stretch gap-2">
+            <button type="button" onclick="abrirLinkDoCard(this)" data-link-favicon="true" class="link-favicon-button self-center shrink-0 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-slate-700 transition-colors" title="Abrir página" aria-label="Abrir página">
               <img src="${faviconUrl}" onerror="this.onerror=null;this.src='${fallbackSvgBase64}';" loading="lazy" referrerpolicy="no-referrer" class="link-favicon-image rounded-lg object-contain" alt="Ícone do site">
             </button>
-            <input type="text" value="${escapeHTML(tag)}" placeholder="Nome/tag..." oninput="atualizarTagLink(this)" class="w-full text-[11px] font-semibold px-2 py-1 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:border-amber-500 text-slate-700 dark:text-slate-200 select-text">
-          </div>
-          <div class="flex gap-1 items-center">
-            <input type="text" value="${escapeHTML(url)}" placeholder="https://..." oninput="atualizarTagLink(this)" class="url-input-field flex-1 text-[10px] px-2 py-1 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:border-amber-500 text-slate-500 dark:text-slate-400 font-mono select-text truncate">
+            <input type="text" value="${escapeHTML(url)}" placeholder="https://..." aria-label="Link" oninput="atualizarTagLink(this)" class="url-input-field box-border w-full min-w-0 text-[10px] px-2 py-1 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:border-amber-500 text-slate-500 dark:text-slate-400 font-mono select-text truncate">
           </div>
         </div>`;
     }
