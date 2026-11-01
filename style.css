@@ -15,6 +15,28 @@
       height: 100%;
     }
 
+    #favorite-sites-list {
+      max-height: min(6.7rem, calc(50vw - 26px));
+      scrollbar-width: thin !important;
+      scrollbar-color: #64748b transparent;
+      -ms-overflow-style: auto !important;
+    }
+
+    #favorite-sites-list::-webkit-scrollbar {
+      display: block !important;
+      width: 6px !important;
+      height: 6px !important;
+    }
+
+    #favorite-sites-list::-webkit-scrollbar-thumb {
+      border-radius: 999px;
+      background: #64748b;
+    }
+
+    #favorite-sites-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
     /* Estilo da alça de redimensionamento no canto inferior direito dos cards */
     .resize-handle {
       position: absolute;

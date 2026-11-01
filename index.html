@@ -45,26 +45,6 @@
       pointer-events: none !important;
     }
   </style>
-  <!-- Carrega TLDraw como módulo opcional para notas que usam esse editor. -->
-  <script type="module">
-    try {
-      const ReactModule = await import('https://esm.sh/react@18.3.1');
-      const ReactDOMModule = await import('https://esm.sh/react-dom@18.3.1/client');
-      const TldrawModule = await import('https://esm.sh/tldraw?bundle&external=react,react-dom');
-
-      window.mountDexiTldraw = (host, persistenceKey) => {
-        const root = ReactDOMModule.createRoot(host);
-        root.render(ReactModule.createElement(TldrawModule.Tldraw, {
-          persistenceKey,
-          autoFocus: true,
-          onMount: (editor) => editor.selectAll()
-        }));
-        return root;
-      };
-    } catch (error) {
-      console.error('Erro ao carregar TLDraw:', error);
-    }
-  </script>
   <!-- Configura a paleta utilitária e o worker de leitura de PDFs. -->
   <script>
     tailwind.config = {
@@ -114,7 +94,7 @@
 
   <button id="trigger-left" onclick="toggleMenu(true)" class="fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-amber-500 hover:bg-amber-600 text-white p-3 rounded-r-xl shadow-lg transition-all font-bold hidden">&gt;</button>
 
-  <!-- Ações em lote para os cards selecionados no quadro. -->
+  <!-- Ações Selecionaveis Do Quadro. -->
   <div id="selection-toolbar" class="fixed top-2 sm:top-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 backdrop-blur border border-slate-800 text-white px-2.5 sm:px-5 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl shadow-2xl flex flex-wrap items-center justify-center gap-1.5 sm:gap-4 transition-all duration-200 transform scale-95 opacity-0 pointer-events-none w-[95vw] sm:w-auto max-w-xl">
     <span id="selection-count" class="text-[10px] sm:text-xs font-mono font-bold text-amber-400 whitespace-nowrap">0 selecionados</span>
     <div class="hidden sm:block w-px h-4 bg-slate-700"></div>
@@ -123,7 +103,7 @@
     <button onclick="excluirSelecionados()" class="text-[10px] sm:text-xs bg-rose-600 hover:bg-rose-700 text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-bold transition-all shadow-sm whitespace-nowrap">Excluir</button>
   </div>
 
-  <!-- Ferramentas de escrita, seleção e exportação do quadro. -->
+  <!-- Ferramentas de Notas -->
   <div id="writing-toolbar" class="fixed bottom-2 left-2 right-2 sm:bottom-4 sm:left-1/2 sm:-translate-x-1/2 z-[90] hidden flex-wrap justify-center items-center gap-1 sm:gap-2 bg-slate-900/95 backdrop-blur border border-slate-700 text-white px-2 sm:px-3 py-2 rounded-xl sm:rounded-2xl shadow-2xl max-w-[calc(100vw-1rem)]">
     <button onclick="toggleBoardWriting(true); setBoardWritingMode('pen')" data-writing-mode="pen" class="writing-tool-button active w-7 h-7 sm:w-8 sm:h-8 text-sm sm:text-base" title="Caneta">✏️</button>
     <button onclick="setBoardWritingMode('eraser')" data-writing-mode="eraser" class="writing-tool-button w-7 h-7 sm:w-8 sm:h-8 text-sm sm:text-base" title="Borracha">🧽</button>
@@ -206,34 +186,6 @@
     </div>
   </div>
 
-  <!-- Modal para nomear e escolher o formato de uma nova nota. -->
-  <div id="paper-select-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-    <div class="relative bg-white dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-2xl w-full max-w-sm flex flex-col shadow-2xl transition-all duration-200 overflow-hidden">
-      <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
-        <h3 class="font-bold text-slate-800 dark:text-slate-200">Nova Nota</h3>
-        <button onclick="fecharModalNota()" class="text-slate-400 hover:text-rose-500 font-bold text-xl px-2 transition-colors">&times;</button>
-      </div>
-      <div class="p-5 flex flex-col">
-        <label class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Título da Nota</label>
-        <input type="text" id="nota-nome-input" value="Folha Rascunho" class="mb-5 w-full text-sm px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-white focus:outline-none focus:border-amber-500 transition-colors" placeholder="Nome da folha">
-        <label class="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Formato da Folha</label>
-        <div class="grid grid-cols-3 gap-3 mb-2">
-          <button onclick="criarNotaFromModal('A4')" class="py-4 px-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-amber-500 hover:text-white transition-all flex flex-col items-center justify-center gap-2 border border-slate-200 dark:border-slate-700 shadow-sm group">
-            <div class="w-6 h-8 bg-white border-2 border-slate-300 dark:border-slate-600 group-hover:border-white rounded-sm transition-colors shadow-sm"></div>
-            <span class="text-[11px] font-bold">A4</span>
-          </button>
-          <button onclick="criarNotaFromModal('Carta')" class="py-4 px-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-amber-500 hover:text-white transition-all flex flex-col items-center justify-center gap-2 border border-slate-200 dark:border-slate-700 shadow-sm group">
-            <div class="w-[1.6rem] h-8 bg-white border-2 border-slate-300 dark:border-slate-600 group-hover:border-white rounded-sm transition-colors shadow-sm"></div>
-            <span class="text-[11px] font-bold">Carta</span>
-          </button>
-          <button onclick="criarNotaFromModal('Quadro')" class="py-4 px-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-amber-500 hover:text-white transition-all flex flex-col items-center justify-center gap-2 border border-slate-200 dark:border-slate-700 shadow-sm group">
-            <div class="w-8 h-8 bg-white border-2 border-slate-300 dark:border-slate-600 group-hover:border-white rounded-sm border-dashed transition-colors shadow-sm"></div>
-            <span class="text-[11px] font-bold">Quadro</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- Histórico de cards e desenhos removidos, com ações de recuperação. -->
   <div id="recuperaveis-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
@@ -280,24 +232,21 @@
   <!-- Busca web responsiva e indicador do mecanismo de pesquisa. -->
   <div id="top-web-search" class="fixed left-2 right-2 top-3 z-40 max-w-[calc(100%-1rem)] sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-[min(58vw,620px)]">
     <div class="flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-white/90 p-2 shadow-xl backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/80">
-      <div id="search-engine-badge" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200" title="Pesquisar na web" aria-label="Pesquisar na web">
-        <img id="browser-icon" class="h-5 w-5 object-contain" alt="">
-        <svg id="browser-icon-fallback" aria-hidden="true" viewBox="0 0 24 24" class="hidden h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="4" width="18" height="16" rx="2"></rect>
-          <path d="M3 9h18M7 6.5h.01M10 6.5h.01"></path>
-        </svg>
+      <div id="search-engine-badge" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200" title="Pesquisar na web" aria-label="Pesquisar na web">
+        <img id="browser-icon" class="h-6 w-6 shrink-0 object-contain" alt="">
+        <span id="browser-icon-fallback" aria-hidden="true" class="hidden h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-[9px] font-black text-slate-700 dark:bg-slate-700 dark:text-slate-100"></span>
       </div>
-      <input id="top-web-search-input" type="search" placeholder="Pesquisar na web..." aria-label="Pesquisar na web" class="h-10 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500">
+      <input id="top-web-search-input" type="search" placeholder="Pesquisar na web..." aria-label="Pesquisar na web" class="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500">
       <button id="top-web-search-btn" onclick="executarPesquisaWeb()" class="h-10 rounded-xl bg-amber-500 px-3 text-xs font-bold text-slate-900 shadow-sm transition hover:bg-amber-400 focus:outline-none sm:px-4 sm:text-sm">Buscar</button>
     </div>
   </div>
 
-  <!-- Relógio e painéis sobrepostos de favoritos e tarefas do calendário. -->
-  <div id="digital-clock-widget" class="fixed right-2 top-[5.5rem] z-50 flex h-[146px] w-[min(275px,calc(100vw-1rem))] flex-col items-center justify-center gap-1 rounded-2xl border border-slate-200 bg-white/85 p-3.5 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/85 sm:right-6 sm:top-6 sm:h-[146px] sm:w-[275px]">
-    <button id="clock-display" type="button" class="whitespace-nowrap cursor-pointer text-3xl font-mono font-black leading-none tracking-wider text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 dark:text-slate-100 sm:text-4xl" title="Abrir calendário e tarefas" aria-label="Abrir calendário e tarefas">
+  <!-- Painel Digital. -->
+  <div id="digital-clock-widget" class="fixed right-2 top-[5.5rem] z-50 flex h-[126px] w-[min(250px,calc(100vw-1rem))] flex-col items-center justify-center gap-1 rounded-2xl border border-slate-200 bg-white/85 p-2.5 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/85 sm:right-6 sm:top-6 sm:h-[126px] sm:w-[250px]">
+    <button id="clock-display" type="button" class="whitespace-nowrap cursor-pointer text-2xl font-mono font-black leading-none tracking-wider text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 dark:text-slate-100 sm:text-3xl" title="Abrir calendário e tarefas" aria-label="Abrir calendário e tarefas">
       00:00:00
     </button>
-    <div id="date-display" class="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 sm:text-[11px]">
+    <div id="date-display" class="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 sm:text-[11px]">
       Carregando...
     </div>
     <div class="flex w-full min-w-0 items-center gap-2">
@@ -346,12 +295,12 @@
       <button id="favorite-sites-toggle" type="button" class="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 bg-amber-100 text-base font-bold text-amber-700 transition hover:bg-amber-200 dark:border-amber-700 dark:bg-amber-500/10 dark:text-amber-300" title="Favoritos" aria-label="Abrir favoritos">★</button>
     </div>
 
-    <div id="favorite-sites-panel" class="absolute right-0 top-full z-[80] mt-2 hidden max-h-[calc(100dvh-8rem)] w-[min(360px,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] flex-col overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur dark:border-slate-700 dark:bg-slate-950/95">
+    <div id="favorite-sites-panel" class="absolute right-0 top-full z-[80] mt-2 hidden max-h-[calc(100dvh-8rem)] w-[min(250px,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] flex-col overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur dark:border-slate-700 dark:bg-slate-950/95">
       <div class="mb-2 flex items-center justify-between">
         <h4 class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-700 dark:text-slate-200">Favoritos</h4>
         <button id="close-favorite-panel" type="button" class="text-lg font-bold text-slate-400 transition hover:text-rose-500" aria-label="Fechar favoritos">×</button>
       </div>
-      <div id="favorite-sites-list" class="grid max-h-[min(42dvh,320px)] grid-cols-5 gap-2 overflow-y-auto overscroll-contain pr-1 sm:grid-cols-6"></div>
+      <div id="favorite-sites-list" class="grid grid-cols-4 gap-2 overflow-y-auto overscroll-contain pr-1"></div>
       <div class="mt-3 shrink-0 border-t border-slate-200 pt-3 dark:border-slate-700">
         <input id="favorite-url-input" type="url" placeholder="Cole o link do site" aria-label="Link do favorito" class="min-w-0 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500">
         <button id="add-favorite-btn" type="button" class="mt-2 w-full rounded-xl bg-amber-500 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-900 transition hover:bg-amber-400">Adicionar</button>
@@ -865,10 +814,18 @@
       }
 
       const domain = encodeURIComponent(parsedUrl.hostname);
+      const pageFavicon = new URL('favicon.ico', parsedUrl).href;
+      const rootFavicon = `${parsedUrl.origin}/favicon.ico`;
+      const isGoogleMaps = parsedUrl.hostname === 'maps.app.goo.gl' || /^maps\.google\./i.test(parsedUrl.hostname) ||
+        (/^(www\.)?google\./i.test(parsedUrl.hostname) && /^\/maps(?:\/|$)/i.test(parsedUrl.pathname));
       const candidates = [
-        `${parsedUrl.origin}/favicon.ico`,
-        `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
-        `https://icons.duckduckgo.com/ip3/${domain}.ico`
+        ...(isGoogleMaps ? ['https://www.gstatic.com/images/branding/product/1x/maps_48dp.png'] : []),
+        pageFavicon,
+        ...(pageFavicon !== rootFavicon ? [rootFavicon] : []),
+        `https://icons.duckduckgo.com/ip3/${domain}.ico`,
+        `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=${encodeURIComponent(parsedUrl.href)}&size=64`,
+        `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(parsedUrl.href)}&sz=64`,
+        `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
       ];
       let candidateIndex = 0;
       image.onerror = () => {
@@ -895,7 +852,7 @@
         try { displayName = new URL(/^https?:\/\//i.test(site.url) ? site.url : `https://${site.url}`).hostname.replace(/^www\./i, ''); } catch (error) {}
         return `
         <div draggable="true" data-index="${index}" class="favorite-site-row group relative flex aspect-square cursor-grab items-center justify-center rounded-xl">
-          <button type="button" data-favorite-open="true" class="favorite-open-button grid h-12 w-12 place-items-center rounded-xl bg-slate-100 shadow-sm ring-1 ring-slate-200 transition hover:bg-amber-50 hover:ring-amber-300 dark:bg-slate-800 dark:ring-slate-700 dark:hover:bg-slate-700" title="${escapeHTML(displayName)}" aria-label="Abrir ${escapeHTML(displayName)}">
+          <button type="button" data-favorite-open="true" class="favorite-open-button grid h-10 w-10 place-items-center rounded-xl bg-slate-100 shadow-sm ring-1 ring-slate-200 transition hover:bg-amber-50 hover:ring-amber-300 dark:bg-slate-800 dark:ring-slate-700 dark:hover:bg-slate-700 sm:h-12 sm:w-12" title="${escapeHTML(displayName)}" aria-label="Abrir ${escapeHTML(displayName)}">
             <img src="${faviconUrl}" alt="" loading="lazy" referrerpolicy="no-referrer" class="h-8 w-8 rounded-lg object-contain">
           </button>
           <button type="button" data-index="${index}" class="favorite-remove-btn pointer-events-none absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-rose-600 text-xs font-black text-white opacity-0 shadow transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100" aria-label="Remover ${escapeHTML(displayName)}" title="Remover favorito">×</button>
@@ -1316,6 +1273,33 @@
       document.getElementById('download-board-selection').disabled = true;
     }
 
+    function getCardsInBoardWritingSelection(selection) {
+      const selectedCards = new Set();
+      document.querySelectorAll('.codex-card:not(.card-fullscreen)').forEach(card => {
+        const left = parseFloat(card.style.left) || 0;
+        const top = parseFloat(card.style.top) || 0;
+        const right = left + card.offsetWidth;
+        const bottom = top + card.offsetHeight;
+        if (right >= selection.left && left <= selection.left + selection.width &&
+            bottom >= selection.top && top <= selection.top + selection.height) {
+          selectedCards.add(card);
+        }
+      });
+      [...selectedCards].forEach(card => {
+        const groupId = card.dataset.groupId;
+        if (groupId) {
+          document.querySelectorAll('.codex-card:not(.card-fullscreen)').forEach(groupCard => {
+            if (groupCard.dataset.groupId === groupId) selectedCards.add(groupCard);
+          });
+        }
+      });
+      return [...selectedCards].map(card => ({
+        element: card,
+        left: parseFloat(card.style.left) || 0,
+        top: parseFloat(card.style.top) || 0
+      }));
+    }
+
     function drawBoardStroke(stroke) {
       if (stroke.points.length === 0) return;
       boardWritingContext.beginPath();
@@ -1672,18 +1656,21 @@
     function startBoardWriting(event) {
       if (!boardWritingActive) return;
       if (boardWritingMode === 'text') return;
-      if (event.target.closest?.('.codex-card, .board-text-element, #writing-toolbar')) return;
       if (event.touches && event.touches.length > 1) {
         boardWritingDrawing = false;
         boardWritingCurrentStroke = [];
         return;
       }
+      const position = getBoardWritingPosition(event);
+      const startsInsideSelection = boardWritingMode === 'select' && boardWritingSelection &&
+        position.x >= boardWritingSelection.left && position.x <= boardWritingSelection.left + boardWritingSelection.width &&
+        position.y >= boardWritingSelection.top && position.y <= boardWritingSelection.top + boardWritingSelection.height;
+      const startsOnWritingControl = event.target.closest?.('#writing-toolbar');
+      const startsOnBoardItem = event.target.closest?.('.codex-card, .board-text-element');
+      if (startsOnWritingControl || (startsOnBoardItem && !startsInsideSelection)) return;
       event.stopPropagation();
       if (event.cancelable) event.preventDefault();
-      const position = getBoardWritingPosition(event);
-      if (boardWritingMode === 'select' && boardWritingSelection &&
-          position.x >= boardWritingSelection.left && position.x <= boardWritingSelection.left + boardWritingSelection.width &&
-          position.y >= boardWritingSelection.top && position.y <= boardWritingSelection.top + boardWritingSelection.height) {
+      if (startsInsideSelection) {
         pushBoardUndoSnapshot();
         const selectedStrokeIndexes = boardWritingStrokes.reduce((indexes, stroke, index) => {
           if (stroke.points.some(point => point.x >= boardWritingSelection.left && point.x <= boardWritingSelection.left + boardWritingSelection.width && point.y >= boardWritingSelection.top && point.y <= boardWritingSelection.top + boardWritingSelection.height)) indexes.push(index);
@@ -1694,7 +1681,8 @@
           start: position,
           selection: { ...boardWritingSelection },
           strokes: selectedStrokeIndexes.map(index => ({ index, points: boardWritingStrokes[index].points.map(point => ({ ...point })) })),
-          texts: selectedTexts.map(text => ({ id: text.id, x: text.x, y: text.y }))
+          texts: selectedTexts.map(text => ({ id: text.id, x: text.x, y: text.y })),
+          cards: getCardsInBoardWritingSelection(boardWritingSelection)
         };
         boardWritingDrawing = true;
         return;
@@ -1785,6 +1773,10 @@
           const text = boardWritingTexts.find(item => item.id === original.id);
           if (text) { text.x = original.x + deltaX; text.y = original.y + deltaY; }
         });
+        boardWritingSelectionMove.cards.forEach(({ element, left, top }) => {
+          element.style.left = `${left + deltaX}px`;
+          element.style.top = `${top + deltaY}px`;
+        });
         updateBoardWritingSelection(
           { x: boardWritingSelectionMove.selection.left + deltaX, y: boardWritingSelectionMove.selection.top + deltaY },
           { x: boardWritingSelectionMove.selection.left + boardWritingSelectionMove.selection.width + deltaX, y: boardWritingSelectionMove.selection.top + boardWritingSelectionMove.selection.height + deltaY }
@@ -1818,11 +1810,13 @@
         boardSelectionJustCreated = true;
       }
       if (boardWritingSelectionMove) {
+        const movedCards = boardWritingSelectionMove.cards.length > 0;
         boardWritingSelectionMove = null;
         renderBoardWriting();
         renderBoardWritingTexts();
         saveBoardWriting();
         saveBoardWritingTexts();
+        if (movedCards) salvarEstadoNoStorage();
       }
       if (boardWritingMode === 'pen' && boardWritingCurrentStroke.length > 0) {
         boardWritingStrokes.push({
@@ -1839,12 +1833,12 @@
       boardWritingCurrentStroke = [];
     }
 
-    boardWrapper.addEventListener('mousedown', startBoardWriting);
+    boardWrapper.addEventListener('mousedown', startBoardWriting, true);
     boardWrapper.addEventListener('dblclick', createBoardTextOnDoubleClick);
     boardWrapper.addEventListener('mousemove', moveBoardWriting);
     boardWrapper.addEventListener('mouseup', stopBoardWriting);
     boardWrapper.addEventListener('mouseleave', stopBoardWriting);
-    boardWrapper.addEventListener('touchstart', startBoardWriting, { passive: false });
+    boardWrapper.addEventListener('touchstart', startBoardWriting, { passive: false, capture: true });
     boardWrapper.addEventListener('touchmove', moveBoardWriting, { passive: false });
     boardWrapper.addEventListener('touchend', stopBoardWriting, { passive: false });
 
@@ -2802,18 +2796,26 @@
       const iconFallback = document.getElementById('browser-icon-fallback');
       badge.title = `${motor.navegador} · pesquisar no ${motor.nome}`;
       badge.setAttribute('aria-label', motor.navegador);
+      const browserInitials = motor.navegador.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
+      const showFallback = () => {
+        browserIcon.hidden = true;
+        iconFallback.textContent = browserInitials;
+        iconFallback.classList.remove('hidden');
+        iconFallback.classList.add('flex');
+      };
       if (browserIcon && motor.icone) {
-        browserIcon.src = `https://cdn.simpleicons.org/${motor.icone}`;
         browserIcon.alt = motor.navegador;
         browserIcon.hidden = false;
-        if (iconFallback) iconFallback.classList.add('hidden');
+        if (iconFallback) {
+          iconFallback.classList.add('hidden');
+          iconFallback.classList.remove('flex');
+        }
         browserIcon.onerror = () => {
-          browserIcon.hidden = true;
-          if (iconFallback) iconFallback.classList.remove('hidden');
+          if (iconFallback) showFallback();
         };
+        browserIcon.src = `https://cdn.simpleicons.org/${motor.icone}`;
       } else {
-        if (browserIcon) browserIcon.hidden = true;
-        if (iconFallback) iconFallback.classList.remove('hidden');
+        if (browserIcon && iconFallback) showFallback();
       }
       input.placeholder = `Pesquisar no ${motor.nome}...`;
     }
