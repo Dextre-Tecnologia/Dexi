@@ -43,6 +43,22 @@
     .folder-card .card-header { touch-action: none; }
     .folder-card .card-body-holder { min-height: 0; }
     .folder-card-body { min-height: 0; }
+    .codex-card.links-card { touch-action: pan-y; }
+    .links-card .card-header { touch-action: none; }
+    .link-card-body { min-height: 0; touch-action: pan-y; }
+    .links-container-list {
+      min-height: 0;
+      flex: 1 1 0%;
+      overflow-y: auto !important;
+      overscroll-behavior: contain;
+      touch-action: pan-y;
+      scrollbar-width: thin !important;
+      scrollbar-color: #94a3b8 transparent;
+      -ms-overflow-style: auto !important;
+    }
+    .links-container-list::-webkit-scrollbar { display: block !important; width: 8px !important; }
+    .links-container-list::-webkit-scrollbar-thumb { border-radius: 999px; background: #94a3b8; }
+    .links-container-list::-webkit-scrollbar-track { background: transparent; }
     #preview-modal > div,
     #modal-content { min-height: 0; min-width: 0; }
     #modal-content > iframe { min-height: 0; }

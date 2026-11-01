@@ -3511,8 +3511,8 @@
       let hostname = 'Central de Links';
       try { hostname = new URL(url).hostname; } catch (e) { }
       const bodyHtml = `
-        <div class="link-card-body p-3 bg-slate-50 dark:bg-slate-950/40 h-full flex flex-col justify-between gap-2 select-none">
-          <div class="links-container-list flex-1 overflow-y-auto overflow-x-hidden pointer-events-auto flex flex-col gap-2 pl-3 pr-1 py-1 -ml-3 relative">
+        <div class="link-card-body min-h-0 p-3 bg-slate-50 dark:bg-slate-950/40 h-full flex flex-col justify-between gap-2 select-none">
+          <div class="links-container-list min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pointer-events-auto flex flex-col gap-2 pl-3 pr-1 py-1 -ml-3 relative">
             ${gerarStructureItemLink(url, savedTag)}
           </div>
           <button onclick="adicionarNovaLinhaLink(this)" class="w-full shrink-0 bg-slate-200/80 hover:bg-amber-500 dark:bg-slate-800 dark:hover:bg-amber-500 text-slate-700 dark:text-slate-300 hover:text-white font-bold py-1.5 px-3 rounded-xl transition-all flex items-center justify-center gap-1 text-xs shadow-sm pointer-events-auto">
@@ -3520,6 +3520,7 @@
           </button>
         </div>`;
       const card = createCard('LINKS', hostname, bodyHtml, 360, null);
+      card.classList.add('links-card');
       card.style.height = '380px';
       salvarEstadoNoStorage();
     }
