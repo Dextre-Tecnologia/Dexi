@@ -96,6 +96,7 @@
   <!-- Seletores invisíveis acionados pelos comandos Arquivar. -->
   <input type="file" id="folder-selector" webkitdirectory directory multiple class="hidden" onchange="handleFolderSelection(this.files)">
   <input type="file" id="archive-files-selector" multiple class="hidden" onchange="handleIndividualFileSelection(this.files)">
+  <input type="file" id="template-import-selector" accept=".zip,application/zip" class="hidden" onchange="importarTemplateQuadro(this.files[0])">
 
   <!-- Escolha entre importar uma pasta completa ou arquivos independentes. -->
   <div id="archive-source-modal" class="fixed inset-0 z-[110] hidden items-center justify-center bg-black/50 p-4" onclick="if (event.target === this) fecharSeletorArquivamento()">
@@ -171,8 +172,11 @@
           <button onclick="triggerFolderSelector()" class="w-full bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 font-medium py-2 px-4 rounded-xl border border-green-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Arquivar</button>
           <button onclick="colarLinkManual()" class="w-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium py-2 px-4 rounded-xl border border-blue-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Colar</button>
           <button onclick="toggleBoardWriting(true)" class="w-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-medium py-2 px-4 rounded-xl border border-amber-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Notar</button>
-          <button onclick="limparQuadro()" class="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-medium py-2 px-4 rounded-xl border border-rose-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Deletar</button>
+          <button onclick="baixarTemplateQuadro()" class="w-full bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 font-medium py-2 px-4 rounded-xl border border-orange-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Baixar</button>
+          <button onclick="document.getElementById('template-import-selector').click()" class="w-full bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 font-medium py-2 px-4 rounded-xl border border-sky-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Importar</button>
+          <br>
           <button onclick="abrirModalRecuperaveis()" class="w-full bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 font-medium py-2 px-4 rounded-xl border border-purple-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Gerenciar</button>
+          <button onclick="limparQuadro()" class="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-medium py-2 px-4 rounded-xl border border-rose-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Deletar</button>
       </div>
 
       <a href="https://github.com/Dextre-Tecnologia/Dexi" target="_blank" rel="noopener noreferrer" class="absolute bottom-4 left-4 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-lg shadow-slate-400/20 transition-transform duration-200 hover:scale-105 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Abrir GitHub">
@@ -276,23 +280,61 @@
   <!-- Busca web responsiva e indicador do mecanismo de pesquisa. -->
   <div id="top-web-search" class="fixed left-2 right-2 top-3 z-40 max-w-[calc(100%-1rem)] sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-[min(58vw,620px)]">
     <div class="flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-white/90 p-2 shadow-xl backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/80">
-      <div id="search-engine-badge" class="flex h-9 min-w-[70px] items-center justify-center rounded-xl bg-slate-100 px-2 text-[9px] font-black uppercase tracking-[0.16em] text-slate-700 dark:bg-slate-800 dark:text-slate-200 sm:text-[10px]">Google</div>
+      <div id="search-engine-badge" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200" title="Pesquisar na web" aria-label="Pesquisar na web">
+        <img id="browser-icon" class="h-5 w-5 object-contain" alt="">
+        <svg id="browser-icon-fallback" aria-hidden="true" viewBox="0 0 24 24" class="hidden h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+          <path d="M3 9h18M7 6.5h.01M10 6.5h.01"></path>
+        </svg>
+      </div>
       <input id="top-web-search-input" type="search" placeholder="Pesquisar na web..." aria-label="Pesquisar na web" class="h-10 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500">
       <button id="top-web-search-btn" onclick="executarPesquisaWeb()" class="h-10 rounded-xl bg-amber-500 px-3 text-xs font-bold text-slate-900 shadow-sm transition hover:bg-amber-400 focus:outline-none sm:px-4 sm:text-sm">Buscar</button>
     </div>
   </div>
 
   <!-- Relógio e painéis sobrepostos de favoritos e tarefas do calendário. -->
-  <div id="digital-clock-widget" class="fixed right-2 top-[5.5rem] z-50 flex flex-col items-center rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/80 sm:right-6 sm:top-6 sm:min-w-[220px]">
-    <button id="clock-display" type="button" class="cursor-pointer text-2xl font-mono font-black tracking-wider text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 dark:text-slate-100 sm:text-3xl" title="Abrir calendário e tarefas" aria-label="Abrir calendário e tarefas">
+  <div id="digital-clock-widget" class="fixed right-2 top-[5.5rem] z-50 flex h-[146px] w-[min(275px,calc(100vw-1rem))] flex-col items-center justify-center gap-1 rounded-2xl border border-slate-200 bg-white/85 p-3.5 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/85 sm:right-6 sm:top-6 sm:h-[146px] sm:w-[275px]">
+    <button id="clock-display" type="button" class="whitespace-nowrap cursor-pointer text-3xl font-mono font-black leading-none tracking-wider text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 dark:text-slate-100 sm:text-4xl" title="Abrir calendário e tarefas" aria-label="Abrir calendário e tarefas">
       00:00:00
     </button>
-    <div id="date-display" class="mb-2 text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 sm:text-[10px]">
+    <div id="date-display" class="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 sm:text-[11px]">
       Carregando...
     </div>
-    <div class="flex w-full items-center gap-2">
-      <select id="timezone-selector" class="flex-1 cursor-pointer rounded-lg border border-slate-200 bg-slate-100 px-2 py-1.5 text-center text-[10px] font-bold text-slate-700 shadow-sm transition hover:bg-slate-200 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 sm:text-xs" title="Escolha o fuso horário">
-        <option value="America/Sao_Paulo">🇧🇷 Brasília</option>
+    <div class="flex w-full min-w-0 items-center gap-2">
+      <select id="timezone-selector" class="min-w-0 max-w-full flex-1 cursor-pointer truncate rounded-lg border border-slate-200 bg-slate-100 px-2 py-1.5 text-center text-[10px] font-bold text-slate-700 shadow-sm transition hover:bg-slate-200 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 sm:text-xs" title="Escolha o fuso horário">
+          <option value="America/Sao_Paulo">🇧🇷 Brasil · Brasília</option>
+          <option value="America/Manaus">🇧🇷 Brasil · Manaus</option>
+          <option value="America/Rio_Branco">🇧🇷 Brasil · Rio Branco</option>
+          <option value="America/Noronha">🇧🇷 Brasil · Fernando de Noronha</option>
+          <option value="America/Argentina/Buenos_Aires">🇦🇷 Argentina · Buenos Aires</option>
+          <option value="America/La_Paz">🇧🇴 Bolívia · La Paz</option>
+          <option value="America/Belize">🇧🇿 Belize · Belmopan</option>
+          <option value="America/Santiago">🇨🇱 Chile · Santiago</option>
+          <option value="America/Punta_Arenas">🇨🇱 Chile · Punta Arenas</option>
+          <option value="Pacific/Easter">🇨🇱 Chile · Ilha de Páscoa</option>
+          <option value="America/Bogota">🇨🇴 Colômbia · Bogotá</option>
+          <option value="America/Costa_Rica">🇨🇷 Costa Rica · San José</option>
+          <option value="America/Havana">🇨🇺 Cuba · Havana</option>
+          <option value="America/Santo_Domingo">🇩🇴 Rep. Dominicana · Santo Domingo</option>
+          <option value="America/Guayaquil">🇪🇨 Equador · Quito / Guayaquil</option>
+          <option value="Pacific/Galapagos">🇪🇨 Equador · Galápagos</option>
+          <option value="America/El_Salvador">🇸🇻 El Salvador · San Salvador</option>
+          <option value="America/Guatemala">🇬🇹 Guatemala · Cidade da Guatemala</option>
+          <option value="America/Guyana">🇬🇾 Guiana · Georgetown</option>
+          <option value="America/Port-au-Prince">🇭🇹 Haiti · Porto Príncipe</option>
+          <option value="America/Tegucigalpa">🇭🇳 Honduras · Tegucigalpa</option>
+          <option value="America/Mexico_City">🇲🇽 México · Cidade do México</option>
+          <option value="America/Cancun">🇲🇽 México · Cancún</option>
+          <option value="America/Chihuahua">🇲🇽 México · Chihuahua</option>
+          <option value="America/Hermosillo">🇲🇽 México · Hermosillo</option>
+          <option value="America/Tijuana">🇲🇽 México · Tijuana</option>
+          <option value="America/Managua">🇳🇮 Nicarágua · Manágua</option>
+          <option value="America/Panama">🇵🇦 Panamá · Cidade do Panamá</option>
+          <option value="America/Asuncion">🇵🇾 Paraguai · Assunção</option>
+          <option value="America/Lima">🇵🇪 Peru · Lima</option>
+          <option value="America/Paramaribo">🇸🇷 Suriname · Paramaribo</option>
+          <option value="America/Montevideo">🇺🇾 Uruguai · Montevidéu</option>
+          <option value="America/Caracas">🇻🇪 Venezuela · Caracas</option>
         <option value="America/New_York">🇺🇸 Nova York</option>
         <option value="Europe/London">🇬🇧 Londres</option>
         <option value="Europe/Paris">🇫🇷 Paris</option>
@@ -304,21 +346,18 @@
       <button id="favorite-sites-toggle" type="button" class="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 bg-amber-100 text-base font-bold text-amber-700 transition hover:bg-amber-200 dark:border-amber-700 dark:bg-amber-500/10 dark:text-amber-300" title="Favoritos" aria-label="Abrir favoritos">★</button>
     </div>
 
-    <div id="favorite-sites-panel" class="absolute right-0 top-full z-[80] mt-2 hidden max-h-[calc(100dvh-8rem)] w-[300px] max-w-[calc(100vw-1rem)] flex-col overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur dark:border-slate-700 dark:bg-slate-950/95">
+    <div id="favorite-sites-panel" class="absolute right-0 top-full z-[80] mt-2 hidden max-h-[calc(100dvh-8rem)] w-[min(360px,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] flex-col overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur dark:border-slate-700 dark:bg-slate-950/95">
       <div class="mb-2 flex items-center justify-between">
         <h4 class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-700 dark:text-slate-200">Favoritos</h4>
         <button id="close-favorite-panel" type="button" class="text-lg font-bold text-slate-400 transition hover:text-rose-500" aria-label="Fechar favoritos">×</button>
       </div>
-      <div id="favorite-sites-list" class="grid max-h-[min(42dvh,320px)] gap-2 overflow-y-auto overscroll-contain pr-1"></div>
+      <div id="favorite-sites-list" class="grid max-h-[min(42dvh,320px)] grid-cols-5 gap-2 overflow-y-auto overscroll-contain pr-1 sm:grid-cols-6"></div>
       <div class="mt-3 shrink-0 border-t border-slate-200 pt-3 dark:border-slate-700">
-        <div class="grid grid-cols-2 gap-2">
-          <input id="favorite-name-input" type="text" placeholder="Nome" class="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-[10px] text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500">
-          <input id="favorite-url-input" type="url" placeholder="https://site.com" class="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-[10px] text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500">
-        </div>
+        <input id="favorite-url-input" type="url" placeholder="Cole o link do site" aria-label="Link do favorito" class="min-w-0 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500">
         <button id="add-favorite-btn" type="button" class="mt-2 w-full rounded-xl bg-amber-500 px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-900 transition hover:bg-amber-400">Adicionar</button>
       </div>
     </div>
-    <section id="calendar-alarm-panel" class="absolute right-0 top-full z-[80] mt-2 hidden w-[min(340px,calc(100vw-1rem))] rounded-xl border border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur dark:border-slate-700 dark:bg-slate-950/95" aria-label="Calendário e tarefas">
+    <section id="calendar-alarm-panel" class="calendar-alarm-panel absolute right-0 top-full z-[80] mt-2 hidden w-[min(360px,calc(100vw-1rem))] max-h-[calc(100dvh-7rem)] overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur dark:border-slate-700 dark:bg-slate-950/95" aria-label="Calendário e tarefas">
       <div class="mb-2 flex items-center justify-between">
         <button id="calendar-previous-month" type="button" class="h-8 w-8 rounded-lg text-lg hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Mês anterior">‹</button>
         <h3 id="calendar-month-label" class="text-xs font-black uppercase text-slate-700 dark:text-slate-200"></h3>
@@ -329,22 +368,38 @@
       <div class="mt-3 border-t border-slate-200 pt-3 dark:border-slate-700">
         <div class="mb-2 grid gap-2">
           <input id="task-title" type="text" maxlength="120" placeholder="Nome da tarefa" aria-label="Nome da tarefa" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
-          <div class="flex items-center gap-2">
-            <input id="task-date" type="date" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" aria-label="Data da tarefa">
-            <input id="task-time" type="time" value="09:00" class="w-24 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" aria-label="Horário da tarefa">
-            <button id="add-task-button" type="button" class="rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-slate-900 hover:bg-amber-400" title="Adicionar tarefa" aria-label="Adicionar tarefa">+</button>
+          <div class="grid grid-cols-[minmax(0,1fr)_minmax(5.5rem,auto)_2.75rem] gap-2">
+            <input id="task-date" type="date" class="min-w-0 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" aria-label="Data da tarefa">
+            <input id="task-time" type="time" value="09:00" class="min-w-0 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" aria-label="Horário da tarefa">
+            <button id="add-task-button" type="button" class="flex min-h-10 min-w-11 items-center justify-center rounded-lg bg-amber-500 px-3 py-2 text-base font-bold text-slate-900 hover:bg-amber-400" title="Adicionar tarefa" aria-label="Adicionar tarefa">+</button>
           </div>
         </div>
-        <div class="mb-2 flex items-center gap-2">
-          <label for="task-sound-select" class="shrink-0 text-[10px] font-semibold text-slate-500 dark:text-slate-400">Som do aviso</label>
-          <select id="task-sound-select" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10px] text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
-            <option value="bell">Sino</option>
-            <option value="double">Dois toques</option>
-            <option value="soft">Suave</option>
-            <option value="none">Sem som</option>
-          </select>
-          <button id="test-task-sound" type="button" class="rounded-lg border border-slate-200 px-2 py-1.5 text-[10px] font-bold text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" title="Testar som selecionado">Testar</button>
-        </div>
+        <details id="task-alarm-options" class="task-alarm-options mb-2">
+          <summary class="flex min-h-9 cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
+            <span>Configurar alarme</span><span class="task-options-chevron text-slate-400" aria-hidden="true">⌄</span>
+          </summary>
+          <div class="grid gap-3 px-1 pb-2 pt-3">
+            <label for="task-reminder-minutes" class="grid grid-cols-[minmax(0,1fr)_5rem] items-center gap-3 text-xs font-medium text-slate-600 dark:text-slate-300">
+              Avisar antes (min)
+              <input id="task-reminder-minutes" type="number" min="0" max="10080" value="0" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" aria-label="Minutos de antecedência do alarme">
+            </label>
+            <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+              <label for="task-sound-select" class="sr-only">Som do aviso</label>
+              <select id="task-sound-select" class="min-w-0 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                <option value="bell">Sino</option>
+                <option value="double">Dois toques</option>
+                <option value="soft">Suave</option>
+                <option value="mp3">MP3 salvo</option>
+                <option value="none">Sem som</option>
+              </select>
+              <button id="test-task-sound" type="button" class="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" title="Testar som selecionado">Testar</button>
+            </div>
+            <label for="task-alarm-audio" class="grid gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300">
+              Áudio MP3 do alarme
+              <input id="task-alarm-audio" type="file" accept="audio/mpeg,.mp3" class="min-w-0 w-full text-xs text-slate-600 file:mr-2 file:rounded-md file:border-0 file:bg-slate-200 file:px-3 file:py-2 file:text-xs dark:text-slate-300 dark:file:bg-slate-800">
+            </label>
+          </div>
+        </details>
         <ul id="task-list" class="max-h-32 space-y-1 overflow-auto" aria-label="Lista de tarefas"></ul>
       </div>
     </section>
@@ -433,6 +488,10 @@
     let selectedTaskDate = new Date();
     let scheduledTasks = [];
     let taskAudioContext = null;
+    let taskAlarmAudio = null;
+    let taskAlarmAudioUrl = null;
+    let taskAlarmRepeatTimer = null;
+    let taskAlarmStopTimer = null;
     try {
       const savedTasks = JSON.parse(localStorage.getItem('dexi_tasks') || '[]');
       if (Array.isArray(savedTasks)) scheduledTasks = savedTasks;
@@ -515,7 +574,8 @@
         const label = document.createElement('span');
         label.className = `min-w-0 flex-1 ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700 dark:text-slate-200'}`;
         const localDate = new Date(`${task.date}T00:00:00`);
-        label.textContent = `${task.title} · ${localDate.toLocaleDateString('pt-BR')} ${task.time || '09:00'}`;
+        const reminder = Math.max(0, Number(task.reminderMinutes) || 0);
+        label.textContent = `${task.title} · ${localDate.toLocaleDateString('pt-BR')} ${task.time || '09:00'}${reminder ? ` · aviso ${reminder} min antes` : ''}`;
         label.title = label.textContent;
         const remove = document.createElement('button');
         remove.type = 'button';
@@ -533,22 +593,69 @@
       });
     }
 
-    // Mostra o aviso do navegador e toca o som escolhido para a tarefa vencida.
+    function stopTaskAlarm(removeToast = true) {
+      clearInterval(taskAlarmRepeatTimer);
+      clearTimeout(taskAlarmStopTimer);
+      taskAlarmRepeatTimer = null;
+      taskAlarmStopTimer = null;
+      if (taskAlarmAudio) {
+        taskAlarmAudio.pause();
+        taskAlarmAudio = null;
+      }
+      if (taskAlarmAudioUrl) URL.revokeObjectURL(taskAlarmAudioUrl);
+      taskAlarmAudioUrl = null;
+      if (navigator.vibrate) navigator.vibrate(0);
+      if (removeToast) document.getElementById('task-toast')?.remove();
+    }
+
+    async function startTaskAlarm() {
+      stopTaskAlarm(false);
+      if (navigator.vibrate) navigator.vibrate([700, 250, 700, 250, 1200]);
+      if (taskSoundSelect.value === 'mp3') {
+        try {
+          const database = db || await dexiDatabaseReady;
+          const blob = database ? await new Promise(resolve => {
+            const request = database.transaction(['media'], 'readonly').objectStore('media').get('dexi_task_alarm_audio');
+            request.onsuccess = () => resolve(request.result || null);
+            request.onerror = () => resolve(null);
+          }) : null;
+          if (blob) {
+            taskAlarmAudioUrl = URL.createObjectURL(blob);
+            taskAlarmAudio = new Audio(taskAlarmAudioUrl);
+            taskAlarmAudio.loop = true;
+            await taskAlarmAudio.play();
+          } else playTaskSound();
+        } catch (error) {
+          playTaskSound();
+        }
+      } else {
+        playTaskSound();
+        taskAlarmRepeatTimer = setInterval(playTaskSound, 1500);
+      }
+      taskAlarmStopTimer = setTimeout(() => stopTaskAlarm(), 90000);
+    }
+
+    // Exibe o alarme, toca o som escolhido e permite interrompê-lo explicitamente.
     function showTaskNotification(task) {
       let toast = document.getElementById('task-toast');
       if (!toast) {
         toast = document.createElement('div');
         toast.id = 'task-toast';
-        toast.className = 'fixed left-1/2 top-4 z-[120] -translate-x-1/2 rounded-xl border border-amber-400 bg-amber-100 px-4 py-3 text-sm font-bold text-slate-900 shadow-2xl dark:bg-amber-300';
+        toast.className = 'task-alarm-toast fixed left-1/2 top-4 z-[120] flex items-center gap-4 rounded-xl border border-rose-500 bg-rose-100 px-5 py-4 text-base font-black text-slate-950 shadow-2xl dark:bg-rose-300';
         toast.setAttribute('role', 'alert');
         document.body.appendChild(toast);
       }
-      toast.textContent = `Tarefa: ${task.title}`;
+      toast.replaceChildren(document.createTextNode(`Alarme: ${task.title}`));
+      const dismiss = document.createElement('button');
+      dismiss.type = 'button';
+      dismiss.className = 'shrink-0 rounded-lg bg-slate-950 px-3 py-2 text-xs font-black text-white';
+      dismiss.textContent = 'Parar alarme';
+      dismiss.addEventListener('click', () => stopTaskAlarm());
+      toast.appendChild(dismiss);
       try {
-        if ('Notification' in window && Notification.permission === 'granted') new Notification('Dexi: tarefa', { body: task.title, tag: task.id });
+        if ('Notification' in window && Notification.permission === 'granted') new Notification('Dexi: tarefa', { body: task.title, tag: task.id, requireInteraction: true });
       } catch (error) {}
-      toast.onclick = () => toast.remove();
-      playTaskSound();
+      startTaskAlarm();
     }
 
     function enableTaskSound() {
@@ -565,7 +672,7 @@
         bell: [{ frequency: 880, delay: 0, duration: 0.55 }, { frequency: 1175, delay: 0.16, duration: 0.65 }],
         double: [{ frequency: 740, delay: 0, duration: 0.18 }, { frequency: 740, delay: 0.28, duration: 0.18 }],
         soft: [{ frequency: 523, delay: 0, duration: 0.5 }, { frequency: 659, delay: 0.22, duration: 0.55 }]
-      }[taskSoundSelect.value];
+      }[taskSoundSelect.value === 'mp3' ? 'bell' : taskSoundSelect.value];
       if (!pattern) return;
       enableTaskSound();
       if (!taskAudioContext) return;
@@ -578,7 +685,7 @@
           oscillator.type = 'sine';
           oscillator.frequency.setValueAtTime(note.frequency, startAt);
           gain.gain.setValueAtTime(0.0001, startAt);
-          gain.gain.exponentialRampToValueAtTime(0.18, startAt + 0.025);
+          gain.gain.exponentialRampToValueAtTime(0.4, startAt + 0.025);
           gain.gain.exponentialRampToValueAtTime(0.0001, startAt + note.duration);
           oscillator.connect(gain);
           gain.connect(taskAudioContext.destination);
@@ -589,7 +696,41 @@
     }
 
     taskSoundSelect.addEventListener('change', () => localStorage.setItem('dexi_task_sound', taskSoundSelect.value));
-    document.getElementById('test-task-sound').addEventListener('click', playTaskSound);
+    document.getElementById('test-task-sound').addEventListener('click', async () => {
+      if (taskSoundSelect.value !== 'mp3') { playTaskSound(); return; }
+      const database = db || await dexiDatabaseReady;
+      const blob = database ? await new Promise(resolve => {
+        const request = database.transaction(['media'], 'readonly').objectStore('media').get('dexi_task_alarm_audio');
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => resolve(null);
+      }) : null;
+      if (!blob) { playTaskSound(); return; }
+      const previewUrl = URL.createObjectURL(blob);
+      const preview = new Audio(previewUrl);
+      preview.onended = () => URL.revokeObjectURL(previewUrl);
+      preview.play().catch(() => { URL.revokeObjectURL(previewUrl); playTaskSound(); });
+    });
+    document.getElementById('task-alarm-audio').addEventListener('change', async event => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        await solicitarArmazenamentoPersistente();
+        const database = db || await dexiDatabaseReady;
+        if (!database) throw new Error('IndexedDB indisponível');
+        await new Promise((resolve, reject) => {
+          const transaction = database.transaction(['media'], 'readwrite');
+          transaction.objectStore('media').put(file, 'dexi_task_alarm_audio');
+          transaction.oncomplete = resolve;
+          transaction.onerror = () => reject(transaction.error);
+        });
+        taskSoundSelect.value = 'mp3';
+        localStorage.setItem('dexi_task_sound', 'mp3');
+      } catch (error) {
+        alert('Não foi possível salvar o áudio MP3 neste navegador.');
+      } finally {
+        event.target.value = '';
+      }
+    });
 
     document.getElementById('clock-display').addEventListener('click', () => {
       enableTaskSound();
@@ -623,13 +764,15 @@
       const title = titleInput.value.trim();
       const date = document.getElementById('task-date').value;
       const time = document.getElementById('task-time').value || '09:00';
+      const reminderMinutes = Math.min(10080, Math.max(0, Number(document.getElementById('task-reminder-minutes').value) || 0));
       if (!title || !date || Number.isNaN(new Date(`${date}T${time}`).getTime())) {
         alert('Informe o nome, a data e o horário da tarefa.');
         return;
       }
-      scheduledTasks.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, title, date, time, completed: false, notified: false });
+      scheduledTasks.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, title, date, time, reminderMinutes, completed: false, notified: false });
       scheduledTasks.sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
       titleInput.value = '';
+      document.getElementById('task-alarm-options').open = false;
       try {
         if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
       } catch (error) {}
@@ -638,14 +781,16 @@
       renderCalendar();
     });
     document.addEventListener('click', event => {
-      if (!calendarAlarmPanel.classList.contains('hidden') && !calendarAlarmPanel.contains(event.target) && !document.getElementById('clock-display').contains(event.target)) calendarAlarmPanel.classList.add('hidden');
+      const clickedInsideCalendar = event.composedPath().includes(calendarAlarmPanel);
+      if (!calendarAlarmPanel.classList.contains('hidden') && !clickedInsideCalendar && !document.getElementById('clock-display').contains(event.target)) calendarAlarmPanel.classList.add('hidden');
     });
     setInterval(() => {
       const now = new Date();
       const dueTasks = scheduledTasks.filter(task => {
         if (task.completed || task.notified) return false;
         const dueAt = new Date(`${task.date}T${task.time || '09:00'}`);
-        return dueAt <= now;
+        const reminderAt = dueAt.getTime() - Math.max(0, Number(task.reminderMinutes) || 0) * 60000;
+        return reminderAt <= now.getTime();
       });
       if (!dueTasks.length) return;
       dueTasks.forEach(task => {
@@ -700,10 +845,41 @@
     function getFaviconUrl(url) {
       try {
         const domain = new URL(url).hostname;
-        return `https://www.google.com/s2/favicons?sz=32&domain=${domain}`;
+        return `https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico`;
       } catch (e) {
-        return 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23999"><circle cx="12" cy="12" r="10"/></svg>';
+        return 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjQ3NDhiIiBzdHJva2Utd2lkdGg9IjIiPjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjEwIi8+PC9zdmc+';
       }
+    }
+
+    function setFavoriteFavicon(image, url) {
+      const fallbackIcon = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjQ3NDhiIiBzdHJva2Utd2lkdGg9IjIiPjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjEwIi8+PC9zdmc+';
+      let parsedUrl;
+      try {
+        const normalizedUrl = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+        parsedUrl = new URL(normalizedUrl);
+        if (!['http:', 'https:'].includes(parsedUrl.protocol)) throw new Error('URL inválida');
+      } catch (error) {
+        image.onerror = null;
+        image.src = fallbackIcon;
+        return;
+      }
+
+      const domain = encodeURIComponent(parsedUrl.hostname);
+      const candidates = [
+        `${parsedUrl.origin}/favicon.ico`,
+        `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
+        `https://icons.duckduckgo.com/ip3/${domain}.ico`
+      ];
+      let candidateIndex = 0;
+      image.onerror = () => {
+        candidateIndex += 1;
+        if (candidateIndex < candidates.length) image.src = candidates[candidateIndex];
+        else {
+          image.onerror = null;
+          image.src = fallbackIcon;
+        }
+      };
+      image.src = candidates[0];
     }
 
     let draggedFavoriteIndex = null;
@@ -715,16 +891,33 @@
       const favorites = getFavoriteSites();
       list.innerHTML = favorites.map((site, index) => {
         const faviconUrl = getFaviconUrl(site.url);
+        let displayName = 'Abrir favorito';
+        try { displayName = new URL(/^https?:\/\//i.test(site.url) ? site.url : `https://${site.url}`).hostname.replace(/^www\./i, ''); } catch (error) {}
         return `
-        <div draggable="true" data-index="${index}" class="favorite-site-row flex cursor-grab items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 dark:border-slate-700 dark:bg-slate-900 group hover:border-amber-300 dark:hover:border-amber-600 transition">
-          <img src="${faviconUrl}" alt="${site.name}" class="w-5 h-5 rounded-sm flex-shrink-0 object-contain bg-white dark:bg-slate-800 p-0.5" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23999%22><circle cx=%2212%22 cy=%2212%22 r=%2210%22/></svg>'">
-          <a href="${site.url}" target="_blank" rel="noopener noreferrer" class="flex-1 text-left text-[10px] font-bold text-slate-700 transition hover:text-amber-600 dark:text-slate-200 dark:hover:text-amber-400 truncate">${site.name}</a>
-          <button type="button" data-index="${index}" data-direction="-1" class="favorite-move-btn px-1 text-xs text-slate-400 hover:text-amber-600" aria-label="Mover ${site.name} para cima" title="Mover para cima">↑</button>
-          <button type="button" data-index="${index}" data-direction="1" class="favorite-move-btn px-1 text-xs text-slate-400 hover:text-amber-600" aria-label="Mover ${site.name} para baixo" title="Mover para baixo">↓</button>
-          <button type="button" data-index="${index}" class="favorite-remove-btn text-lg font-black text-slate-300 transition hover:text-rose-500 opacity-0 group-hover:opacity-100" aria-label="Remover ${site.name}">×</button>
+        <div draggable="true" data-index="${index}" class="favorite-site-row group relative flex aspect-square cursor-grab items-center justify-center rounded-xl">
+          <button type="button" data-favorite-open="true" class="favorite-open-button grid h-12 w-12 place-items-center rounded-xl bg-slate-100 shadow-sm ring-1 ring-slate-200 transition hover:bg-amber-50 hover:ring-amber-300 dark:bg-slate-800 dark:ring-slate-700 dark:hover:bg-slate-700" title="${escapeHTML(displayName)}" aria-label="Abrir ${escapeHTML(displayName)}">
+            <img src="${faviconUrl}" alt="" loading="lazy" referrerpolicy="no-referrer" class="h-8 w-8 rounded-lg object-contain">
+          </button>
+          <button type="button" data-index="${index}" class="favorite-remove-btn pointer-events-none absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-rose-600 text-xs font-black text-white opacity-0 shadow transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100" aria-label="Remover ${escapeHTML(displayName)}" title="Remover favorito">×</button>
         </div>
       `;
       }).join('');
+
+      list.querySelectorAll('.favorite-open-button img').forEach(image => {
+        const index = Number(image.closest('.favorite-site-row').dataset.index);
+        setFavoriteFavicon(image, favorites[index]?.url || '');
+      });
+
+      list.querySelectorAll('[data-favorite-open]').forEach(button => {
+        button.addEventListener('click', () => {
+          const row = button.closest('.favorite-site-row');
+          const site = getFavoriteSites()[Number(row.dataset.index)];
+          let url = site?.url?.trim() || '';
+          if (!url) return;
+          if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+          window.open(url, '_blank', 'noopener,noreferrer');
+        });
+      });
 
       list.querySelectorAll('.favorite-remove-btn').forEach(button => {
         button.addEventListener('click', (e) => {
@@ -736,20 +929,12 @@
           renderFavoriteSites();
         });
       });
-      list.querySelectorAll('.favorite-move-btn').forEach(button => {
-        button.addEventListener('click', event => {
-          event.stopPropagation();
-          const favorites = getFavoriteSites();
-          const index = Number(button.dataset.index);
-          const targetIndex = index + Number(button.dataset.direction);
-          if (targetIndex < 0 || targetIndex >= favorites.length) return;
-          [favorites[index], favorites[targetIndex]] = [favorites[targetIndex], favorites[index]];
-          saveFavoriteSites(favorites);
-          renderFavoriteSites();
-        });
-      });
       list.querySelectorAll('.favorite-site-row').forEach(row => {
         row.addEventListener('dragstart', (event) => {
+          if (event.target.closest('.favorite-remove-btn')) {
+            event.preventDefault();
+            return;
+          }
           draggedFavoriteIndex = Number(row.dataset.index);
           event.dataTransfer.effectAllowed = 'move';
           row.classList.add('opacity-40');
@@ -772,6 +957,33 @@
       });
     }
 
+    window.atualizarFavorito = function(input) {
+      const favorites = getFavoriteSites();
+      const index = Number(input.dataset.index);
+      const field = input.dataset.favoriteField;
+      if (!favorites[index] || !['name', 'url'].includes(field)) return;
+      let value = input.value.trim();
+      if (field === 'url' && value && !/^https?:\/\//i.test(value)) value = `https://${value}`;
+      if (field === 'url' && value) {
+        try {
+          const parsed = new URL(value);
+          if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('URL inválida');
+        } catch (error) {
+          alert('Informe um endereço web válido.');
+          input.value = favorites[index].url;
+          return;
+        }
+      }
+      favorites[index][field] = value;
+      saveFavoriteSites(favorites);
+      if (field === 'name') {
+        const row = input.closest('.favorite-site-row');
+        const openButton = row.querySelector('[data-favorite-open]');
+        openButton.title = `Abrir ${value || 'página'}`;
+        openButton.setAttribute('aria-label', `Abrir ${value || 'página'}`);
+      }
+    };
+
     function toggleFavoriteSitesPanel() {
       const panel = document.getElementById('favorite-sites-panel');
       if (!panel) return;
@@ -789,17 +1001,23 @@
     });
 
     document.getElementById('add-favorite-btn')?.addEventListener('click', () => {
-      const nameInput = document.getElementById('favorite-name-input');
       const urlInput = document.getElementById('favorite-url-input');
-      const name = nameInput?.value.trim();
       let url = urlInput?.value.trim();
-      if (!name || !url) { alert('Preencha nome e URL do favorito.'); return; }
+      if (!url) { alert('Cole o link do site.'); return; }
       if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+      let name;
+      try {
+        const parsed = new URL(url);
+        if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('URL inválida');
+        name = parsed.hostname.replace(/^www\./i, '');
+      } catch (error) {
+        alert('Informe um link válido.');
+        return;
+      }
       const favorites = getFavoriteSites();
       favorites.push({ name, url });
       saveFavoriteSites(favorites);
       renderFavoriteSites();
-      if (nameInput) nameInput.value = '';
       if (urlInput) urlInput.value = '';
     });
 
@@ -1391,7 +1609,7 @@
       if (property === 'background') body.style.backgroundColor = value;
       if (property === 'color') textarea.style.color = value;
       if (property === 'fontFamily') textarea.style.fontFamily = value;
-      if (property === 'fontSize') textarea.style.fontSize = `${value}px`;
+      if (property === 'fontSize') card.style.setProperty('--sticky-font-size', `${value}px`);
       if (property === 'fontWeight') textarea.style.fontWeight = value;
       if (property === 'fontStyle') textarea.style.fontStyle = value;
       if (property === 'textDecoration') textarea.style.textDecoration = value;
@@ -2186,7 +2404,7 @@
     async function liberarBlobsOrfaos() {
       const database = db || await dexiDatabaseReady;
       if (!database) return 0;
-      const mediaIds = new Set(['dexi_board_state_v1']);
+      const mediaIds = new Set(['dexi_board_state_v1', 'dexi_task_alarm_audio']);
       const pdfIds = new Set();
       document.querySelectorAll('.codex-card').forEach(card => {
         const media = card.querySelector('[data-mediasourceid]');
@@ -2242,12 +2460,14 @@
     // Navegação do quadro infinito: zoom, arraste, pinça e coordenadas do mouse.
     function updateTransform() {
       canvasContainer.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+      canvasContainer.style.setProperty('--board-zoom', zoom);
       boardWrapper.style.backgroundPosition = `${panX}px ${panY}px`;
       boardWrapper.style.backgroundSize = `${32 * zoom}px ${32 * zoom}px`;
       document.getElementById('zoom-indicator').innerText = `${Math.round(zoom * 100)}%`;
     }
 
     function handleWheel(e) {
+      if (e.target.closest('.folder-file-list')) return;
       if (boardWritingActive && e.target === boardWritingSvg && (Math.abs(e.deltaX) > 0 || Math.abs(e.deltaY) > 0)) {
         e.preventDefault();
         panX -= e.deltaX;
@@ -2556,21 +2776,21 @@
     function detectarMotorBusca() {
       const ua = navigator.userAgent || '';
       if (/OPR\//.test(ua) || /Opera/.test(ua)) {
-        return { nome: 'Opera', url: 'https://search.opera.com/search?query=' };
+        return { navegador: 'Opera', icone: 'opera', nome: 'Opera', url: 'https://search.opera.com/search?query=' };
       }
       if (/EdgA?\//.test(ua) || /EdgiOS\//.test(ua)) {
-        return { nome: 'Edge', url: 'https://www.bing.com/search?q=' };
+        return { navegador: 'Microsoft Edge', icone: 'microsoftedge', nome: 'Bing', url: 'https://www.bing.com/search?q=' };
       }
       if (/Chrome|CriOS/.test(ua)) {
-        return { nome: 'Google', url: 'https://www.google.com/search?q=' };
+        return { navegador: 'Google Chrome', icone: 'googlechrome', nome: 'Google', url: 'https://www.google.com/search?q=' };
       }
       if (/Firefox/.test(ua)) {
-        return { nome: 'DuckDuckGo', url: 'https://duckduckgo.com/?q=' };
+        return { navegador: 'Firefox', icone: 'firefoxbrowser', nome: 'DuckDuckGo', url: 'https://duckduckgo.com/?q=' };
       }
       if (/Safari/.test(ua)) {
-        return { nome: 'Google', url: 'https://www.google.com/search?q=' };
+        return { navegador: 'Safari', icone: 'safari', nome: 'Google', url: 'https://www.google.com/search?q=' };
       }
-      return { nome: 'Google', url: 'https://www.google.com/search?q=' };
+      return { navegador: 'Navegador', icone: null, nome: 'Google', url: 'https://www.google.com/search?q=' };
     }
 
     function atualizarBadgeBusca() {
@@ -2578,7 +2798,23 @@
       const input = document.getElementById('top-web-search-input');
       if (!badge || !input) return;
       const motor = detectarMotorBusca();
-      badge.textContent = motor.nome;
+      const browserIcon = document.getElementById('browser-icon');
+      const iconFallback = document.getElementById('browser-icon-fallback');
+      badge.title = `${motor.navegador} · pesquisar no ${motor.nome}`;
+      badge.setAttribute('aria-label', motor.navegador);
+      if (browserIcon && motor.icone) {
+        browserIcon.src = `https://cdn.simpleicons.org/${motor.icone}`;
+        browserIcon.alt = motor.navegador;
+        browserIcon.hidden = false;
+        if (iconFallback) iconFallback.classList.add('hidden');
+        browserIcon.onerror = () => {
+          browserIcon.hidden = true;
+          if (iconFallback) iconFallback.classList.remove('hidden');
+        };
+      } else {
+        if (browserIcon) browserIcon.hidden = true;
+        if (iconFallback) iconFallback.classList.remove('hidden');
+      }
       input.placeholder = `Pesquisar no ${motor.nome}...`;
     }
 
@@ -2607,6 +2843,11 @@
     // Cada entrada de pasta recebe um ID estável para ligar o card ao blob no IndexedDB.
     function createFolderEntryId() {
       return `folder-entry-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+
+    function getFolderEntryParentPath(path) {
+      const separator = path.lastIndexOf('/');
+      return separator < 0 ? '' : path.slice(0, separator);
     }
 
     function renderFolderEntryRow(entry) {
@@ -2646,7 +2887,10 @@
       const temporaryFiles = fileEntries.filter(entry => entry.temporary);
       if (temporaryFiles.length) mostrarAvisoArmazenamentoArquivo(temporaryFiles[0].name, temporaryFiles.length);
       const renderedEntries = [...folderEntries.values(), ...fileEntries].sort((a, b) => a.path.localeCompare(b.path, 'pt-BR'));
-      const rows = renderedEntries.map(renderFolderEntryRow).join('');
+      const rows = renderedEntries.map(entry => {
+        const rowHtml = renderFolderEntryRow(entry);
+        return getFolderEntryParentPath(entry.path) ? rowHtml.replace('class="folder-file-row ', 'class="folder-file-row hidden ') : rowHtml;
+      }).join('');
       const bodyHtml = `<div class="folder-card-body flex h-full min-h-0 flex-col bg-slate-50 dark:bg-slate-950/40" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
         <div class="flex shrink-0 gap-1 border-b border-slate-200 p-2 dark:border-slate-700">
           <input type="search" placeholder="Filtrar arquivos..." aria-label="Filtrar arquivos da pasta" oninput="filtrarArquivosPasta(this)" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
@@ -2657,7 +2901,7 @@
         <div data-folder-count="true" class="shrink-0 border-t border-slate-200 px-3 py-1.5 text-[10px] text-slate-500 dark:border-slate-700 dark:text-slate-400">${fileEntries.length} arquivo${fileEntries.length === 1 ? '' : 's'} · ${folderEntries.size} pasta${folderEntries.size === 1 ? '' : 's'}${fileEntries.some(entry => entry.temporary) ? ` · ${fileEntries.filter(entry => entry.temporary).length} temporário(s), não persistido(s)` : ''}</div>
       </div>`;
       const card = createCard('FOLDERS', folderName, bodyHtml, 360);
-      card.dataset.folderCardId = createFolderEntryId();
+      card.classList.add('folder-card');
       bindFolderCardInteractions(card);
       await salvarEstadoNoStorage();
       return card;
@@ -2696,20 +2940,81 @@
       event.preventDefault();
       const target = event.target.closest('[data-folder-entry]');
       if (!target || !draggedFolderEntry || target === draggedFolderEntry) return;
+      if (target.dataset.kind === 'folder') {
+        draggedFolderEntry.classList.remove('folder-drop-before', 'folder-drop-after');
+        document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
+        target.classList.add('folder-drop-target');
+        event.dataTransfer.dropEffect = 'move';
+        return;
+      }
+      document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
       const bounds = target.getBoundingClientRect();
-      target.parentElement.insertBefore(draggedFolderEntry, event.clientY < bounds.top + bounds.height / 2 ? target : target.nextSibling);
+      const insertAfter = event.clientY >= bounds.top + bounds.height / 2;
+      draggedFolderEntry.classList.toggle('folder-drop-after', insertAfter);
+      draggedFolderEntry.classList.toggle('folder-drop-before', !insertAfter);
+      target.parentElement.insertBefore(draggedFolderEntry, insertAfter ? target.nextSibling : target);
     }
 
     function handleFolderEntryDrop(event) {
       event.preventDefault();
       const card = event.target.closest('.codex-card');
+      const target = event.target.closest('[data-folder-entry]');
+      if (card && draggedFolderEntry && target?.dataset.kind === 'folder' && target !== draggedFolderEntry) {
+        const sourcePath = draggedFolderEntry.dataset.path;
+        const destinationPath = target.dataset.path;
+        if (draggedFolderEntry.dataset.kind !== 'folder' || !destinationPath.startsWith(`${sourcePath}/`)) {
+          moverEntradaDaPasta(card, draggedFolderEntry, target);
+        }
+      }
+      card?.querySelectorAll('.folder-drop-target, .folder-drop-before, .folder-drop-after').forEach(row => {
+        row.classList.remove('folder-drop-target', 'folder-drop-before', 'folder-drop-after');
+      });
       if (card) salvarEstadoNoStorage();
     }
 
     function handleFolderEntryDragEnd() {
       draggedFolderEntry?.classList.remove('opacity-40');
+      document.querySelectorAll('.folder-drop-target, .folder-drop-before, .folder-drop-after').forEach(row => {
+        row.classList.remove('folder-drop-target', 'folder-drop-before', 'folder-drop-after');
+      });
       draggedFolderEntry = null;
       salvarEstadoNoStorage();
+    }
+
+    function moverEntradaDaPasta(card, source, destinationFolder) {
+      const list = card.querySelector('.folder-file-list');
+      const sourcePath = source.dataset.path;
+      const destinationPath = destinationFolder.dataset.path;
+      const movingRows = source.dataset.kind === 'folder'
+        ? [source, ...Array.from(list.querySelectorAll('[data-folder-entry]')).filter(row => row.dataset.path.startsWith(`${sourcePath}/`))]
+        : [source];
+      const movingSet = new Set(movingRows);
+      const nextPaths = movingRows.map(row => ({
+        row,
+        path: row === source
+          ? `${destinationPath}/${sourcePath.split('/').pop()}`
+          : `${destinationPath}/${sourcePath.split('/').pop()}${row.dataset.path.slice(sourcePath.length)}`
+      }));
+      const occupiedPaths = new Set(Array.from(list.querySelectorAll('[data-folder-entry]'))
+        .filter(row => !movingSet.has(row))
+        .map(row => row.dataset.path));
+      if (nextPaths.some(entry => occupiedPaths.has(entry.path))) {
+        alert('Já existe um arquivo ou pasta com esse nome no destino.');
+        return;
+      }
+      nextPaths.forEach(({ row, path }) => {
+        row.dataset.path = path;
+        row.dataset.search = path.toLowerCase();
+        row.classList.toggle('hidden', getFolderEntryParentPath(path) !== (card.dataset.folderViewPath || ''));
+        const label = row.querySelector('[data-entry-label]');
+        if (label) { label.textContent = path; label.title = path; }
+        const openButton = row.querySelector('[data-folder-action="open"]');
+        if (openButton) openButton.setAttribute('aria-label', `${row.dataset.kind === 'folder' ? 'Abrir pasta' : 'Visualizar arquivo'} ${path}`);
+      });
+      Array.from(list.querySelectorAll('[data-folder-entry]'))
+        .sort((left, right) => left.dataset.path.localeCompare(right.dataset.path, 'pt-BR'))
+        .forEach(row => list.appendChild(row));
+      updateFolderCardCount(card);
     }
 
     function updateFolderCardCount(card) {
@@ -2728,16 +3033,69 @@
       const url = URL.createObjectURL(file);
       activeFolderPreviewUrl = url;
       const safeName = escapeHTML(row.dataset.path);
+      const fileName = file.name || row.dataset.path.split('/').pop() || 'arquivo';
+      const extension = (fileName.split('.').pop() || '').toLowerCase();
+      const extensionMime = ({
+        pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
+        webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp', avif: 'image/avif', mp4: 'video/mp4', webm: 'video/webm',
+        mov: 'video/quicktime', mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', m4a: 'audio/mp4'
+      })[extension] || '';
+      const mime = !file.type || file.type === 'application/octet-stream' ? extensionMime || file.type : file.type;
       let content;
-      if (file.type.startsWith('image/')) content = `<div class="flex h-full items-center justify-center bg-slate-950"><img src="${url}" alt="${safeName}" class="max-h-full max-w-full object-contain"></div>`;
-      else if (file.type === 'application/pdf') content = `<iframe src="${url}" title="${safeName}" class="h-full w-full border-0"></iframe>`;
-      else if (file.type.startsWith('video/')) content = `<div class="flex h-full items-center justify-center bg-slate-950"><video src="${url}" controls class="max-h-full max-w-full"></video></div>`;
-      else if (file.type.startsWith('audio/')) content = `<div class="flex h-full items-center justify-center p-6"><audio src="${url}" controls class="w-full"></audio></div>`;
-      else if (file.type.startsWith('text/') || /\.(txt|md|json|csv|xml|html|css|js|ts|py|log)$/i.test(file.name)) content = `<pre class="h-full overflow-auto whitespace-pre-wrap break-words bg-white p-4 text-xs text-slate-800 dark:bg-slate-950 dark:text-slate-100"></pre>`;
-      else content = `<div class="flex h-full flex-col items-center justify-center gap-3 p-6 text-center"><p class="text-sm text-slate-600 dark:text-slate-300">Prévia indisponível para este formato.</p><a href="${url}" download="${escapeHTML(file.name)}" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-900">Baixar arquivo</a></div>`;
+      if (mime.startsWith('image/')) content = `<div class="flex h-full min-h-0 w-full items-center justify-center overflow-auto bg-slate-950"><img src="${url}" alt="${safeName}" class="max-h-full max-w-full object-contain"></div>`;
+      else if (mime === 'application/pdf') content = `<iframe src="${url}" type="application/pdf" title="${safeName}" class="h-full min-h-0 w-full flex-1 border-0 bg-white"></iframe>`;
+      else if (mime.startsWith('video/')) content = `<div class="flex h-full min-h-0 w-full items-center justify-center bg-slate-950"><video src="${url}" controls playsinline class="max-h-full max-w-full"></video></div>`;
+      else if (mime.startsWith('audio/')) content = `<div class="flex h-full min-h-0 w-full items-center justify-center p-6"><audio src="${url}" controls class="w-full"></audio></div>`;
+      else if (mime.startsWith('text/') || /\.(txt|md|markdown|json|csv|xml|html|css|js|ts|py|log|yaml|yml|ini|toml)$/i.test(row.dataset.path)) content = `<pre class="h-full min-h-0 w-full flex-1 overflow-auto whitespace-pre-wrap break-words bg-white p-4 text-xs text-slate-800 dark:bg-slate-950 dark:text-slate-100"></pre>`;
+      else content = `<div class="flex h-full min-h-0 w-full flex-col items-center justify-center gap-3 p-6 text-center"><p class="text-sm text-slate-600 dark:text-slate-300">Este formato não possui prévia embutida neste navegador.</p><div class="flex flex-wrap justify-center gap-2"><a href="${url}" target="_blank" rel="noopener noreferrer" class="rounded-lg bg-slate-700 px-4 py-2 text-sm font-bold text-white">Abrir arquivo</a><a href="${url}" download="${escapeHTML(fileName)}" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-900">Baixar arquivo</a></div></div>`;
       openModal(row.dataset.path, content);
       const pre = document.querySelector('#modal-content pre');
       if (pre) pre.textContent = await file.text();
+    }
+
+    function createTemporaryFolderView(sourceCard, folderRow) {
+      const folderPath = folderRow.dataset.path;
+      const rootCardId = sourceCard.dataset.folderRootCardId || sourceCard.dataset.folderCardId;
+      const rootCard = Array.from(document.querySelectorAll('.folder-card'))
+        .find(card => card.dataset.folderCardId === rootCardId) || sourceCard;
+      const sourceList = rootCard.querySelector('.folder-file-list');
+      const children = Array.from(sourceList.querySelectorAll('[data-folder-entry]'))
+        .filter(row => getFolderEntryParentPath(row.dataset.path) === folderPath);
+      const rows = children.map(row => {
+        const clone = row.cloneNode(true);
+        clone.classList.remove('hidden');
+        clone.dataset.search = row.dataset.path.split('/').pop().toLowerCase();
+        const label = clone.querySelector('[data-entry-label]');
+        if (label) {
+          label.textContent = row.dataset.path.split('/').pop();
+          label.title = row.dataset.path;
+        }
+        clone.querySelectorAll('[data-folder-drag-handle], [data-folder-action="up"], [data-folder-action="down"], [data-folder-action="rename"], [data-folder-action="delete"]').forEach(button => button.remove());
+        clone.removeAttribute('draggable');
+        return clone.outerHTML;
+      }).join('');
+      const folderName = folderPath.split('/').pop();
+      const bodyHtml = `<div class="folder-card-body flex h-full min-h-0 flex-col bg-slate-50 dark:bg-slate-950/40" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
+        <div class="flex shrink-0 items-center gap-2 border-b border-slate-200 p-2 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
+          <span class="text-amber-500">📁</span><span class="min-w-0 flex-1 truncate" title="${escapeHTML(folderPath)}">${escapeHTML(folderPath)}</span>
+        </div>
+        <ul class="folder-file-list min-h-0 flex-1 list-none overflow-auto overscroll-contain p-0">${rows || '<li class="p-4 text-center text-xs text-slate-400">Esta pasta está vazia.</li>'}</ul>
+        <div data-folder-count="true" class="shrink-0 border-t border-slate-200 px-3 py-1.5 text-[10px] text-slate-500 dark:border-slate-700 dark:text-slate-400">${children.filter(row => row.dataset.kind === 'file').length} arquivo(s) · ${children.filter(row => row.dataset.kind === 'folder').length} pasta(s)</div>
+      </div>`;
+      const sourceLeft = parseFloat(sourceCard.style.left) || 0;
+      const sourceTop = parseFloat(sourceCard.style.top) || 0;
+      const sourceWidth = parseFloat(sourceCard.style.width) || 360;
+      const viewCard = createCard('FOLDERS', folderName, bodyHtml, 360, {
+        width: '360px',
+        height: '360px',
+        left: `${sourceLeft + sourceWidth + 24}px`,
+        top: `${sourceTop + 40}px`
+      });
+      viewCard.dataset.temporaryFolderView = 'true';
+      viewCard.dataset.folderViewPath = folderPath;
+      viewCard.dataset.folderRootCardId = rootCardId || '';
+      bindFolderCardInteractions(viewCard);
+      return viewCard;
     }
 
     async function downloadFolderFile(row) {
@@ -2791,7 +3149,9 @@
           if (Array.from(list.querySelectorAll('[data-kind="folder"]')).some(item => item.dataset.path === folderPath)) return;
           const wrapper = document.createElement('ul');
           wrapper.innerHTML = renderFolderEntryRow({ id: createFolderEntryId(), kind: 'folder', path: folderPath });
-          list.appendChild(wrapper.firstElementChild);
+          const folderRow = wrapper.firstElementChild;
+          folderRow.classList.toggle('hidden', getFolderEntryParentPath(folderPath) !== (card.dataset.folderViewPath || ''));
+          list.appendChild(folderRow);
         });
         updateFolderCardCount(card);
       } else if (action === 'zip') {
@@ -2803,10 +3163,7 @@
       } else if (!row) return;
       else if (action === 'open') {
         if (row.dataset.kind === 'folder') {
-          const prefix = `${row.dataset.path}/`;
-          const descendants = Array.from(list.querySelectorAll('[data-folder-entry]')).filter(item => item !== row && item.dataset.path.startsWith(prefix));
-          const hideChildren = descendants.some(child => !child.classList.contains('hidden'));
-          descendants.forEach(child => child.classList.toggle('hidden', hideChildren));
+          createTemporaryFolderView(card, row);
         } else await previewFolderFile(row).catch(error => {
           console.error('Falha ao abrir arquivo da pasta:', error);
           alert('Não foi possível abrir este arquivo.');
@@ -2948,8 +3305,11 @@
 
     window.filtrarArquivosPasta = function(input) {
       const query = input.value.trim().toLowerCase();
-      input.closest('.card-body-holder').querySelectorAll('.folder-file-row').forEach(row => {
-        row.classList.toggle('hidden', !row.dataset.search.includes(query));
+      const card = input.closest('.codex-card');
+      const currentPath = card.dataset.folderViewPath || '';
+      card.querySelectorAll('.folder-file-row').forEach(row => {
+        const isCurrentLevel = getFolderEntryParentPath(row.dataset.path) === currentPath;
+        row.classList.toggle('hidden', query ? !row.dataset.search.includes(query) : !isCurrentLevel);
       });
     };
 
@@ -3031,10 +3391,6 @@
           // Salva no histórico antes de deletar
           adicionarAoHistoricoDeleted(card.cloneNode(true));
           
-          const viewerEl = card.querySelector('[data-viewerid]');
-          if (viewerEl && viewerEl.dataset.pdfsourceid) removerPdfDoDb(viewerEl.dataset.pdfsourceid);
-          const videoEl = card.querySelector('[data-mediasourceid]');
-          if (videoEl && videoEl.dataset.mediasourceid) removerMediaDoDb(videoEl.dataset.mediasourceid);
           card.remove();
         });
         atualizarToolbarSelecao();
@@ -3059,7 +3415,7 @@
       let domain = '';
       try { domain = new URL(url).hostname; } catch(e) {}
       const fallbackSvgBase64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM2NDc0OGIiIHN0cm9rZS13aWR0aD0iMiI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiPjwvY2lyY2xlPjwvc3ZnPg==";
-      const faviconUrl = domain ? `https://www.google.com/s2/favicons?sz=64&domain=${domain}` : fallbackSvgBase64;
+      const faviconUrl = domain ? `https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico` : fallbackSvgBase64;
 
       return `
         <div class="link-item-row flex flex-col gap-1 p-2 border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/60 rounded-xl relative group/item transition-all" 
@@ -3078,13 +3434,14 @@
 
           <div class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full pr-1 opacity-0 group-hover/item:opacity-100 cursor-grab text-slate-300 dark:text-slate-600 hidden sm:block pointer-events-none" title="Arrastar para reordenar">⋮⋮</div>
 
-          <div class="flex gap-1.5 items-center w-full">
-            <img src="${faviconUrl}" onerror="this.onerror=null;this.src='${fallbackSvgBase64}';" class="w-4 h-4 rounded object-contain bg-slate-100 dark:bg-slate-800 p-0.5 shrink-0" alt="Favicon">
+          <div class="flex gap-2 items-center w-full">
+            <button type="button" onclick="abrirLinkDoCard(this)" data-link-favicon="true" class="link-favicon-button shrink-0 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-slate-700 transition-colors" title="Abrir página" aria-label="Abrir página">
+              <img src="${faviconUrl}" onerror="this.onerror=null;this.src='${fallbackSvgBase64}';" loading="lazy" referrerpolicy="no-referrer" class="link-favicon-image rounded-lg object-contain" alt="Ícone do site">
+            </button>
             <input type="text" value="${escapeHTML(tag)}" placeholder="Nome/tag..." oninput="atualizarTagLink(this)" class="w-full text-[11px] font-semibold px-2 py-1 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:border-amber-500 text-slate-700 dark:text-slate-200 select-text">
           </div>
           <div class="flex gap-1 items-center">
             <input type="text" value="${escapeHTML(url)}" placeholder="https://..." oninput="atualizarTagLink(this)" class="url-input-field flex-1 text-[10px] px-2 py-1 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:border-amber-500 text-slate-500 dark:text-slate-400 font-mono select-text truncate">
-            <button onclick="abrirLinkDoCard(this)" class="bg-amber-500 hover:bg-amber-600 text-white px-2 py-1 rounded-md text-[11px] font-bold transition-all shrink-0 shadow-sm pointer-events-auto">↗</button>
           </div>
         </div>`;
     }
@@ -3098,12 +3455,12 @@
     }
 
     window.abrirLinkDoCard = function(button) {
-      const parent = button.parentElement;
+      const parent = button.closest('.link-item-row') || button.parentElement;
       const input = parent.querySelector('.url-input-field');
       if (input && input.value.trim()) {
         let url = input.value.trim();
         if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-        window.open(url, '_blank');
+        window.open(url, '_blank', 'noopener,noreferrer');
       }
     }
     
@@ -3162,7 +3519,9 @@
             + Adicionar Link
           </button>
         </div>`;
-      createCard('LINKS', hostname, bodyHtml, 290, null);
+      const card = createCard('LINKS', hostname, bodyHtml, 360, null);
+      card.style.height = '380px';
+      salvarEstadoNoStorage();
     }
 
     function atualizarTagLink(inputElement) {
@@ -3170,10 +3529,16 @@
       if(inputElement.classList.contains('url-input-field')) {
         const itemContainer = inputElement.closest('.link-item-row');
         const imgEl = itemContainer.querySelector('img');
+        const faviconButton = itemContainer.querySelector('[data-link-favicon]');
+        const linkLabel = inputElement.value.trim();
+        if (faviconButton) {
+          faviconButton.title = linkLabel ? `Abrir ${linkLabel}` : 'Abrir página';
+          faviconButton.setAttribute('aria-label', linkLabel ? `Abrir ${linkLabel}` : 'Abrir página');
+        }
         if(imgEl) {
           try {
             let domain = new URL(inputElement.value).hostname;
-            if(domain) imgEl.src = `https://www.google.com/s2/favicons?sz=64&domain=${domain}`;
+            if(domain) imgEl.src = `https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico`;
           } catch(e) {}
         }
       }
@@ -3206,6 +3571,9 @@
       const persisted = await guardarMediaNoDb(mediaId, file);
       const bodyHtml = await criarConteudoArquivoPersistente(fileType, file.name, mediaId, file);
       const card = createCard(fileType, file.name, bodyHtml, width);
+      if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.name)) {
+        card.style.height = `${Math.min(900, Math.max(420, window.innerHeight * 0.82))}px`;
+      }
       if (!persisted) marcarCardComoTemporario(card, fileType, file.name);
       await salvarEstadoNoStorage();
       return card;
@@ -3248,7 +3616,7 @@
         }
         return;
       }
-      const width = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(fileNameLower) ? 320
+      const width = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(fileNameLower) ? Math.min(1100, Math.max(280, window.innerWidth * 0.92))
         : /\.(mp4|webm|ogg|mov)$/i.test(fileNameLower) ? 360
           : /\.(mp3|wav|ogg|m4a|flac)$/i.test(fileNameLower) ? 300
             : /\.(txt|md|json|csv|xml|html|css|js|ts|py|log)$/i.test(fileNameLower) ? 290 : 260;
@@ -3277,7 +3645,12 @@
         </div>
       `;
       const props = savedProps || null;
-      const card = createCard('STICKY', savedFilename, bodyHtml, 260, props);
+      const card = createCard('STICKY', savedFilename, bodyHtml, 320, props);
+      card.style.setProperty('--sticky-font-size', `${savedStyle.fontSize || '14'}px`);
+      if (!props) {
+        card.style.height = '340px';
+        salvarEstadoNoStorage();
+      }
       card.dataset.stickyId = noteId;
       card.dataset.stickyText = savedText;
       card.dataset.stickyBackground = savedStyle.background || '#fef08a';
@@ -3469,12 +3842,12 @@
           </div>
         </div>`;
 
-      const customWidth = window.innerWidth > 800 ? 650 : 340;
+      const customWidth = Math.min(1100, Math.max(300, window.innerWidth * 0.92));
       let props = savedProps;
       if (!props) { 
         const targetLeft = mouseXCanvas ? (mouseXCanvas - 50) : (Math.abs(panX) / zoom + 400);
         const targetTop = mouseYCanvas ? (mouseYCanvas - 20) : (Math.abs(panY) / zoom + 100);
-        props = { width: `${customWidth}px`, height: `550px`, left: `${targetLeft}px`, top: `${targetTop}px` };
+        props = { width: `${customWidth}px`, height: `${Math.min(900, Math.max(520, window.innerHeight * 0.84))}px`, left: `${targetLeft}px`, top: `${targetTop}px` };
       }
 
       const card = createCard('PDF', filename, readerContentHtml, customWidth, props);
@@ -3571,6 +3944,10 @@
       card.dataset.filetype = fileType;
       card.dataset.filename = filename;
       card.dataset.boardUndoId = `card-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      if (fileType === 'FOLDERS') {
+        card.classList.add('folder-card');
+        card.dataset.folderCardId = createFolderEntryId();
+      }
 
       const finalWidth = customWidth;
       const finalHeight = savedProps && savedProps.height ? parseFloat(savedProps.height) : 280;
@@ -3588,7 +3965,7 @@
       else {
         card.style.width = `${finalWidth}px`;
         card.style.height = `${finalHeight}px`;
-        const totalCards = document.querySelectorAll('.codex-card').length;
+          const totalCards = Array.from(document.querySelectorAll('.codex-card')).filter(existingCard => existingCard.dataset.temporaryFolderView !== 'true').length;
         const spacingX = 24; const spacingY = 24;
         const cardsPerLine = Math.floor(1200 / (finalWidth + spacingX));
         const col = totalCards % cardsPerLine;
@@ -3674,10 +4051,6 @@
         // Salva no histórico antes de deletar
         adicionarAoHistoricoDeleted(card.cloneNode(true));
         
-        const viewerEl = card.querySelector('[data-viewerid]');
-        if (viewerEl && viewerEl.dataset.pdfsourceid) removerPdfDoDb(viewerEl.dataset.pdfsourceid);
-        const videoEl = card.querySelector('[data-mediasourceid]');
-        if (videoEl && videoEl.dataset.mediasourceid) removerMediaDoDb(videoEl.dataset.mediasourceid);
         card.remove();
         atualizarToolbarSelecao();
         salvarEstadoNoStorage();
@@ -3917,7 +4290,9 @@
     function salvarEstadoNoStorage() {
       if (restoringBoardState) return Promise.resolve(false);
       const cardsData = [];
-      document.querySelectorAll('.codex-card').forEach(card => {
+      Array.from(document.querySelectorAll('.codex-card'))
+        .filter(card => card.dataset.temporaryFolderView !== 'true')
+        .forEach(card => {
         card.querySelectorAll('input[type="text"]').forEach(input => {
           input.setAttribute('value', input.value);
         });
@@ -4028,6 +4403,122 @@
       return snapshotSaved;
     }
 
+    window.baixarTemplateQuadro = async function() {
+      if (!window.JSZip) { alert('Não foi possível carregar o recurso ZIP. Verifique sua conexão.'); return; }
+      try {
+        await salvarEstadoNoStorage();
+        const cards = JSON.parse(localStorage.getItem('dexi_codex_cards') || '[]');
+        const template = {
+          format: 'dexi-template',
+          version: 1,
+          cards,
+          strokes: JSON.parse(localStorage.getItem('dexi_board_writing_strokes') || '[]'),
+          texts: JSON.parse(localStorage.getItem('dexi_board_writing_texts') || '[]'),
+          tasks: scheduledTasks,
+          favorites: getFavoriteSites(),
+          taskSound: taskSoundSelect.value,
+          assets: []
+        };
+        const zip = new JSZip();
+        const includedAssets = new Set();
+        const addAsset = async (kind, id, blob, name = '', type = '') => {
+          const assetKey = `${kind}:${id}`;
+          if (!blob || includedAssets.has(assetKey)) return;
+          includedAssets.add(assetKey);
+          const path = `assets/${kind}/${encodeURIComponent(id)}`;
+          zip.file(path, blob);
+          template.assets.push({ kind, id, path, name, type: type || blob.type || '' });
+        };
+
+        for (const card of cards) {
+          if (card.pdfSourceId) await addAsset('pdf', card.pdfSourceId, await obterPdfDoDb(card.pdfSourceId), card.filename, 'application/pdf');
+          if (card.mediaSourceId) {
+            const blob = await obterMediaDoDb(card.mediaSourceId);
+            await addAsset('media', card.mediaSourceId, blob, card.filename, blob?.type || '');
+          }
+          if (card.filetype === 'FOLDERS' && card.bodyContent) {
+            const templateElement = document.createElement('template');
+            templateElement.innerHTML = card.bodyContent;
+            for (const row of templateElement.content.querySelectorAll('[data-folder-entry][data-kind="file"]')) {
+              const blob = await obterArquivoPastaDoDb(row.dataset.entryId);
+              await addAsset('folder', row.dataset.entryId, blob, row.dataset.path, blob?.type || '');
+            }
+          }
+        }
+        const database = db || await dexiDatabaseReady;
+        if (database) {
+          const audioBlob = await new Promise(resolve => {
+            const request = database.transaction(['media'], 'readonly').objectStore('media').get('dexi_task_alarm_audio');
+            request.onsuccess = () => resolve(request.result || null);
+            request.onerror = () => resolve(null);
+          });
+          await addAsset('audio', 'dexi_task_alarm_audio', audioBlob, 'alarme.mp3', 'audio/mpeg');
+        }
+        zip.file('template.json', JSON.stringify(template));
+        const archive = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+        const url = URL.createObjectURL(archive);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `dexi-quadro-${new Date().toISOString().slice(0, 10)}.zip`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (error) {
+        console.error('Falha ao exportar template:', error);
+        alert('Não foi possível preparar o arquivo completo do quadro.');
+      }
+    };
+
+    window.importarTemplateQuadro = async function(file) {
+      if (!file) return;
+      try {
+        if (!window.JSZip) throw new Error('Recurso ZIP indisponível');
+        const zip = await JSZip.loadAsync(file);
+        const manifestFile = zip.file('template.json');
+        if (!manifestFile) throw new Error('Arquivo de template não encontrado');
+        const template = JSON.parse(await manifestFile.async('string'));
+        if (template.format !== 'dexi-template' || !Array.isArray(template.cards)) throw new Error('Template Dexi inválido');
+        if (!confirm('Importar este quadro substituirá os cards e desenhos atuais. Deseja continuar?')) return;
+
+        for (const asset of template.assets || []) {
+          const archivedFile = zip.file(asset.path);
+          if (!archivedFile) continue;
+          const blob = await archivedFile.async('blob');
+          const restoredFile = new File([blob], asset.name || asset.id, { type: asset.type || blob.type || 'application/octet-stream' });
+          if (asset.kind === 'pdf') await guardarPdfNoDb(asset.id, restoredFile);
+          else if (asset.kind === 'folder') await guardarArquivoPastaNoDb(asset.id, restoredFile);
+          else await guardarMediaNoDb(asset.id, restoredFile);
+        }
+        document.querySelectorAll('.codex-card').forEach(card => card.remove());
+        localStorage.setItem('dexi_codex_cards', JSON.stringify(template.cards));
+        localStorage.setItem('dexi_codex_cards_saved_at', String(Date.now()));
+        boardWritingStrokes = Array.isArray(template.strokes) ? template.strokes : [];
+        boardWritingTexts = Array.isArray(template.texts) ? template.texts : [];
+        saveBoardWriting();
+        saveBoardWritingTexts();
+        renderBoardWriting();
+        renderBoardWritingTexts();
+        scheduledTasks = Array.isArray(template.tasks) ? template.tasks : [];
+        saveTasks();
+        saveFavoriteSites(Array.isArray(template.favorites) ? template.favorites : []);
+        renderFavoriteSites();
+        if (['bell', 'double', 'soft', 'mp3', 'none'].includes(template.taskSound)) {
+          taskSoundSelect.value = template.taskSound;
+          localStorage.setItem('dexi_task_sound', template.taskSound);
+        }
+        selectedTaskDate = new Date();
+        calendarMonth = new Date();
+        renderCalendar();
+        renderTasks();
+        await carregarEstadoDoStorage(JSON.stringify(template.cards));
+        fecharModalRecuperaveis();
+      } catch (error) {
+        console.error('Falha ao importar template:', error);
+        alert('Não foi possível importar este arquivo de quadro Dexi.');
+      } finally {
+        document.getElementById('template-import-selector').value = '';
+      }
+    };
+
     window.addEventListener('pagehide', () => {
       if (!restoringBoardState && document.querySelector('.codex-card')) salvarEstadoNoStorage();
     });
@@ -4106,8 +4597,8 @@
             }
           } else if (c.filetype === 'STICKY') {
             criarStickyNote({
-              width: c.width,
-              height: c.height,
+              width: parseFloat(c.width) < 320 ? '320px' : c.width,
+              height: parseFloat(c.height) < 340 ? '340px' : c.height,
               left: c.left,
               top: c.top,
               groupId: c.groupId
@@ -4121,8 +4612,10 @@
               textDecoration: c.stickyTextDecoration
             });
           } else {
+            const cardWidth = c.filetype === 'LINKS' && parseFloat(c.width) < 360 ? '360px' : c.width;
+            const cardHeight = c.filetype === 'LINKS' && parseFloat(c.height) < 380 ? '380px' : c.height;
             createCard(c.filetype, c.filename, c.bodyContent, c.width ? parseFloat(c.width) : 290, {
-              width: c.width, height: c.height, left: c.left, top: c.top, groupId: c.groupId
+              width: cardWidth, height: cardHeight, left: c.left, top: c.top, groupId: c.groupId
             });
           }
         });
@@ -4137,6 +4630,7 @@
       if (cards.length > 0) {
         cards.forEach(card => adicionarAoHistoricoDeleted(card.cloneNode(true)));
       }
+      window.clearBoardWriting();
       
       document.querySelectorAll('.codex-card').forEach(card => card.remove());
       const clearedAt = Date.now();
@@ -4145,13 +4639,6 @@
         localStorage.setItem('dexi_codex_cards_saved_at', String(clearedAt));
       } catch (error) {}
       atualizarToolbarSelecao();
-      if (db) {
-        const transaction = db.transaction(["pdfs"], "readwrite");
-        transaction.objectStore(["pdfs"]).clear();
-        const mediaTransaction = db.transaction(["media"], "readwrite");
-        mediaTransaction.objectStore(["media"]).clear();
-      }
-      folderFileMemoryCache.clear();
       salvarSnapshotQuadroNoDb('[]', clearedAt);
       if (googleAccessToken) agendarSyncDrive('[]');
     }
@@ -4163,6 +4650,7 @@
     const MAX_DELETED_ITEMS = 50;
 
     function adicionarAoHistoricoDeleted(elemento) {
+      if (elemento.dataset.temporaryFolderView === 'true') return;
       const htmlContent = elemento.outerHTML;
       const timestamp = new Date().toLocaleString('pt-BR');
       const deletedItem = {
@@ -4250,16 +4738,14 @@
       if (!item) return;
       
       if (item.type === 'drawing') {
-        // Recupera desenho
         boardWritingStrokes = boardWritingStrokes.concat(item.strokes);
+        boardWritingTexts = boardWritingTexts.concat(item.texts || []);
         saveBoardWriting();
+        saveBoardWritingTexts();
         renderBoardWriting();
+        renderBoardWritingTexts();
       } else {
-        // Recupera card (HTML)
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = item.html;
-        const card = tempDiv.firstChild;
-        document.getElementById('canvas').appendChild(card);
+        restaurarCardDoHistorico(item);
       }
       
       // Remove do histórico
@@ -4269,7 +4755,29 @@
       // Recarrega o modal
       abrirModalRecuperaveis();
       
-      // Salva o estado
+      salvarEstadoNoStorage();
+    }
+
+    function restaurarCardDoHistorico(item) {
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = item.html;
+      const card = wrapper.firstElementChild;
+      if (!card?.classList.contains('codex-card')) return;
+      card.classList.remove('ring-4', 'ring-indigo-500', 'dark:ring-indigo-400', 'selected-card');
+      document.getElementById('canvas').appendChild(card);
+      applyInteract(card);
+      bindFolderCardInteractions(card);
+      const viewer = card.querySelector('[data-viewerid]');
+      if (viewer?.dataset.pdfsourceid) renderizarPaginaVisualizador(viewer.dataset.viewerid, viewer.dataset.pdfsourceid);
+      const media = card.querySelector('[data-mediasourceid]');
+      if (media?.dataset.mediasourceid) {
+        obterMediaDoDb(media.dataset.mediasourceid).then(async blob => {
+          if (!card.isConnected) return;
+          const body = card.querySelector('.card-body-holder');
+          if (body && blob) body.innerHTML = await criarConteudoArquivoPersistente(card.dataset.filetype, card.dataset.filename, media.dataset.mediasourceid, blob);
+          salvarEstadoNoStorage();
+        });
+      }
       salvarEstadoNoStorage();
     }
 
@@ -4278,20 +4786,18 @@
       
       deletedItems.forEach(item => {
         if (item.type === 'drawing') {
-          // Recupera desenho
           boardWritingStrokes = boardWritingStrokes.concat(item.strokes);
+          boardWritingTexts = boardWritingTexts.concat(item.texts || []);
         } else {
-          // Recupera card (HTML)
-          const tempDiv = document.createElement('div');
-          tempDiv.innerHTML = item.html;
-          const card = tempDiv.firstChild;
-          document.getElementById('canvas').appendChild(card);
+          restaurarCardDoHistorico(item);
         }
       });
       
       // Salva desenhos
       saveBoardWriting();
+      saveBoardWritingTexts();
       renderBoardWriting();
+      renderBoardWritingTexts();
       
       deletedItems = [];
       localStorage.removeItem('dexi_deleted_items');
