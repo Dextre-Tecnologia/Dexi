@@ -98,6 +98,7 @@
   <div id="selection-toolbar" class="fixed top-2 sm:top-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 backdrop-blur border border-slate-800 text-white px-2.5 sm:px-5 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl shadow-2xl flex flex-wrap items-center justify-center gap-1.5 sm:gap-4 transition-all duration-200 transform scale-95 opacity-0 pointer-events-none w-[95vw] sm:w-auto max-w-xl">
     <span id="selection-count" class="text-[10px] sm:text-xs font-mono font-bold text-amber-400 whitespace-nowrap">0 selecionados</span>
     <div class="hidden sm:block w-px h-4 bg-slate-700"></div>
+    <button id="envelope-selection-button" onclick="enveloparItensArrastados()" class="hidden text-[10px] sm:text-xs bg-amber-500 hover:bg-amber-400 text-slate-900 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-bold transition-all shadow-sm whitespace-nowrap">Envelopar</button>
     <button onclick="agruparSelecionados()" class="text-[10px] sm:text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-bold transition-all shadow-sm whitespace-nowrap">Agrupar</button>
     <button onclick="desagruparSelecionados()" class="text-[10px] sm:text-xs bg-slate-700 hover:bg-slate-600 text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-bold transition-all shadow-sm whitespace-nowrap">Desagrupar</button>
     <button onclick="excluirSelecionados()" class="text-[10px] sm:text-xs bg-rose-600 hover:bg-rose-700 text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-bold transition-all shadow-sm whitespace-nowrap">Excluir</button>
@@ -242,15 +243,15 @@
   </div>
 
   <!-- Painel Digital. -->
-  <div id="digital-clock-widget" class="fixed right-2 top-[5.5rem] z-50 flex h-[126px] w-[min(250px,calc(100vw-1rem))] flex-col items-center justify-center gap-1 rounded-2xl border border-slate-200 bg-white/85 p-2.5 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/85 sm:right-6 sm:top-6 sm:h-[126px] sm:w-[250px]">
-    <button id="clock-display" type="button" class="whitespace-nowrap cursor-pointer text-2xl font-mono font-black leading-none tracking-wider text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 dark:text-slate-100 sm:text-3xl" title="Abrir calendário e tarefas" aria-label="Abrir calendário e tarefas">
+  <div id="digital-clock-widget" class="fixed right-2 top-[5.5rem] z-50 flex h-[94px] w-[min(210px,calc(100vw-1rem))] flex-col items-center justify-center gap-0.5 rounded-2xl border border-slate-200 bg-white/85 p-2 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/85 sm:right-6 sm:top-6 sm:h-[94px] sm:w-[210px]">
+    <button id="clock-display" type="button" class="whitespace-nowrap cursor-pointer text-xl font-mono font-black leading-none tracking-wider text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 dark:text-slate-100 sm:text-2xl" title="Abrir calendário e tarefas" aria-label="Abrir calendário e tarefas">
       00:00:00
     </button>
-    <div id="date-display" class="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 sm:text-[11px]">
+    <div id="date-display" class="mb-0.5 text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 sm:text-[10px]">
       Carregando...
     </div>
     <div class="flex w-full min-w-0 items-center gap-2">
-      <select id="timezone-selector" class="min-w-0 max-w-full flex-1 cursor-pointer truncate rounded-lg border border-slate-200 bg-slate-100 px-2 py-1.5 text-center text-[10px] font-bold text-slate-700 shadow-sm transition hover:bg-slate-200 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 sm:text-xs" title="Escolha o fuso horário">
+      <select id="timezone-selector" class="min-w-0 max-w-full flex-1 cursor-pointer truncate rounded-lg border border-slate-200 bg-slate-100 px-1.5 py-1 text-center text-[9px] font-bold text-slate-700 shadow-sm transition hover:bg-slate-200 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 sm:text-[10px]" title="Escolha o fuso horário">
           <option value="America/Sao_Paulo">🇧🇷 Brasil · Brasília</option>
           <option value="America/Manaus">🇧🇷 Brasil · Manaus</option>
           <option value="America/Rio_Branco">🇧🇷 Brasil · Rio Branco</option>
@@ -292,7 +293,7 @@
         <option value="Australia/Sydney">🇦🇺 Sydney</option>
         <option value="UTC">🌐 UTC</option>
       </select>
-      <button id="favorite-sites-toggle" type="button" class="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 bg-amber-100 text-base font-bold text-amber-700 transition hover:bg-amber-200 dark:border-amber-700 dark:bg-amber-500/10 dark:text-amber-300" title="Favoritos" aria-label="Abrir favoritos">★</button>
+      <button id="favorite-sites-toggle" type="button" class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-amber-300 bg-amber-100 text-sm font-bold text-amber-700 transition hover:bg-amber-200 dark:border-amber-700 dark:bg-amber-500/10 dark:text-amber-300" title="Favoritos" aria-label="Abrir favoritos">★</button>
     </div>
 
     <div id="favorite-sites-panel" class="absolute right-0 top-full z-[80] mt-2 hidden max-h-[calc(100dvh-8rem)] w-[min(250px,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] flex-col overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur dark:border-slate-700 dark:bg-slate-950/95">
@@ -317,7 +318,7 @@
       <div class="mt-3 border-t border-slate-200 pt-3 dark:border-slate-700">
         <div class="mb-2 grid gap-2">
           <input id="task-title" type="text" maxlength="120" placeholder="Nome da tarefa" aria-label="Nome da tarefa" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
-          <div class="grid grid-cols-[minmax(0,1fr)_minmax(5.5rem,auto)_2.75rem] gap-2">
+          <div id="task-entry-controls" class="grid grid-cols-[minmax(0,1fr)_minmax(5.5rem,auto)_2.75rem] gap-2">
             <input id="task-date" type="date" class="min-w-0 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" aria-label="Data da tarefa">
             <input id="task-time" type="time" value="09:00" class="min-w-0 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" aria-label="Horário da tarefa">
             <button id="add-task-button" type="button" class="flex min-h-10 min-w-11 items-center justify-center rounded-lg bg-amber-500 px-3 py-2 text-base font-bold text-slate-900 hover:bg-amber-400" title="Adicionar tarefa" aria-label="Adicionar tarefa">+</button>
@@ -2870,10 +2871,14 @@
     }
 
     // Armazena os blobs e monta um card navegável com entradas e subpastas.
-    async function createFolderCard(folderName, entries) {
+    async function createFolderCard(folderName, entries, additionalFolderPaths = []) {
       await prepararArmazenamentoParaArquivar();
       const folderEntries = new Map();
       const fileEntries = [];
+      additionalFolderPaths.forEach(path => {
+        const normalizedPath = String(path || '').replace(/\\/g, '/').split('/').filter(part => part && part !== '.' && part !== '..').join('/');
+        if (normalizedPath) folderEntries.set(normalizedPath, { id: createFolderEntryId(), kind: 'folder', path: normalizedPath });
+      });
       for (const { file, path } of entries) {
         const normalizedPath = String(path || file.name).replace(/\\/g, '/').split('/').filter(part => part && part !== '.' && part !== '..').join('/') || file.name;
         const parts = normalizedPath.split('/').filter(Boolean);
@@ -2912,6 +2917,7 @@
     let draggedFolderEntry = null;
     let draggedBoardFileCard = null;
     let activeFolderPreviewUrl = null;
+    let activeBoardPreviewUrl = null;
     const folderListsWithEvents = new WeakSet();
 
     function bindFolderCardInteractions(card) {
@@ -3324,14 +3330,20 @@
     function readDroppedDirectory(entry, parentPath = '') {
       return new Promise(resolve => {
         if (entry.isFile) {
-          entry.file(file => resolve([{ file, path: parentPath ? `${parentPath}/${entry.name}` : entry.name }]), () => resolve([]));
+          entry.file(file => resolve({ files: [{ file, path: parentPath ? `${parentPath}/${entry.name}` : entry.name }], folders: [] }), () => resolve({ files: [], folders: [] }));
           return;
         }
-        if (!entry.isDirectory) { resolve([]); return; }
+        if (!entry.isDirectory) { resolve({ files: [], folders: [] }); return; }
         const reader = entry.createReader();
         const children = [];
         const readNextBatch = () => reader.readEntries(async entries => {
-          if (!entries.length) { resolve(children.flat()); return; }
+          if (!entries.length) {
+            resolve({
+              files: children.flatMap(result => result.files),
+              folders: [...new Set([...(parentPath ? [parentPath] : []), ...children.flatMap(result => result.folders)])]
+            });
+            return;
+          }
           const batch = await Promise.all(entries.map(child => {
             const childPath = child.isDirectory
               ? (parentPath ? `${parentPath}/${child.name}` : child.name)
@@ -3340,18 +3352,25 @@
           }));
           children.push(...batch);
           readNextBatch();
-        }, () => resolve(children.flat()));
+        }, () => resolve({
+          files: children.flatMap(result => result.files),
+          folders: [...new Set([...(parentPath ? [parentPath] : []), ...children.flatMap(result => result.folders)])]
+        }));
         readNextBatch();
       });
     }
 
     async function readDirectoryHandle(handle, parentPath = '') {
-      if (handle.kind === 'file') return [{ file: await handle.getFile(), path: parentPath || handle.name }];
-      const files = [];
+      if (handle.kind === 'file') return { files: [{ file: await handle.getFile(), path: parentPath || handle.name }], folders: [] };
+      const contents = { files: [], folders: [] };
       for await (const [name, child] of handle.entries()) {
-        files.push(...await readDirectoryHandle(child, parentPath ? `${parentPath}/${name}` : name));
+        const childPath = parentPath ? `${parentPath}/${name}` : name;
+        const childContents = await readDirectoryHandle(child, childPath);
+        contents.files.push(...childContents.files);
+        contents.folders.push(...childContents.folders);
+        if (child.kind === 'directory') contents.folders.push(childPath);
       }
-      return files;
+      return contents;
     }
 
     // Lê arquivos e diretórios arrastados e cria cards no quadro.
@@ -3385,26 +3404,130 @@
       });
       await Promise.all([
         ...folderSources.map(async folder => {
-          const folderFiles = await folder.read();
-          if (folderFiles.length) await createFolderCard(folder.name, folderFiles);
+          const contents = await folder.read();
+          await createFolderCard(folder.name, contents.files, contents.folders);
         }),
         ...Array.from(droppedFolders, ([name, folderFiles]) => createFolderCard(name, folderFiles)),
         ...individualFiles.map(file => processAndCreateCard(file))
       ]);
     }
 
-    async function criarCardDoArquivoDaPasta(entryId) {
-      const row = Array.from(document.querySelectorAll('[data-folder-entry][data-kind="file"]'))
-        .find(item => item.dataset.entryId === entryId);
-      if (!row) return;
-      const blob = await obterArquivoPastaDoDb(entryId);
-      if (!blob) {
-        alert('Não foi possível acessar este arquivo da pasta.');
+    async function obterEntradaDePasta(entryId, rootCardId = '') {
+      const rootCard = Array.from(document.querySelectorAll('.folder-card'))
+        .find(card => (card.dataset.folderRootCardId || card.dataset.folderCardId) === rootCardId && card.dataset.temporaryFolderView !== 'true');
+      const candidates = rootCard ? rootCard.querySelectorAll('[data-folder-entry]') : document.querySelectorAll('[data-folder-entry]');
+      const selectedRow = Array.from(candidates).find(row => row.dataset.entryId === entryId);
+      if (!selectedRow) return null;
+      const sourceCard = selectedRow.closest('.codex-card');
+      const actualRoot = Array.from(document.querySelectorAll('.folder-card'))
+        .find(card => card.dataset.folderCardId === (sourceCard.dataset.folderRootCardId || sourceCard.dataset.folderCardId)) || sourceCard;
+      const row = Array.from(actualRoot.querySelectorAll('[data-folder-entry]')).find(item => item.dataset.entryId === entryId);
+      if (!row) return null;
+      const path = row.dataset.path;
+      const isFolder = row.dataset.kind === 'folder';
+      const descendants = isFolder
+        ? Array.from(actualRoot.querySelectorAll('[data-folder-entry]')).filter(item => item.dataset.path === path || item.dataset.path.startsWith(`${path}/`))
+        : [row];
+      const files = [];
+      const folderPaths = [];
+      for (const item of descendants) {
+        const relativePath = isFolder ? item.dataset.path.slice(path.length).replace(/^\//, '') : item.dataset.path.split('/').pop();
+        if (item.dataset.kind === 'folder') {
+          if (relativePath) folderPaths.push(relativePath);
+          continue;
+        }
+        const blob = await obterArquivoPastaDoDb(item.dataset.entryId);
+        if (blob) files.push({ file: new File([blob], item.dataset.path.split('/').pop(), { type: blob.type || '' }), path: relativePath || item.dataset.path.split('/').pop() });
+      }
+      return { row, card: actualRoot, folderName: path.split('/').pop() || path, isFolder, files, folderPaths };
+    }
+
+    async function criarCardDaEntradaDePasta(entryId) {
+      const entry = await obterEntradaDePasta(entryId);
+      if (!entry) return;
+      if (entry.isFolder) {
+        await createFolderCard(entry.folderName, entry.files, entry.folderPaths);
         return;
       }
-      const fileName = row.dataset.path.split('/').pop() || 'arquivo';
-      await processAndCreateCard(new File([blob], fileName, { type: blob.type || '' }));
+      if (entry.files[0]) await processAndCreateCard(entry.files[0].file);
     }
+
+    let pendingEnvelope = null;
+
+    function canBeEnveloped(card) {
+      return Boolean(card && card.dataset.filetype !== 'FOLDERS' && card.dataset.filetype !== 'LINKS' && card.querySelector('[data-pdfsourceid], [data-mediasourceid]'));
+    }
+
+    function setPendingEnvelope(source, targetCard) {
+      const sourceCard = source?.card || source;
+      if (!sourceCard || sourceCard === targetCard || !canBeEnveloped(targetCard)) return;
+      pendingEnvelope = { source, targetCard };
+      document.querySelectorAll('.selected-card').forEach(card => card.classList.remove('ring-4', 'ring-indigo-500', 'dark:ring-indigo-400', 'selected-card'));
+      [sourceCard, targetCard].forEach(card => card.classList.add('ring-4', 'ring-indigo-500', 'dark:ring-indigo-400', 'selected-card'));
+      atualizarToolbarSelecao();
+    }
+
+    function clearPendingEnvelope() {
+      pendingEnvelope = null;
+      document.getElementById('envelope-selection-button')?.classList.add('hidden');
+    }
+
+    async function getEnvelopeFile(card) {
+      const source = card?.querySelector('[data-pdfsourceid], [data-mediasourceid]');
+      if (!source) return null;
+      const blob = source.dataset.pdfsourceid
+        ? await obterPdfDoDb(source.dataset.pdfsourceid)
+        : await obterMediaDoDb(source.dataset.mediasourceid);
+      return blob ? new File([blob], card.dataset.filename || 'arquivo', { type: blob.type || '' }) : null;
+    }
+
+    function uniqueEnvelopePath(path, occupiedPaths) {
+      if (!occupiedPaths.has(path)) return path;
+      const separator = path.lastIndexOf('/');
+      const directory = separator >= 0 ? path.slice(0, separator + 1) : '';
+      const filename = path.slice(separator + 1);
+      const extensionIndex = filename.lastIndexOf('.');
+      const stem = extensionIndex > 0 ? filename.slice(0, extensionIndex) : filename;
+      const extension = extensionIndex > 0 ? filename.slice(extensionIndex) : '';
+      let suffix = 2;
+      let nextPath = `${directory}${stem} (${suffix})${extension}`;
+      while (occupiedPaths.has(nextPath)) nextPath = `${directory}${stem} (${++suffix})${extension}`;
+      return nextPath;
+    }
+
+    window.enveloparItensArrastados = async function() {
+      if (!pendingEnvelope) return;
+      const { source, targetCard } = pendingEnvelope;
+      const targetFile = await getEnvelopeFile(targetCard);
+      if (!targetFile) { alert('Não foi possível acessar o arquivo de destino.'); return; }
+      const entries = [];
+      const folderPaths = [];
+      const occupiedPaths = new Set();
+      if (source.kind === 'folder-entry') {
+        const folderEntry = await obterEntradaDePasta(source.entryId, source.rootCardId);
+        if (!folderEntry) { alert('A pasta ou arquivo arrastado não está mais disponível.'); return; }
+        const prefix = folderEntry.isFolder ? `${folderEntry.folderName}/` : '';
+        folderEntry.folderPaths.forEach(path => folderPaths.push(`${prefix}${path}`));
+        if (folderEntry.isFolder) folderPaths.push(folderEntry.folderName);
+        folderPaths.forEach(path => occupiedPaths.add(path));
+        folderEntry.files.forEach(({ file, path }) => {
+          const envelopePath = uniqueEnvelopePath(`${prefix}${path}`, occupiedPaths);
+          occupiedPaths.add(envelopePath);
+          entries.push({ file, path: envelopePath });
+        });
+      } else {
+        const sourceFile = await getEnvelopeFile(source.card || source);
+        if (!sourceFile) { alert('Não foi possível acessar o arquivo arrastado.'); return; }
+        const path = uniqueEnvelopePath(sourceFile.name, occupiedPaths);
+        occupiedPaths.add(path);
+        entries.push({ file: sourceFile, path });
+      }
+      const targetPath = uniqueEnvelopePath(targetFile.name, occupiedPaths);
+      entries.push({ file: targetFile, path: targetPath });
+      clearPendingEnvelope();
+      await createFolderCard('Envelope', entries, folderPaths);
+      limparSelecao();
+    };
 
     window.filtrarArquivosPasta = function(input) {
       const query = input.value.trim().toLowerCase();
@@ -3422,17 +3545,42 @@
     });
     dropZone.addEventListener('dragover', (event) => {
       dropZone.classList.add('bg-slate-200/40', 'dark:bg-slate-800/40');
-      if (Array.from(event.dataTransfer.types).includes('application/x-dexi-folder-entry')) {
+      const targetCard = event.target.closest('.codex-card');
+      const transferTypes = Array.from(event.dataTransfer.types);
+      if (canBeEnveloped(targetCard) && targetCard !== draggedBoardFileCard && (transferTypes.includes('application/x-dexi-board-file') || transferTypes.includes('application/x-dexi-folder-entry'))) {
+        targetCard.classList.add('envelope-drop-target');
         event.dataTransfer.dropEffect = 'copy';
       }
     });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('bg-slate-200/40', 'dark:bg-slate-800/40'));
+    dropZone.addEventListener('dragleave', event => {
+      if (!dropZone.contains(event.relatedTarget)) {
+        dropZone.classList.remove('bg-slate-200/40', 'dark:bg-slate-800/40');
+        document.querySelectorAll('.envelope-drop-target').forEach(card => card.classList.remove('envelope-drop-target'));
+      }
+    });
     dropZone.addEventListener('drop', async (e) => {
       dropZone.classList.remove('bg-slate-200/40', 'dark:bg-slate-800/40');
-      if (Array.from(e.dataTransfer.types).includes('application/x-dexi-board-file')) return;
-      if (Array.from(e.dataTransfer.types).includes('application/x-dexi-folder-entry')) {
+      document.querySelectorAll('.envelope-drop-target').forEach(card => card.classList.remove('envelope-drop-target'));
+      const targetCard = e.target.closest('.codex-card');
+      const transferTypes = Array.from(e.dataTransfer.types);
+      if (targetCard?.closest('.folder-card-body')) return;
+      if (canBeEnveloped(targetCard) && transferTypes.includes('application/x-dexi-board-file')) {
+        const sourceCard = draggedBoardFileCard || Array.from(document.querySelectorAll('.codex-card')).find(card => card.dataset.boardUndoId === e.dataTransfer.getData('application/x-dexi-board-file'));
+        if (sourceCard) setPendingEnvelope({ card: sourceCard }, targetCard);
+        return;
+      }
+      if (canBeEnveloped(targetCard) && transferTypes.includes('application/x-dexi-folder-entry')) {
+        const entryId = e.dataTransfer.getData('application/x-dexi-folder-entry');
+        const sourceRow = draggedFolderEntry || Array.from(document.querySelectorAll('[data-folder-entry]')).find(row => row.dataset.entryId === entryId);
+        const sourceCard = sourceRow?.closest('.codex-card');
+        const rootCardId = sourceCard?.dataset.folderRootCardId || sourceCard?.dataset.folderCardId || '';
+        setPendingEnvelope({ kind: 'folder-entry', entryId, rootCardId, card: sourceCard }, targetCard);
+        return;
+      }
+      if (transferTypes.includes('application/x-dexi-board-file')) return;
+      if (transferTypes.includes('application/x-dexi-folder-entry')) {
         try {
-          await criarCardDoArquivoDaPasta(e.dataTransfer.getData('application/x-dexi-folder-entry'));
+          await criarCardDaEntradaDePasta(e.dataTransfer.getData('application/x-dexi-folder-entry'));
         } catch (error) {
           console.error('Falha ao criar card do arquivo da pasta:', error);
           alert('Não foi possível adicionar este arquivo ao quadro.');
@@ -3459,6 +3607,8 @@
       const selecionados = document.querySelectorAll('.selected-card');
       const toolbar = document.getElementById('selection-toolbar');
       const countSpan = document.getElementById('selection-count');
+      const envelopeButton = document.getElementById('envelope-selection-button');
+      if (envelopeButton) envelopeButton.classList.toggle('hidden', !pendingEnvelope);
       if (selecionados.length > 0) {
         countSpan.innerText = `${selecionados.length} selecionado(s)`;
         toolbar.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
@@ -3470,6 +3620,7 @@
     }
 
     function limparSelecao() {
+      clearPendingEnvelope();
       document.querySelectorAll('.selected-card').forEach(card => {
         card.classList.remove('ring-4', 'ring-indigo-500', 'dark:ring-indigo-400', 'selected-card');
       });
@@ -4130,6 +4281,7 @@
       const header = card.querySelector('.card-header');
       header.addEventListener('pointerdown', (e) => {
         if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return; 
+        clearPendingEnvelope();
         if (card.classList.contains('card-fullscreen')) return; 
         
         document.querySelectorAll('.codex-card').forEach(c => {
@@ -4979,7 +5131,62 @@
         URL.revokeObjectURL(activeFolderPreviewUrl);
         activeFolderPreviewUrl = null;
       }
+      if (activeBoardPreviewUrl) {
+        URL.revokeObjectURL(activeBoardPreviewUrl);
+        activeBoardPreviewUrl = null;
+      }
     }
+
+    async function previewBoardFile(card) {
+      const source = card.querySelector('[data-pdfsourceid], [data-mediasourceid]');
+      if (!source) return;
+      const blob = source.dataset.pdfsourceid
+        ? await obterPdfDoDb(source.dataset.pdfsourceid)
+        : await obterMediaDoDb(source.dataset.mediasourceid);
+      if (!blob) { alert('Este arquivo não está mais disponível. Reimporte-o para visualizar.'); return; }
+      if (activeBoardPreviewUrl) URL.revokeObjectURL(activeBoardPreviewUrl);
+      const url = URL.createObjectURL(blob);
+      activeBoardPreviewUrl = url;
+      const filename = card.dataset.filename || 'arquivo';
+      const extension = filename.split('.').pop().toLowerCase();
+      const mimeByExtension = {
+        pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
+        webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp', avif: 'image/avif',
+        mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', mp3: 'audio/mpeg', wav: 'audio/wav',
+        ogg: 'audio/ogg', m4a: 'audio/mp4', txt: 'text/plain', md: 'text/markdown', csv: 'text/csv', json: 'application/json'
+      };
+      const mime = !blob.type || blob.type === 'application/octet-stream' ? mimeByExtension[extension] || blob.type : blob.type;
+      const safeName = escapeHTML(filename);
+      let content;
+      if (mime.startsWith('image/')) {
+        content = `<div class="flex h-full min-h-0 w-full items-center justify-center overflow-auto bg-slate-950"><img src="${url}" alt="${safeName}" class="max-h-full max-w-full object-contain"></div>`;
+      } else if (mime === 'application/pdf') {
+        content = `<iframe src="${url}" type="application/pdf" title="${safeName}" class="h-full min-h-0 w-full flex-1 border-0 bg-white"></iframe>`;
+      } else if (mime.startsWith('video/')) {
+        content = `<div class="flex h-full min-h-0 w-full items-center justify-center bg-slate-950"><video src="${url}" controls playsinline class="max-h-full max-w-full"></video></div>`;
+      } else if (mime.startsWith('audio/')) {
+        content = `<div class="flex h-full min-h-0 w-full items-center justify-center p-6"><audio src="${url}" controls class="w-full"></audio></div>`;
+      } else if (mime.startsWith('text/') || /\.(txt|md|markdown|json|csv|xml|html|css|js|ts|py|log|yaml|yml|ini|toml)$/i.test(filename)) {
+        content = '<pre class="h-full min-h-0 w-full flex-1 overflow-auto whitespace-pre-wrap break-words bg-white p-4 text-xs text-slate-800 dark:bg-slate-950 dark:text-slate-100"></pre>';
+      } else {
+        content = `<div class="flex h-full min-h-0 w-full flex-col items-center justify-center gap-3 p-6 text-center"><p class="text-sm text-slate-600 dark:text-slate-300">Este formato não possui prévia embutida neste navegador.</p><div class="flex flex-wrap justify-center gap-2"><a href="${url}" target="_blank" rel="noopener noreferrer" class="rounded-lg bg-slate-700 px-4 py-2 text-sm font-bold text-white">Abrir arquivo</a><a href="${url}" download="${safeName}" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-900">Baixar arquivo</a></div></div>`;
+      }
+      openModal(filename, content);
+      const textPreview = document.querySelector('#modal-content pre');
+      if (textPreview) textPreview.textContent = await blob.text();
+    }
+
+    canvas.addEventListener('click', event => {
+      if (event.target.closest('.card-header, .resize-handle, button, input, select, textarea, a, audio, video, [data-folder-entry]')) return;
+      const card = event.target.closest('.codex-card');
+      if (!card || card.dataset.filetype === 'FOLDERS' || card.dataset.filetype === 'LINKS') return;
+      if (card.querySelector('[data-pdfsourceid], [data-mediasourceid]')) {
+        previewBoardFile(card).catch(error => {
+          console.error('Falha ao visualizar arquivo:', error);
+          alert('Não foi possível visualizar este arquivo.');
+        });
+      }
+    });
 
     document.getElementById('preview-modal').addEventListener('click', function (e) {
       if (e.target === this) closeModal();
