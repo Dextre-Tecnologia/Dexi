@@ -2918,6 +2918,8 @@
     let draggedBoardFileCard = null;
     let activeFolderPreviewUrl = null;
     let activeBoardPreviewUrl = null;
+    let activeBoardPdfPreview = null;
+    let boardPdfPreviewGeneration = 0;
     const folderListsWithEvents = new WeakSet();
 
     function bindFolderCardInteractions(card) {
@@ -4103,9 +4105,16 @@
                 class="page-input-card w-12 text-center font-bold text-amber-400 bg-slate-900 border border-slate-700 rounded py-0.5 focus:outline-none focus:border-amber-500 select-text pointer-events-auto">
               <span>/ <span class="page-count-card">?</span></span>
             </div>
+            <div class="flex items-center gap-1" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
+              <button onclick="alterarZoomPdfCard('${viewerId}', -1)" class="bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded font-bold" aria-label="Diminuir zoom do PDF">−</button>
+              <button onclick="ajustarZoomPdfCard('${viewerId}')" class="pdf-zoom-label min-w-10 text-center font-mono text-[10px]" aria-label="Ajustar PDF à largura">100%</button>
+              <button onclick="alterarZoomPdfCard('${viewerId}', 1)" class="bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded font-bold" aria-label="Aumentar zoom do PDF">+</button>
+            </div>
           </div>
-          <div class="flex-1 overflow-auto p-2 flex justify-center items-start bg-slate-950 pointer-events-auto" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
-            <canvas class="pdf-viewer-canvas shadow-lg max-w-full h-auto"></canvas>
+          <div class="pdf-viewer-scroll min-h-0 flex-1 overflow-auto overscroll-contain bg-slate-950 pointer-events-auto" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
+            <div class="pdf-page-stage w-max min-w-full min-h-full flex justify-center items-start p-2">
+              <canvas class="pdf-viewer-canvas shadow-lg block shrink-0"></canvas>
+            </div>
           </div>
         </div>`;
 
@@ -4122,85 +4131,247 @@
       return card;
     }
 
+    const pdfDocumentCache = new Map();
+    const pdfRenderStates = new WeakMap();
+
+    window.alterarZoomPdfCard = function(viewerId, direction) {
+      const container = document.querySelector(`[data-viewerid="${viewerId}"]`);
+      if (!container) return;
+      const state = pdfRenderStates.get(container);
+      if (!state) return;
+
+      const previousZoom = state.pageZoom || 1;
+      const nextZoom = Math.max(0.5, Math.min(5, previousZoom * (direction > 0 ? 1.25 : 0.8)));
+      if (nextZoom === previousZoom) return;
+
+      const scroll = container.querySelector('.pdf-viewer-scroll');
+      const oldWidth = scroll?.scrollWidth || 1;
+      const oldHeight = scroll?.scrollHeight || 1;
+      const centerX = (scroll?.scrollLeft || 0) + (scroll?.clientWidth || 0) / 2;
+      const centerY = (scroll?.scrollTop || 0) + (scroll?.clientHeight || 0) / 2;
+      state.pageZoom = nextZoom;
+
+      renderizarPaginaVisualizador(viewerId, container.dataset.pdfsourceid).then(() => {
+        const currentScroll = container.querySelector('.pdf-viewer-scroll');
+        if (!currentScroll) return;
+        const ratioX = centerX / oldWidth;
+        const ratioY = centerY / oldHeight;
+        currentScroll.scrollLeft = ratioX * currentScroll.scrollWidth - currentScroll.clientWidth / 2;
+        currentScroll.scrollTop = ratioY * currentScroll.scrollHeight - currentScroll.clientHeight / 2;
+      });
+    };
+
+    window.ajustarZoomPdfCard = function(viewerId) {
+      const container = document.querySelector(`[data-viewerid="${viewerId}"]`);
+      if (!container) return;
+      const state = pdfRenderStates.get(container);
+      if (!state || (state.pageZoom || 1) === 1) return;
+      state.pageZoom = 1;
+      const scroll = container.querySelector('.pdf-viewer-scroll');
+      if (scroll) {
+        scroll.scrollLeft = 0;
+        scroll.scrollTop = 0;
+      }
+      renderizarPaginaVisualizador(viewerId, container.dataset.pdfsourceid);
+    };
+
     async function renderizarPaginaVisualizador(viewerId, pdfId) {
       const container = document.querySelector(`[data-viewerid="${viewerId}"]`);
       if (!container) return;
-      try {
-        const blob = await obterPdfDoDb(pdfId);
-        if (!blob) return;
 
-        const fileReader = new FileReader();
-        fileReader.onload = function () {
-          const typedarray = new Uint8Array(this.result);
-          pdfjsLib.getDocument(typedarray).promise.then(pdf => {
-            const pageNum = parseInt(container.dataset.currentPage) || 1;
-            container.querySelector('.page-count-card').innerText = pdf.numPages;
-
-            pdf.getPage(pageNum).then(page => {
-              const canvasEl = container.querySelector('.pdf-viewer-canvas');
-              if (!canvasEl) return;
-
-              const context = canvasEl.getContext('2d');
-              const cardBodyWidth = canvasEl.parentElement.clientWidth || 400;
-              const unscaledViewport = page.getViewport({ scale: 1.0 });
-              
-              let scale = (cardBodyWidth - 20) / unscaledViewport.width;
-              if (scale > 2.0) scale = 2.0; 
-
-              const viewport = page.getViewport({ scale: scale });
-              const dpr = window.devicePixelRatio || 1;
-              
-              canvasEl.width = viewport.width * dpr;
-              canvasEl.height = viewport.height * dpr;
-              canvasEl.style.width = `${viewport.width}px`;
-              canvasEl.style.height = `${viewport.height}px`;
-
-              context.setTransform(dpr, 0, 0, dpr, 0, 0);
-              const renderContext = { canvasContext: context, viewport: viewport };
-              page.render(renderContext).promise.then(() => {
-                const inputEl = container.querySelector('.page-input-card');
-                if (inputEl) inputEl.value = pageNum;
-                salvarEstadoNoStorage();
-              });
-            });
-          }).catch(err => console.error("Erro ao renderizar PDF:", err));
+      let state = pdfRenderStates.get(container);
+      if (!state) {
+        state = {
+          generation: 0,
+          queue: Promise.resolve(),
+          task: null,
+          numPages: 0,
+          pageZoom: 1,
+          resizeObserver: null,
+          resizeTimer: null,
+          observedWidth: 0
         };
-        fileReader.readAsArrayBuffer(blob);
-      } catch (error) {
-        console.error('Falha ao carregar PDF:', error);
+        pdfRenderStates.set(container, state);
       }
+
+      if (!state.resizeObserver && 'ResizeObserver' in window) {
+        state.resizeObserver = new ResizeObserver(([entry]) => {
+          if (!container.isConnected) {
+            state.resizeObserver.disconnect();
+            state.resizeObserver = null;
+            clearTimeout(state.resizeTimer);
+            return;
+          }
+
+          const width = Math.round(entry.contentRect.width);
+          if (!width) return;
+          if (!state.observedWidth) {
+            state.observedWidth = width;
+            return;
+          }
+          if (Math.abs(width - state.observedWidth) < 2) return;
+
+          state.observedWidth = width;
+          clearTimeout(state.resizeTimer);
+          state.resizeTimer = setTimeout(() => {
+            if (container.isConnected) {
+              renderizarPaginaVisualizador(viewerId, pdfId);
+            }
+          }, 120);
+        });
+        state.resizeObserver.observe(container);
+      }
+
+      const generation = ++state.generation;
+      state.task?.cancel();
+
+      const job = state.queue.catch(() => {}).then(async () => {
+        const isCurrent = () =>
+          container.isConnected && generation === state.generation;
+
+        if (!isCurrent()) return;
+
+        let documentPromise = pdfDocumentCache.get(pdfId);
+        if (!documentPromise) {
+          documentPromise = (async () => {
+            const blob = await obterPdfDoDb(pdfId);
+            if (!blob) throw new Error(`PDF não encontrado: ${pdfId}`);
+            return pdfjsLib.getDocument({
+              data: new Uint8Array(await blob.arrayBuffer())
+            }).promise;
+          })();
+          pdfDocumentCache.set(pdfId, documentPromise);
+        }
+
+        let pdf;
+        try {
+          pdf = await documentPromise;
+        } catch (error) {
+          if (pdfDocumentCache.get(pdfId) === documentPromise) {
+            pdfDocumentCache.delete(pdfId);
+          }
+          throw error;
+        }
+
+        state.numPages = pdf.numPages;
+        const pageCount = container.querySelector('.page-count-card');
+        if (pageCount) pageCount.textContent = String(pdf.numPages);
+        if (!isCurrent()) return;
+
+        const requestedPage = parseInt(container.dataset.currentPage, 10) || 1;
+        const pageNum = Math.max(1, Math.min(pdf.numPages, requestedPage));
+        container.dataset.currentPage = String(pageNum);
+        const page = await pdf.getPage(pageNum);
+        if (!isCurrent()) return;
+
+        const canvasEl = container.querySelector('.pdf-viewer-canvas');
+        const scroll = container.querySelector('.pdf-viewer-scroll');
+        const context = canvasEl?.getContext('2d');
+        if (!canvasEl || !scroll || !context) return;
+
+        const availableWidth = Math.max(1, scroll.clientWidth - 16);
+        const baseViewport = page.getViewport({ scale: 1 });
+        const fitScale = availableWidth / baseViewport.width;
+        const scale = fitScale * (state.pageZoom || 1);
+        const viewport = page.getViewport({ scale });
+        const deviceScale = (window.devicePixelRatio || 1) * 2;
+        const maxCanvasPixels = 32000000;
+        const pixelBudgetScale = Math.sqrt(
+          maxCanvasPixels / (viewport.width * viewport.height)
+        );
+        const outputScale = Math.max(1, Math.min(deviceScale, pixelBudgetScale));
+
+        canvasEl.width = Math.ceil(viewport.width * outputScale);
+        canvasEl.height = Math.ceil(viewport.height * outputScale);
+        canvasEl.style.width = `${viewport.width}px`;
+        canvasEl.style.height = `${viewport.height}px`;
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, canvasEl.width, canvasEl.height);
+
+        const task = page.render({
+          canvasContext: context,
+          viewport,
+          transform: outputScale === 1
+            ? null
+            : [outputScale, 0, 0, outputScale, 0, 0],
+          background: '#ffffff'
+        });
+        state.task = task;
+
+        try {
+          await task.promise;
+        } finally {
+          if (state.task === task) state.task = null;
+        }
+
+        if (!isCurrent()) return;
+        const input = container.querySelector('.page-input-card');
+        if (input) input.value = String(pageNum);
+        const zoomLabel = container.querySelector('.pdf-zoom-label');
+        if (zoomLabel) zoomLabel.textContent = `${Math.round((state.pageZoom || 1) * 100)}%`;
+        salvarEstadoNoStorage();
+      });
+
+      state.queue = job.catch(error => {
+        if (
+          error?.name !== 'RenderingCancelledException' &&
+          container.isConnected &&
+          generation === state.generation
+        ) {
+          console.error('Erro ao renderizar PDF:', error);
+        }
+      });
+
+      return state.queue;
     }
 
     window.mudarPaginaCard = function(viewerId, delta) {
       const container = document.querySelector(`[data-viewerid="${viewerId}"]`);
       if (!container) return;
-      let currentPage = parseInt(container.dataset.currentPage) || 1;
-      const totalPages = parseInt(container.querySelector('.page-count-card').innerText) || 1;
+      const currentPage = parseInt(container.dataset.currentPage, 10) || 1;
+      const countText = container.querySelector('.page-count-card')?.textContent;
+      const totalPages =
+        pdfRenderStates.get(container)?.numPages ||
+        (countText && countText !== '?' ? parseInt(countText, 10) : 0);
+      const nextPage = Math.max(
+        1,
+        totalPages > 0
+          ? Math.min(totalPages, currentPage + delta)
+          : currentPage + delta
+      );
 
-      currentPage += delta;
-      if (currentPage < 1) currentPage = 1;
-      if (currentPage > totalPages) currentPage = totalPages;
-
-      container.dataset.currentPage = currentPage;
-      const pdfId = container.dataset.pdfsourceid;
-      renderizarPaginaVisualizador(viewerId, pdfId);
+      container.dataset.currentPage = String(nextPage);
+      const scroll = container.querySelector('.pdf-viewer-scroll');
+      if (scroll) {
+        scroll.scrollLeft = 0;
+        scroll.scrollTop = 0;
+      }
+      renderizarPaginaVisualizador(viewerId, container.dataset.pdfsourceid);
     }
 
     window.irParaPaginaCard = function(viewerId, valor) {
       const container = document.querySelector(`[data-viewerid="${viewerId}"]`);
       if (!container) return;
-      const totalPages = parseInt(container.querySelector('.page-count-card').innerText) || 1;
-      let targetPage = parseInt(valor) || 1;
+      const countText = container.querySelector('.page-count-card')?.textContent;
+      const totalPages =
+        pdfRenderStates.get(container)?.numPages ||
+        (countText && countText !== '?' ? parseInt(countText, 10) : 0);
+      const requestedPage = parseInt(valor, 10) || 1;
+      const targetPage = Math.max(
+        1,
+        totalPages > 0 ? Math.min(totalPages, requestedPage) : requestedPage
+      );
 
-      if (targetPage < 1) targetPage = 1;
-      if (targetPage > totalPages) targetPage = totalPages;
-
-      container.dataset.currentPage = targetPage;
+      container.dataset.currentPage = String(targetPage);
       const inputEl = container.querySelector('.page-input-card');
-      if (inputEl) inputEl.value = targetPage;
-
-      const pdfId = container.dataset.pdfsourceid;
-      renderizarPaginaVisualizador(viewerId, pdfId);
+      if (inputEl) inputEl.value = String(targetPage);
+      const scroll = container.querySelector('.pdf-viewer-scroll');
+      if (scroll) {
+        scroll.scrollLeft = 0;
+        scroll.scrollTop = 0;
+      }
+      renderizarPaginaVisualizador(viewerId, container.dataset.pdfsourceid);
     }
 
     // Cria o card base e conecta seleção, arraste e redimensionamento.
@@ -4406,8 +4577,6 @@
               if (forcePanMode) return; 
               const target = event.target;
               if (target.classList.contains('card-fullscreen')) return;
-              const dw = event.edges.right * (event.dx / zoom);
-              const dh = event.edges.bottom * (event.dy / zoom);
               const cardsParaRedimensionar = new Set();
               
               if (target.classList.contains('selected-card')) {
@@ -4427,6 +4596,8 @@
               cardsParaRedimensionar.forEach(card => {
                 const currentWidth = parseFloat(card.style.width) || 230;
                 const currentHeight = parseFloat(card.style.height) || 160;
+                const dw = event.edges.right * (event.dx / zoom);
+                const dh = event.edges.bottom * (event.dy / zoom);
                 card.style.width = `${Math.max(230, currentWidth + dw)}px`;
                 card.style.height = `${Math.max(160, currentHeight + dh)}px`;
               });
@@ -5054,7 +5225,9 @@
       applyInteract(card);
       bindFolderCardInteractions(card);
       const viewer = card.querySelector('[data-viewerid]');
-      if (viewer?.dataset.pdfsourceid) renderizarPaginaVisualizador(viewer.dataset.viewerid, viewer.dataset.pdfsourceid);
+      if (viewer?.dataset.pdfsourceid) {
+        renderizarPaginaVisualizador(viewer.dataset.viewerid, viewer.dataset.pdfsourceid);
+      }
       const media = card.querySelector('[data-mediasourceid]');
       if (media?.dataset.mediasourceid) {
         obterMediaDoDb(media.dataset.mediasourceid).then(async blob => {
@@ -5119,14 +5292,47 @@
     }
 
     window.openModal = function(title, contentHtml) {
+      if (activeBoardPdfPreview?.renderTask) {
+        activeBoardPdfPreview.renderTask.cancel();
+      }
+      activeBoardPdfPreview = null;
+      boardPdfPreviewGeneration += 1;
       document.getElementById('modal-title').innerText = title;
       document.getElementById('modal-content').innerHTML = contentHtml;
       document.getElementById('preview-modal').classList.remove('hidden');
     }
 
-    window.closeModal = function() {
+    window.closeModal = async function() {
+      const pdfPreview = activeBoardPdfPreview;
+      const cardViewer = pdfPreview?.card?.isConnected
+        ? pdfPreview.card.querySelector('[data-viewerid][data-pdfsourceid]')
+        : null;
+
+      if (cardViewer && pdfPreview?.pdf) {
+        const page = Math.max(1, Math.min(pdfPreview.pdf.numPages, pdfPreview.page));
+        pdfPreview.page = page;
+        cardViewer.dataset.currentPage = String(page);
+        const pageInput = cardViewer.querySelector('.page-input-card');
+        if (pageInput) pageInput.value = String(page);
+
+        try {
+          await renderizarPaginaVisualizador(
+            cardViewer.dataset.viewerid,
+            cardViewer.dataset.pdfsourceid
+          );
+          await salvarEstadoNoStorage();
+        } catch (error) {
+          console.error('Falha ao sincronizar a página atual do PDF:', error);
+        }
+      }
+
       document.getElementById('preview-modal').classList.add('hidden');
       document.getElementById('modal-content').innerHTML = '';
+      boardPdfPreviewGeneration += 1;
+      if (activeBoardPdfPreview?.renderTask) {
+        activeBoardPdfPreview.renderTask.cancel();
+      }
+      activeBoardPdfPreview = null;
       if (activeFolderPreviewUrl) {
         URL.revokeObjectURL(activeFolderPreviewUrl);
         activeFolderPreviewUrl = null;
@@ -5136,6 +5342,122 @@
         activeBoardPreviewUrl = null;
       }
     }
+
+    async function renderizarPaginaPdfPreview() {
+      const state = activeBoardPdfPreview;
+      if (!state?.pdf) return;
+      const generation = state.generation;
+      const renderGeneration = ++state.renderGeneration;
+      state.renderTask?.cancel();
+
+      const pageNumber = Math.max(1, Math.min(state.pdf.numPages, state.page));
+      state.page = pageNumber;
+      const page = await state.pdf.getPage(pageNumber);
+      if (
+        activeBoardPdfPreview !== state ||
+        generation !== state.generation ||
+        renderGeneration !== state.renderGeneration
+      ) return;
+
+      const canvasEl = document.querySelector('#modal-content .preview-pdf-canvas');
+      const scroll = document.querySelector('#modal-content .preview-pdf-scroll');
+      const context = canvasEl?.getContext('2d');
+      if (!canvasEl || !scroll || !context) return;
+
+      const baseViewport = page.getViewport({ scale: 1 });
+      const fitScale = Math.max(1, scroll.clientWidth - 24) / baseViewport.width;
+      const viewport = page.getViewport({ scale: fitScale * state.zoom });
+      const outputScale = Math.min(
+        (window.devicePixelRatio || 1) * 2,
+        Math.sqrt(32000000 / (viewport.width * viewport.height))
+      );
+
+      canvasEl.width = Math.ceil(viewport.width * outputScale);
+      canvasEl.height = Math.ceil(viewport.height * outputScale);
+      canvasEl.style.width = `${viewport.width}px`;
+      canvasEl.style.height = `${viewport.height}px`;
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvasEl.width, canvasEl.height);
+
+      const task = page.render({
+        canvasContext: context,
+        viewport,
+        transform: outputScale === 1 ? null : [outputScale, 0, 0, outputScale, 0, 0],
+        background: '#ffffff'
+      });
+      state.renderTask = task;
+      try {
+        await task.promise;
+      } catch (error) {
+        if (error?.name !== 'RenderingCancelledException') throw error;
+      } finally {
+        if (state.renderTask === task) state.renderTask = null;
+      }
+
+      if (
+        activeBoardPdfPreview !== state ||
+        generation !== state.generation ||
+        renderGeneration !== state.renderGeneration
+      ) return;
+      const pageInput = document.querySelector('#modal-content .preview-pdf-page');
+      const pageCount = document.querySelector('#modal-content .preview-pdf-count');
+      const zoomLabel = document.querySelector('#modal-content .preview-pdf-zoom');
+      if (pageInput) pageInput.value = String(pageNumber);
+      if (pageCount) pageCount.textContent = String(state.pdf.numPages);
+      if (zoomLabel) zoomLabel.textContent = `${Math.round(state.zoom * 100)}%`;
+    }
+
+    window.navegarPdfPreview = function(delta) {
+      const state = activeBoardPdfPreview;
+      if (!state?.pdf) return;
+      state.page = Math.max(1, Math.min(state.pdf.numPages, state.page + delta));
+      const cardViewer = state.card?.querySelector('[data-viewerid]');
+      if (cardViewer) {
+        cardViewer.dataset.currentPage = String(state.page);
+        const pageInput = cardViewer.querySelector('.page-input-card');
+        if (pageInput) pageInput.value = String(state.page);
+        renderizarPaginaVisualizador(
+          cardViewer.dataset.viewerid,
+          cardViewer.dataset.pdfsourceid
+        );
+        salvarEstadoNoStorage();
+      }
+      renderizarPaginaPdfPreview().catch(error => {
+        console.error('Falha ao renderizar página da prévia PDF:', error);
+      });
+    };
+
+    window.irParaPaginaPdfPreview = function(value) {
+      const state = activeBoardPdfPreview;
+      if (!state?.pdf) return;
+      const page = parseInt(value, 10);
+      if (!Number.isFinite(page)) return;
+      state.page = Math.max(1, Math.min(state.pdf.numPages, page));
+      const cardViewer = state.card?.querySelector('[data-viewerid]');
+      if (cardViewer) {
+        cardViewer.dataset.currentPage = String(state.page);
+        const pageInput = cardViewer.querySelector('.page-input-card');
+        if (pageInput) pageInput.value = String(state.page);
+        renderizarPaginaVisualizador(
+          cardViewer.dataset.viewerid,
+          cardViewer.dataset.pdfsourceid
+        );
+        salvarEstadoNoStorage();
+      }
+      renderizarPaginaPdfPreview().catch(error => {
+        console.error('Falha ao renderizar página da prévia PDF:', error);
+      });
+    };
+
+    window.alterarZoomPdfPreview = function(direction) {
+      const state = activeBoardPdfPreview;
+      if (!state?.pdf) return;
+      state.zoom = Math.max(0.5, Math.min(5, state.zoom * (direction > 0 ? 1.25 : 0.8)));
+      renderizarPaginaPdfPreview().catch(error => {
+        console.error('Falha ao aplicar zoom na prévia PDF:', error);
+      });
+    };
 
     async function previewBoardFile(card) {
       const source = card.querySelector('[data-pdfsourceid], [data-mediasourceid]');
@@ -5161,7 +5483,29 @@
       if (mime.startsWith('image/')) {
         content = `<div class="flex h-full min-h-0 w-full items-center justify-center overflow-auto bg-slate-950"><img src="${url}" alt="${safeName}" class="max-h-full max-w-full object-contain"></div>`;
       } else if (mime === 'application/pdf') {
-        content = `<iframe src="${url}" type="application/pdf" title="${safeName}" class="h-full min-h-0 w-full flex-1 border-0 bg-white"></iframe>`;
+        const viewer = card.querySelector('[data-viewerid][data-pdfsourceid]');
+        const currentPage = Math.max(1, parseInt(viewer?.dataset.currentPage, 10) || 1);
+        content = `
+          <div class="flex h-full min-h-0 w-full flex-col bg-slate-900">
+            <div class="flex shrink-0 items-center justify-between gap-3 bg-slate-800 px-3 py-2 text-white">
+              <div class="flex items-center gap-2">
+                <button onclick="navegarPdfPreview(-1)" class="rounded bg-slate-700 px-3 py-1 font-bold hover:bg-slate-600" aria-label="Página anterior">‹</button>
+                <button onclick="navegarPdfPreview(1)" class="rounded bg-slate-700 px-3 py-1 font-bold hover:bg-slate-600" aria-label="Próxima página">›</button>
+                <input type="number" min="1" value="${currentPage}" onchange="irParaPaginaPdfPreview(this.value)" class="preview-pdf-page w-14 rounded border border-slate-600 bg-slate-900 px-1 py-1 text-center text-amber-300">
+                <span>/ <span class="preview-pdf-count">?</span></span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="alterarZoomPdfPreview(-1)" class="rounded bg-slate-700 px-3 py-1 font-bold hover:bg-slate-600" aria-label="Diminuir zoom">−</button>
+                <span class="preview-pdf-zoom min-w-12 text-center font-mono text-xs">100%</span>
+                <button onclick="alterarZoomPdfPreview(1)" class="rounded bg-slate-700 px-3 py-1 font-bold hover:bg-slate-600" aria-label="Aumentar zoom">+</button>
+              </div>
+            </div>
+            <div class="preview-pdf-scroll min-h-0 flex-1 overflow-auto overscroll-contain bg-slate-950">
+              <div class="flex min-h-full w-max min-w-full justify-center p-3">
+                <canvas class="preview-pdf-canvas block shadow-lg"></canvas>
+              </div>
+            </div>
+          </div>`;
       } else if (mime.startsWith('video/')) {
         content = `<div class="flex h-full min-h-0 w-full items-center justify-center bg-slate-950"><video src="${url}" controls playsinline class="max-h-full max-w-full"></video></div>`;
       } else if (mime.startsWith('audio/')) {
@@ -5172,6 +5516,35 @@
         content = `<div class="flex h-full min-h-0 w-full flex-col items-center justify-center gap-3 p-6 text-center"><p class="text-sm text-slate-600 dark:text-slate-300">Este formato não possui prévia embutida neste navegador.</p><div class="flex flex-wrap justify-center gap-2"><a href="${url}" target="_blank" rel="noopener noreferrer" class="rounded-lg bg-slate-700 px-4 py-2 text-sm font-bold text-white">Abrir arquivo</a><a href="${url}" download="${safeName}" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-900">Baixar arquivo</a></div></div>`;
       }
       openModal(filename, content);
+      if (mime === 'application/pdf') {
+        const generation = ++boardPdfPreviewGeneration;
+        const currentPage = Math.max(
+          1,
+          parseInt(card.querySelector('[data-viewerid]')?.dataset.currentPage, 10) || 1
+        );
+        activeBoardPdfPreview = {
+          generation,
+          card,
+          page: currentPage,
+          zoom: 1,
+          pdf: null,
+          renderTask: null,
+          renderGeneration: 0
+        };
+        const state = activeBoardPdfPreview;
+        try {
+          state.pdf = await pdfjsLib.getDocument({
+            data: new Uint8Array(await blob.arrayBuffer())
+          }).promise;
+          if (activeBoardPdfPreview === state) {
+            await renderizarPaginaPdfPreview();
+          }
+        } catch (error) {
+          if (activeBoardPdfPreview === state) {
+            console.error('Falha ao carregar prévia PDF:', error);
+          }
+        }
+      }
       const textPreview = document.querySelector('#modal-content pre');
       if (textPreview) textPreview.textContent = await blob.text();
     }
