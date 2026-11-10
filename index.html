@@ -153,7 +153,7 @@
           <button onclick="triggerFolderSelector()" class="w-full bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 font-medium py-2 px-4 rounded-xl border border-green-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Arquivar</button>
           <button onclick="colarLinkManual()" class="w-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium py-2 px-4 rounded-xl border border-blue-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Colar</button>
           <button onclick="toggleBoardWriting(true)" class="w-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-medium py-2 px-4 rounded-xl border border-amber-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Notar</button>
-          <button onclick="baixarTemplateQuadro()" class="w-full bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 font-medium py-2 px-4 rounded-xl border border-orange-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Baixar</button>
+          <button onclick="abrirModalDownloadQuadro()" class="w-full bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 font-medium py-2 px-4 rounded-xl border border-orange-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Baixar</button>
           <button onclick="document.getElementById('template-import-selector').click()" class="w-full bg-sky-500/10 hover:bg-sky-500/20 text-sky-700 dark:text-sky-300 font-medium py-2 px-4 rounded-xl border border-sky-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Importar</button>
           <br>
           <button onclick="abrirModalRecuperaveis()" class="w-full bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 font-medium py-2 px-4 rounded-xl border border-purple-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">Gerenciar</button>
@@ -226,6 +226,40 @@
       </div>
       <div class="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
         <button onclick="fecharModalDownloadFormat()" class="w-full bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 text-slate-800 dark:text-white font-bold py-2 px-4 rounded-xl transition-all">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="board-backup-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+    <div class="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+      <div class="flex items-center justify-between border-b border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+        <h3 class="font-bold text-slate-800 dark:text-slate-200">Backup do quadro</h3>
+        <button onclick="fecharModalDownloadQuadro()" class="px-2 text-xl font-bold text-slate-400 hover:text-rose-500" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="p-5">
+        <div class="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-950" role="tablist" aria-label="Modo de backup">
+          <button id="backup-mode-manual" type="button" onclick="definirModoBackup('manual')" class="rounded-lg border px-3 py-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500" role="tab" aria-selected="false">Manual</button>
+          <button id="backup-mode-automatic" type="button" onclick="definirModoBackup('automatic')" class="rounded-lg border px-3 py-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500" role="tab" aria-selected="false">Automático</button>
+        </div>
+        <div id="backup-manual-panel" class="mt-4">
+          <p class="mb-4 text-sm text-slate-600 dark:text-slate-300">Gera e baixa agora um ZIP completo do quadro.</p>
+          <button id="backup-download-button" onclick="baixarTemplateQuadro()" class="w-full rounded-lg bg-orange-500 px-4 py-3 font-bold text-white hover:bg-orange-600 disabled:cursor-wait disabled:opacity-60">Baixar backup agora</button>
+          <p id="backup-manual-status" class="mt-2 min-h-5 text-xs text-slate-500 dark:text-slate-400" role="status" aria-live="polite"></p>
+        </div>
+        <div id="backup-automatic-panel" class="mt-4 hidden">
+          <label for="backup-time" class="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-200">Horário diário</label>
+          <input id="backup-time" type="time" value="18:00" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
+          <div class="mt-3 flex gap-2">
+            <button onclick="selecionarPastaBackup()" class="shrink-0 rounded-lg bg-slate-200 px-3 py-2 text-sm font-bold text-slate-800 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">Escolher pasta</button>
+            <span id="backup-folder-label" class="min-w-0 self-center truncate text-xs text-slate-500 dark:text-slate-400">Nenhuma pasta escolhida</span>
+          </div>
+          <p id="backup-status" role="status" class="mt-3 min-h-5 text-xs text-slate-500 dark:text-slate-400">O backup automático funciona enquanto o Dexi estiver aberto.</p>
+          <button id="backup-save-button" onclick="salvarConfiguracaoBackup()" class="mt-3 w-full rounded-lg bg-emerald-600 px-4 py-3 font-bold text-white transition-colors hover:bg-emerald-700">Ativar backup automático</button>
+          <button id="backup-disable-button" onclick="desativarBackupAutomatico()" class="mt-2 hidden w-full rounded-lg border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950">Desativar agendamento</button>
+        </div>
+      </div>
+      <div class="border-t border-slate-100 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
+        <button onclick="fecharModalDownloadQuadro()" class="w-full rounded-lg bg-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">Fechar</button>
       </div>
     </div>
   </div>
@@ -2245,18 +2279,21 @@
         document.body.appendChild(notice);
       }
       const message = notice.querySelector('[data-notice-message]');
-      message.textContent = `${count > 1 ? `${count} arquivos não foram salvos` : `${filename} não foi salvo`} (${lastMediaStorageFailure}). Reimporte após corrigir o armazenamento.`;
+      const baseMessage = `${count > 1 ? `${count} arquivos não foram salvos` : `${filename} não foi salvo`} (${lastMediaStorageFailure}). Reimporte após corrigir o armazenamento.`;
+      notice.renderVersion = (notice.renderVersion || 0) + 1;
+      const renderVersion = notice.renderVersion;
+      message.textContent = baseMessage;
       clearTimeout(notice.dismissTimer);
       notice.dismissTimer = setTimeout(() => notice.remove(), 12000);
       if (navigator.storage?.estimate) {
         navigator.storage.estimate().then(({ usage, quota }) => {
-          if (!usage || !quota || !notice.isConnected) return;
-          message.textContent += ` Uso: ${(usage / 1024 / 1024).toFixed(0)} de ${(quota / 1024 / 1024).toFixed(0)} MB.`;
+          if (!usage || !quota || !notice.isConnected || notice.renderVersion !== renderVersion) return;
+          message.textContent = `${baseMessage} Uso: ${(usage / 1024 / 1024).toFixed(0)} de ${(quota / 1024 / 1024).toFixed(0)} MB.`;
         }).catch(() => {});
       }
     }
 
-    function marcarCardComoTemporario(card, fileType, filename) {
+    function marcarCardComoTemporario(card, fileType, filename, notify = true) {
       if (!card) return;
       card.dataset.mediaTemporary = 'true';
       card.dataset.mediaStorageFailure = lastMediaStorageFailure;
@@ -2265,7 +2302,7 @@
         badge.textContent = `${fileType} · TEMP`;
         badge.title = 'Arquivo disponível somente até fechar/recarregar esta página';
       }
-      mostrarAvisoArmazenamentoArquivo(filename);
+      if (notify) mostrarAvisoArmazenamentoArquivo(filename);
     }
 
     async function guardarMediaNoDb(id, blob) {
@@ -2853,18 +2890,106 @@
       return separator < 0 ? '' : path.slice(0, separator);
     }
 
+    function getFolderRootCard(card) {
+      const rootCardId = card?.dataset.folderRootCardId || card?.dataset.folderCardId;
+      return Array.from(document.querySelectorAll('.folder-card'))
+        .find(item => item.dataset.folderCardId === rootCardId && item.dataset.temporaryFolderView !== 'true') || card;
+    }
+
+    function getCanonicalFolderEntry(rootCard, entryId) {
+      return Array.from(rootCard?.querySelectorAll('.folder-file-list > [data-folder-entry]') || [])
+        .find(row => row.dataset.entryId === entryId) || null;
+    }
+
+    function refreshFolderCardViews(rootCard) {
+      if (!rootCard) return;
+      const rootCardId = rootCard.dataset.folderCardId;
+      const rootList = rootCard.querySelector('.folder-file-list');
+      rootList?.querySelectorAll('[data-folder-entry]').forEach(row => {
+        const path = row.dataset.path;
+        const name = path.split('/').pop();
+        row.classList.toggle('hidden', getFolderEntryParentPath(path) !== '');
+        row.dataset.search = path.toLowerCase();
+        const label = row.querySelector('[data-entry-label]');
+        if (label) { label.textContent = name; label.title = path; }
+        const openButton = row.querySelector('[data-folder-action="open"]');
+        if (openButton) openButton.setAttribute('aria-label', `${row.dataset.kind === 'folder' ? 'Abrir pasta' : 'Visualizar arquivo'} ${path}`);
+      });
+      const rootSearchInput = rootCard.querySelector('input[type="search"]');
+      if (rootSearchInput?.value.trim()) window.filtrarArquivosPasta(rootSearchInput);
+      document.querySelectorAll('.folder-card[data-temporary-folder-view="true"]')
+        .forEach(viewCard => {
+          if (viewCard.dataset.folderRootCardId !== rootCardId) return;
+          const folderPath = viewCard.dataset.folderViewPath || '';
+          const list = viewCard.querySelector('.folder-file-list');
+          if (!list) return;
+          const children = Array.from(rootCard.querySelectorAll('.folder-file-list > [data-folder-entry]'))
+            .filter(row => row.dataset.path.startsWith(`${folderPath}/`));
+          const clones = children.map(row => {
+            const clone = row.cloneNode(true);
+            clone.classList.toggle('hidden', getFolderEntryParentPath(row.dataset.path) !== folderPath);
+            clone.dataset.search = row.dataset.path.slice(folderPath.length + 1).toLowerCase();
+            const label = clone.querySelector('[data-entry-label]');
+            if (label) {
+              label.textContent = row.dataset.path.split('/').pop();
+              label.title = row.dataset.path;
+            }
+            return clone;
+          });
+          list.replaceChildren(...clones);
+          if (!clones.length) {
+            const empty = document.createElement('li');
+            empty.className = 'p-4 text-center text-xs text-slate-400';
+            empty.textContent = 'Esta pasta está vazia.';
+            list.appendChild(empty);
+          }
+          const searchInput = viewCard.querySelector('input[type="search"]');
+          if (searchInput?.value.trim()) window.filtrarArquivosPasta(searchInput);
+          updateFolderCardCount(viewCard);
+        });
+      updateFolderCardCount(rootCard);
+    }
+
+    function createFolderEntries(rootCard, parentPath, inputPath) {
+      const list = rootCard?.querySelector('.folder-file-list');
+      if (!list) return false;
+      const parts = String(inputPath || '').trim().replace(/\\/g, '/').split('/').map(part => part.trim()).filter(part => part && part !== '.' && part !== '..');
+      if (!parts.length) return false;
+      let folderPath = parentPath || '';
+      let created = false;
+      for (const part of parts) {
+        folderPath = folderPath ? `${folderPath}/${part}` : part;
+        const existing = Array.from(list.querySelectorAll('[data-folder-entry]')).find(row => row.dataset.path === folderPath);
+        if (existing) {
+          if (existing.dataset.kind !== 'folder') {
+            alert(`Já existe um arquivo chamado "${folderPath}".`);
+            return created;
+          }
+          continue;
+        }
+        const wrapper = document.createElement('ul');
+        wrapper.innerHTML = renderFolderEntryRow({ id: createFolderEntryId(), kind: 'folder', path: folderPath });
+        list.appendChild(wrapper.firstElementChild);
+        created = true;
+      }
+      Array.from(list.querySelectorAll('[data-folder-entry]'))
+        .sort((left, right) => left.dataset.path.localeCompare(right.dataset.path, 'pt-BR'))
+        .forEach(row => list.appendChild(row));
+      refreshFolderCardViews(rootCard);
+      return created;
+    }
+
     function renderFolderEntryRow(entry) {
       const isFolder = entry.kind === 'folder';
       const icon = isFolder ? '📁' : (entry.type || '').startsWith('image/') ? '▧' : entry.type === 'application/pdf' ? '▤' : '▫';
-      return `<li data-folder-entry="true" data-entry-id="${escapeHTML(entry.id)}" data-kind="${entry.kind}" data-temporary="${entry.temporary ? 'true' : 'false'}" data-storage-failure="${escapeHTML(entry.storageFailure || '')}" data-path="${escapeHTML(entry.path)}" data-search="${escapeHTML(entry.path.toLowerCase())}" class="folder-file-row flex flex-wrap items-center gap-1.5 border-b border-slate-200/70 px-2 py-1.5 last:border-0 dark:border-slate-700/70">
+      const entryName = entry.path.split('/').pop();
+      return `<li draggable="true" data-folder-entry="true" data-entry-id="${escapeHTML(entry.id)}" data-kind="${entry.kind}" data-temporary="${entry.temporary ? 'true' : 'false'}" data-storage-failure="${escapeHTML(entry.storageFailure || '')}" data-path="${escapeHTML(entry.path)}" data-search="${escapeHTML(entry.path.toLowerCase())}" class="folder-file-row flex flex-wrap items-center gap-1.5 border-b border-slate-200/70 px-2 py-1.5 last:border-0 dark:border-slate-700/70">
         <button type="button" data-folder-action="open" class="order-1 flex min-w-0 basis-full items-center gap-2 overflow-hidden py-1 text-left" aria-label="${isFolder ? 'Abrir pasta' : 'Visualizar arquivo'} ${escapeHTML(entry.path)}">
-          <span class="shrink-0 text-amber-500">${icon}</span><span data-entry-label="true" class="min-w-0 flex-1 truncate text-xs text-slate-700 dark:text-slate-200" title="${escapeHTML(entry.path)}">${escapeHTML(entry.path)}</span>
+          <span class="shrink-0 text-amber-500">${icon}</span><span data-entry-label="true" class="min-w-0 flex-1 truncate text-xs text-slate-700 dark:text-slate-200" title="${escapeHTML(entry.path)}">${escapeHTML(entryName)}</span>
           <span class="shrink-0 text-[10px] text-slate-400" title="${entry.temporary ? escapeHTML(entry.storageFailure || 'Arquivo não persistido') : ''}">${isFolder ? '' : entry.temporary ? 'temp.' : `${(entry.size / 1024).toFixed(1)} KB`}</span>
         </button>
-        <button type="button" draggable="true" data-folder-drag-handle="true" class="h-7 w-7 shrink-0 cursor-grab touch-none rounded-md text-sm text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-100" title="Arrastar para reordenar" aria-label="Arrastar para reordenar">⠿</button>
-        <button type="button" data-folder-action="up" class="h-7 w-7 shrink-0 touch-manipulation rounded-md text-sm text-slate-500 hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-slate-700" title="Mover para cima" aria-label="Mover para cima">↑</button>
-        <button type="button" data-folder-action="down" class="h-7 w-7 shrink-0 touch-manipulation rounded-md text-sm text-slate-500 hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-slate-700" title="Mover para baixo" aria-label="Mover para baixo">↓</button>
-        <button type="button" data-folder-action="download" class="h-7 w-7 shrink-0 touch-manipulation rounded-md text-sm text-slate-500 hover:bg-blue-100 hover:text-blue-700 dark:hover:bg-slate-700 ${isFolder ? 'hidden' : ''}" title="Baixar arquivo" aria-label="Baixar arquivo">⤓</button>
+        <button type="button" draggable="true" data-folder-drag-handle="true" class="h-8 w-8 shrink-0 cursor-grab touch-none rounded-md text-base text-slate-400 hover:bg-amber-100 hover:text-amber-700 active:cursor-grabbing dark:hover:bg-slate-700 dark:hover:text-slate-100" title="Arrastar para mover" aria-label="Arrastar para mover">⠿</button>
+        <button type="button" data-folder-action="download" class="h-7 w-7 shrink-0 touch-manipulation rounded-md text-sm text-slate-500 hover:bg-blue-100 hover:text-blue-700 dark:hover:bg-slate-700" title="${isFolder ? 'Baixar pasta como ZIP' : 'Baixar arquivo'}" aria-label="${isFolder ? 'Baixar pasta como ZIP' : 'Baixar arquivo'}">⤓</button>
         <button type="button" data-folder-action="rename" class="h-7 w-7 shrink-0 touch-manipulation rounded-md text-sm text-slate-500 hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-slate-700" title="Renomear" aria-label="Renomear">✎</button>
         <button type="button" data-folder-action="delete" class="h-7 w-7 shrink-0 touch-manipulation rounded-md text-base text-slate-500 hover:bg-rose-100 hover:text-rose-700 dark:hover:bg-slate-700" title="Excluir" aria-label="Excluir">×</button>
       </li>`;
@@ -2900,22 +3025,28 @@
       }).join('');
       const bodyHtml = `<div class="folder-card-body flex h-full min-h-0 flex-col bg-slate-50 dark:bg-slate-950/40" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
         <div class="flex shrink-0 gap-1 border-b border-slate-200 p-2 dark:border-slate-700">
-          <input type="search" placeholder="Filtrar arquivos..." aria-label="Filtrar arquivos da pasta" oninput="filtrarArquivosPasta(this)" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+          <input type="search" placeholder="Buscar nesta pasta..." aria-label="Buscar arquivos e pastas nesta pasta" oninput="filtrarArquivosPasta(this)" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
           <button type="button" data-folder-action="new-folder" class="shrink-0 rounded-lg bg-slate-200 px-2 text-xs font-bold text-slate-700 hover:bg-amber-200 dark:bg-slate-800 dark:text-slate-200" title="Criar pasta" aria-label="Criar pasta">+ Pasta</button>
           <button type="button" data-folder-action="zip" class="shrink-0 rounded-lg bg-amber-500 px-2 text-xs font-bold text-slate-900 hover:bg-amber-400" title="Baixar como ZIP" aria-label="Baixar pasta como ZIP">ZIP</button>
         </div>
         <ul class="folder-file-list min-h-0 flex-1 list-none overflow-auto overscroll-contain p-0">${rows}</ul>
         <div data-folder-count="true" class="shrink-0 border-t border-slate-200 px-3 py-1.5 text-[10px] text-slate-500 dark:border-slate-700 dark:text-slate-400">${fileEntries.length} arquivo${fileEntries.length === 1 ? '' : 's'} · ${folderEntries.size} pasta${folderEntries.size === 1 ? '' : 's'}${fileEntries.some(entry => entry.temporary) ? ` · ${fileEntries.filter(entry => entry.temporary).length} temporário(s), não persistido(s)` : ''}</div>
+        <div data-folder-clipboard-status class="folder-clipboard-status hidden shrink-0 px-3 pb-1.5 text-[10px] font-semibold text-blue-700 dark:text-blue-300" role="status" aria-live="polite"></div>
       </div>`;
       const card = createCard('FOLDERS', folderName, bodyHtml, 360);
       card.classList.add('folder-card');
       bindFolderCardInteractions(card);
+      refreshFolderCardViews(card);
       await salvarEstadoNoStorage();
       return card;
     }
 
     let draggedFolderEntry = null;
     let draggedBoardFileCard = null;
+    let draggedBoardFolderCard = null;
+    let activeFolderCard = null;
+    let selectedFolderEntry = null;
+    let folderClipboard = null;
     let activeFolderPreviewUrl = null;
     let activeBoardPreviewUrl = null;
     let activeBoardPdfPreview = null;
@@ -2929,6 +3060,12 @@
       folderListsWithEvents.add(list);
       delete list.dataset.eventsBound;
       body.addEventListener('click', handleFolderCardAction);
+      body.addEventListener('pointerdown', event => {
+        activeFolderCard = card;
+        const row = event.target.closest('[data-folder-entry]');
+        if (row) selecionarEntradaPasta(row);
+      });
+      body.addEventListener('focusin', () => { activeFolderCard = card; });
       list.addEventListener('dragstart', handleFolderEntryDragStart);
       body.addEventListener('dragover', handleFolderEntryDragOver);
       body.addEventListener('drop', handleFolderEntryDrop);
@@ -2936,20 +3073,30 @@
     }
 
     function handleFolderEntryDragStart(event) {
-      if (!event.target.closest('[data-folder-drag-handle]')) {
+      if (event.target.closest('[data-folder-action]:not([data-folder-action="open"])')) {
         event.preventDefault();
         return;
       }
       draggedFolderEntry = event.target.closest('[data-folder-entry]');
       if (!draggedFolderEntry) return;
-      event.dataTransfer.effectAllowed = 'copyMove';
+      event.dataTransfer.effectAllowed = 'move';
       event.dataTransfer.setData('text/plain', draggedFolderEntry.dataset.entryId);
       event.dataTransfer.setData('application/x-dexi-folder-entry', draggedFolderEntry.dataset.entryId);
-      draggedFolderEntry.classList.add('opacity-40');
+      document.querySelectorAll(`[data-entry-id="${CSS.escape(draggedFolderEntry.dataset.entryId)}"]`).forEach(row => row.classList.add('folder-entry-cut'));
     }
 
     function handleFolderEntryDragOver(event) {
       event.preventDefault();
+      if (Array.from(event.dataTransfer.types).includes('application/x-dexi-board-folder-card')) {
+        const target = event.target.closest('[data-folder-entry]');
+        const card = event.currentTarget.closest('.codex-card');
+        const list = card?.querySelector('.folder-file-list');
+        document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
+        if (target?.dataset.kind === 'folder') target.classList.add('folder-drop-target');
+        else list?.classList.add('folder-drop-target');
+        event.dataTransfer.dropEffect = 'move';
+        return;
+      }
       if (Array.from(event.dataTransfer.types).includes('application/x-dexi-board-file')) {
         const list = event.currentTarget.querySelector('.folder-file-list');
         document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
@@ -2957,8 +3104,17 @@
         event.dataTransfer.dropEffect = 'copy';
         return;
       }
+      if (!draggedFolderEntry) return;
       const target = event.target.closest('[data-folder-entry]');
-      if (!target || !draggedFolderEntry || target === draggedFolderEntry) return;
+      const card = event.currentTarget.closest('.codex-card');
+      const list = card?.querySelector('.folder-file-list');
+      if (!target) {
+        document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
+        list?.classList.add('folder-drop-target');
+        event.dataTransfer.dropEffect = 'move';
+        return;
+      }
+      if (target.dataset.entryId === draggedFolderEntry.dataset.entryId) return;
       if (target.dataset.kind === 'folder') {
         draggedFolderEntry.classList.remove('folder-drop-before', 'folder-drop-after');
         document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
@@ -2967,17 +3123,26 @@
         return;
       }
       document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
-      const bounds = target.getBoundingClientRect();
-      const insertAfter = event.clientY >= bounds.top + bounds.height / 2;
-      draggedFolderEntry.classList.toggle('folder-drop-after', insertAfter);
-      draggedFolderEntry.classList.toggle('folder-drop-before', !insertAfter);
-      target.parentElement.insertBefore(draggedFolderEntry, insertAfter ? target.nextSibling : target);
+      list?.classList.add('folder-drop-target');
+      event.dataTransfer.dropEffect = 'move';
     }
 
     async function handleFolderEntryDrop(event) {
       event.preventDefault();
       const card = event.target.closest('.codex-card');
       const target = event.target.closest('[data-folder-entry]');
+      const dropList = event.target.closest('.folder-file-list');
+      const isFolderEntryDrag = Array.from(event.dataTransfer.types).includes('application/x-dexi-folder-entry') || Boolean(draggedFolderEntry);
+      if (isFolderEntryDrag && !dropList) return;
+      if (Array.from(event.dataTransfer.types).includes('application/x-dexi-board-folder-card')) {
+        const sourceId = event.dataTransfer.getData('application/x-dexi-board-folder-card');
+        const sourceCard = draggedBoardFolderCard || Array.from(document.querySelectorAll('.folder-card:not([data-temporary-folder-view="true"])'))
+          .find(item => item.dataset.folderCardId === sourceId);
+        const destinationPath = target?.dataset.kind === 'folder' ? target.dataset.path : (card?.dataset.folderViewPath || '');
+        if (card && sourceCard) await moverCardFoldersParaPasta(sourceCard, card, destinationPath);
+        document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
+        return;
+      }
       if (Array.from(event.dataTransfer.types).includes('application/x-dexi-board-file')) {
         const sourceId = event.dataTransfer.getData('application/x-dexi-board-file');
         const sourceCard = draggedBoardFileCard || Array.from(document.querySelectorAll('.codex-card')).find(item => item.dataset.boardUndoId === sourceId);
@@ -2986,16 +3151,15 @@
         document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
         return;
       }
-      if (card && draggedFolderEntry && target?.dataset.kind === 'folder' && target !== draggedFolderEntry) {
-        const sourcePath = draggedFolderEntry.dataset.path;
-        const destinationPath = target.dataset.path;
-        if (draggedFolderEntry.dataset.kind !== 'folder' || !destinationPath.startsWith(`${sourcePath}/`)) {
-          moverEntradaDaPasta(card, draggedFolderEntry, target);
-        }
+      if (card && draggedFolderEntry && target?.dataset.kind === 'folder' && target.dataset.entryId !== draggedFolderEntry.dataset.entryId) {
+        moverEntradaDaPasta(card, draggedFolderEntry, target.dataset.path);
+      } else if (card && draggedFolderEntry && !target) {
+        moverEntradaDaPasta(card, draggedFolderEntry, card.dataset.folderViewPath || '');
       }
       card?.querySelectorAll('.folder-drop-target, .folder-drop-before, .folder-drop-after').forEach(row => {
         row.classList.remove('folder-drop-target', 'folder-drop-before', 'folder-drop-after');
       });
+      card?.querySelector('.folder-file-list')?.classList.remove('folder-drop-target');
       if (card) salvarEstadoNoStorage();
     }
 
@@ -3024,6 +3188,12 @@
       const file = new File([blob], fileName, { type: blob.type || '' });
       const id = createFolderEntryId();
       const storedPersistently = await guardarArquivoPastaNoDb(id, file);
+      if (!storedPersistently) {
+        removerArquivoPastaDoDb(id);
+        mostrarAvisoArmazenamentoArquivo(fileName);
+        alert('O arquivo não foi movido porque não pôde ser salvo em FOLDERS. O card original foi mantido.');
+        return false;
+      }
       const entry = {
         id,
         kind: 'file',
@@ -3043,24 +3213,51 @@
         .sort((left, right) => left.dataset.path.localeCompare(right.dataset.path, 'pt-BR'))
         .forEach(item => list.appendChild(item));
 
-      if (targetCard !== rootCard && destinationPath === (targetCard.dataset.folderViewPath || '')) {
-        const viewList = targetCard.querySelector('.folder-file-list');
-        const viewRow = row.cloneNode(true);
-        viewRow.classList.remove('hidden');
-        const label = viewRow.querySelector('[data-entry-label]');
-        if (label) { label.textContent = fileName; label.title = path; }
-        viewRow.querySelectorAll('[data-folder-drag-handle], [data-folder-action="up"], [data-folder-action="down"], [data-folder-action="rename"], [data-folder-action="delete"]').forEach(button => button.remove());
-        viewList?.appendChild(viewRow);
-        updateFolderCardCount(targetCard);
+      refreshFolderCardViews(rootCard);
+      if (source.dataset.pdfsourceid) removerPdfDoDb(source.dataset.pdfsourceid);
+      else if (source.dataset.mediasourceid) removerMediaDoDb(source.dataset.mediasourceid);
+      sourceCard.remove();
+      atualizarToolbarSelecao();
+      await salvarEstadoNoStorage();
+      return true;
+    }
+
+    async function moverCardFoldersParaPasta(sourceCard, targetCard, destinationPath) {
+      const sourceList = sourceCard.querySelector('.folder-file-list');
+      const destinationRoot = getFolderRootCard(targetCard);
+      const destinationList = destinationRoot?.querySelector('.folder-file-list');
+      if (!sourceList || !destinationList || sourceCard === destinationRoot || sourceCard.dataset.temporaryFolderView === 'true') return false;
+      const folderName = (sourceCard.dataset.filename || 'Pasta').trim().replace(/[\\/:*?"<>|]/g, '_') || 'Pasta';
+      const newBasePath = destinationPath ? `${destinationPath}/${folderName}` : folderName;
+      const destinationPaths = new Set(Array.from(destinationList.querySelectorAll('[data-folder-entry]')).map(row => row.dataset.path));
+      const sourceRows = Array.from(sourceList.querySelectorAll(':scope > [data-folder-entry]'));
+      const movedPaths = sourceRows.map(row => `${newBasePath}/${row.dataset.path}`);
+      if (destinationPaths.has(newBasePath) || movedPaths.some(path => destinationPaths.has(path))) {
+        alert('Já existe uma pasta ou arquivo com esse nome no destino.');
+        return false;
       }
 
-      if (!storedPersistently) mostrarAvisoArmazenamentoArquivo(fileName);
-      updateFolderCardCount(rootCard);
+      const folderWrapper = document.createElement('ul');
+      folderWrapper.innerHTML = renderFolderEntryRow({ id: createFolderEntryId(), kind: 'folder', path: newBasePath });
+      destinationList.appendChild(folderWrapper.firstElementChild);
+      sourceRows.forEach((row, index) => {
+        row.dataset.path = movedPaths[index];
+        row.dataset.search = movedPaths[index].toLowerCase();
+        const label = row.querySelector('[data-entry-label]');
+        if (label) { label.textContent = movedPaths[index].split('/').pop(); label.title = movedPaths[index]; }
+        destinationList.appendChild(row);
+      });
+      document.querySelectorAll('.folder-card[data-temporary-folder-view="true"]')
+        .forEach(view => { if (view.dataset.folderRootCardId === sourceCard.dataset.folderCardId) view.remove(); });
+      sourceCard.remove();
+      refreshFolderCardViews(destinationRoot);
+      atualizarToolbarSelecao();
       await salvarEstadoNoStorage();
+      return true;
     }
 
     function handleFolderEntryDragEnd() {
-      draggedFolderEntry?.classList.remove('opacity-40');
+      document.querySelectorAll('.folder-entry-cut').forEach(row => row.classList.remove('folder-entry-cut'));
       document.querySelectorAll('.folder-drop-target, .folder-drop-before, .folder-drop-after').forEach(row => {
         row.classList.remove('folder-drop-target', 'folder-drop-before', 'folder-drop-after');
       });
@@ -3068,10 +3265,162 @@
       salvarEstadoNoStorage();
     }
 
-    function moverEntradaDaPasta(card, source, destinationFolder) {
-      const list = card.querySelector('.folder-file-list');
+    function selecionarEntradaPasta(row) {
+      const rootCard = getFolderRootCard(row.closest('.codex-card'));
+      if (!rootCard) return;
+      selectedFolderEntry = { rootCardId: rootCard.dataset.folderCardId, entryId: row.dataset.entryId };
+      document.querySelectorAll('.folder-entry-selected').forEach(item => item.classList.remove('folder-entry-selected'));
+      document.querySelectorAll(`[data-entry-id="${CSS.escape(row.dataset.entryId)}"]`).forEach(item => item.classList.add('folder-entry-selected'));
+    }
+
+    function showFolderClipboardStatus(rootCard, message) {
+      const rootCardId = rootCard?.dataset.folderCardId;
+      document.querySelectorAll('.folder-card').forEach(card => {
+        if (card.dataset.folderCardId !== rootCardId && card.dataset.folderRootCardId !== rootCardId) return;
+        const status = card.querySelector('[data-folder-clipboard-status]');
+        if (!status) return;
+        status.textContent = message;
+        status.classList.toggle('hidden', !message);
+      });
+    }
+
+    function setFolderClipboard(row, mode) {
+      const rootCard = getFolderRootCard(row.closest('.codex-card'));
+      const source = getCanonicalFolderEntry(rootCard, row.dataset.entryId);
+      if (!source) return;
+      document.querySelectorAll('.folder-entry-cut').forEach(item => item.classList.remove('folder-entry-cut'));
       const sourcePath = source.dataset.path;
-      const destinationPath = destinationFolder.dataset.path;
+      const sourceEntries = Array.from(rootCard.querySelectorAll('.folder-file-list > [data-folder-entry]'))
+        .filter(item => item === source || (source.dataset.kind === 'folder' && item.dataset.path.startsWith(`${sourcePath}/`)));
+      folderClipboard = {
+        rootCardId: rootCard.dataset.folderCardId,
+        entryId: source.dataset.entryId,
+        mode,
+        entryIds: sourceEntries.map(item => item.dataset.entryId)
+      };
+      if (mode === 'cut') {
+        sourceEntries.forEach(item => {
+          document.querySelectorAll(`[data-entry-id="${CSS.escape(item.dataset.entryId)}"]`).forEach(clone => clone.classList.add('folder-entry-cut'));
+        });
+      }
+      selecionarEntradaPasta(source);
+      const name = sourcePath.split('/').pop();
+      showFolderClipboardStatus(rootCard, `${mode === 'cut' ? 'Recortado' : 'Copiado'}: ${name}. Use Ctrl+V na pasta de destino.`);
+    }
+
+    function uniqueCopiedFolderPath(name, parentPath, occupiedPaths) {
+      const originalPath = parentPath ? `${parentPath}/${name}` : name;
+      if (!occupiedPaths.has(originalPath)) return originalPath;
+      const extensionIndex = name.lastIndexOf('.');
+      const hasExtension = extensionIndex > 0;
+      const stem = hasExtension ? name.slice(0, extensionIndex) : name;
+      const extension = hasExtension ? name.slice(extensionIndex) : '';
+      let suffix = 1;
+      let candidate;
+      do {
+        candidate = parentPath
+          ? `${parentPath}/${stem} (cópia${suffix > 1 ? ` ${suffix}` : ''})${extension}`
+          : `${stem} (cópia${suffix > 1 ? ` ${suffix}` : ''})${extension}`;
+        suffix += 1;
+      } while (occupiedPaths.has(candidate));
+      return candidate;
+    }
+
+    async function pasteFolderClipboard(destinationCard) {
+      if (!folderClipboard || !destinationCard) return;
+      const sourceRoot = Array.from(document.querySelectorAll('.folder-card:not([data-temporary-folder-view="true"])'))
+        .find(card => card.dataset.folderCardId === folderClipboard.rootCardId);
+      const destinationRoot = getFolderRootCard(destinationCard);
+      const source = getCanonicalFolderEntry(sourceRoot, folderClipboard.entryId);
+      const destinationList = destinationRoot?.querySelector('.folder-file-list');
+      if (!source || !destinationRoot || !destinationList) {
+        alert('O item copiado ou recortado não está mais disponível.');
+        return;
+      }
+
+      const sourcePath = source.dataset.path;
+      const destinationPath = destinationCard.dataset.folderViewPath || '';
+      const sourceRows = Array.from(sourceRoot.querySelectorAll('.folder-file-list > [data-folder-entry]'))
+        .filter(row => row === source || (source.dataset.kind === 'folder' && row.dataset.path.startsWith(`${sourcePath}/`)));
+      if (folderClipboard.mode === 'cut' && sourceRoot === destinationRoot) {
+        const moved = moverEntradaDaPasta(destinationCard, source, destinationPath);
+        if (!moved) return;
+        folderClipboard = null;
+        showFolderClipboardStatus(sourceRoot, 'Item movido.');
+        document.querySelectorAll('.folder-entry-cut').forEach(item => item.classList.remove('folder-entry-cut'));
+        return;
+      }
+
+      const movingSet = folderClipboard.mode === 'cut' ? new Set(sourceRows) : new Set();
+      const occupiedPaths = new Set(Array.from(destinationList.querySelectorAll('[data-folder-entry]'))
+        .filter(row => !movingSet.has(row))
+        .map(row => row.dataset.path));
+      let newBasePath = destinationPath ? `${destinationPath}/${sourcePath.split('/').pop()}` : sourcePath.split('/').pop();
+      if (folderClipboard.mode === 'copy') {
+        const uniquePath = uniqueCopiedFolderPath(sourcePath.split('/').pop(), destinationPath, occupiedPaths);
+        if (uniquePath !== newBasePath) newBasePath = uniquePath;
+      }
+      const pathChanges = sourceRows.map(row => ({
+        row,
+        path: row === source ? newBasePath : `${newBasePath}${row.dataset.path.slice(sourcePath.length)}`
+      }));
+      if (pathChanges.some(item => occupiedPaths.has(item.path))) {
+        alert('Já existe um arquivo ou pasta com esse nome no destino.');
+        return;
+      }
+
+      let rowsToInsert = pathChanges;
+      if (folderClipboard.mode === 'copy') {
+        const copiedIds = new Map(sourceRows.map(row => [row.dataset.entryId, createFolderEntryId()]));
+        const copiedFiles = [];
+        for (const row of sourceRows) {
+          if (row.dataset.kind !== 'file') continue;
+          const blob = await obterArquivoPastaDoDb(row.dataset.entryId);
+          if (!blob) {
+            alert(`Não foi possível copiar o arquivo "${row.dataset.path}".`);
+            return;
+          }
+          copiedFiles.push({ id: copiedIds.get(row.dataset.entryId), blob });
+        }
+        for (const { id, blob } of copiedFiles) await guardarArquivoPastaNoDb(id, blob);
+        rowsToInsert = pathChanges.map(({ row, path }) => {
+          const clone = row.cloneNode(true);
+          clone.dataset.entryId = copiedIds.get(row.dataset.entryId);
+          clone.dataset.path = path;
+          clone.dataset.search = path.toLowerCase();
+          const label = clone.querySelector('[data-entry-label]');
+          if (label) { label.textContent = path.split('/').pop(); label.title = path; }
+          return { row: clone, path };
+        });
+      }
+
+      rowsToInsert.forEach(({ row, path }) => {
+        row.dataset.path = path;
+        row.dataset.search = path.toLowerCase();
+        const label = row.querySelector('[data-entry-label]');
+        if (label) { label.textContent = path.split('/').pop(); label.title = path; }
+        destinationList.appendChild(row);
+      });
+      [sourceRoot, destinationRoot].filter((root, index, roots) => root && roots.indexOf(root) === index).forEach(refreshFolderCardViews);
+      if (folderClipboard.mode === 'cut') {
+        folderClipboard = null;
+        document.querySelectorAll('.folder-entry-cut').forEach(item => item.classList.remove('folder-entry-cut'));
+        showFolderClipboardStatus(sourceRoot, 'Item movido.');
+      } else {
+        showFolderClipboardStatus(destinationRoot, 'Cópia criada. Ctrl+V pode repetir a cópia.');
+      }
+      salvarEstadoNoStorage();
+    }
+
+    function moverEntradaDaPasta(card, source, destinationPath) {
+      const rootCard = getFolderRootCard(card);
+      const list = rootCard?.querySelector('.folder-file-list');
+      source = getCanonicalFolderEntry(rootCard, source.dataset.entryId);
+      if (!list || !source) return;
+      const sourcePath = source.dataset.path;
+      if (source.dataset.kind === 'folder' && (destinationPath === sourcePath || destinationPath.startsWith(`${sourcePath}/`))) return false;
+      if (getFolderEntryParentPath(sourcePath) === destinationPath) return false;
+      const newBasePath = destinationPath ? `${destinationPath}/${sourcePath.split('/').pop()}` : sourcePath.split('/').pop();
       const movingRows = source.dataset.kind === 'folder'
         ? [source, ...Array.from(list.querySelectorAll('[data-folder-entry]')).filter(row => row.dataset.path.startsWith(`${sourcePath}/`))]
         : [source];
@@ -3079,20 +3428,19 @@
       const nextPaths = movingRows.map(row => ({
         row,
         path: row === source
-          ? `${destinationPath}/${sourcePath.split('/').pop()}`
-          : `${destinationPath}/${sourcePath.split('/').pop()}${row.dataset.path.slice(sourcePath.length)}`
+          ? newBasePath
+          : `${newBasePath}${row.dataset.path.slice(sourcePath.length)}`
       }));
       const occupiedPaths = new Set(Array.from(list.querySelectorAll('[data-folder-entry]'))
         .filter(row => !movingSet.has(row))
         .map(row => row.dataset.path));
       if (nextPaths.some(entry => occupiedPaths.has(entry.path))) {
         alert('Já existe um arquivo ou pasta com esse nome no destino.');
-        return;
+        return false;
       }
       nextPaths.forEach(({ row, path }) => {
         row.dataset.path = path;
         row.dataset.search = path.toLowerCase();
-        row.classList.toggle('hidden', getFolderEntryParentPath(path) !== (card.dataset.folderViewPath || ''));
         const label = row.querySelector('[data-entry-label]');
         if (label) { label.textContent = path; label.title = path; }
         const openButton = row.querySelector('[data-folder-action="open"]');
@@ -3101,11 +3449,15 @@
       Array.from(list.querySelectorAll('[data-folder-entry]'))
         .sort((left, right) => left.dataset.path.localeCompare(right.dataset.path, 'pt-BR'))
         .forEach(row => list.appendChild(row));
-      updateFolderCardCount(card);
+      refreshFolderCardViews(rootCard);
+      salvarEstadoNoStorage();
+      return true;
     }
 
     function updateFolderCardCount(card) {
-      const rows = Array.from(card.querySelectorAll('[data-folder-entry]'));
+      const currentPath = card.dataset.folderViewPath || '';
+      const rows = Array.from(card.querySelectorAll('[data-folder-entry]'))
+        .filter(row => getFolderEntryParentPath(row.dataset.path) === currentPath);
       const files = rows.filter(row => row.dataset.kind === 'file').length;
       const folders = rows.filter(row => row.dataset.kind === 'folder').length;
       const temporary = rows.filter(row => row.dataset.temporary === 'true').length;
@@ -3127,10 +3479,13 @@
         webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp', avif: 'image/avif', mp4: 'video/mp4', webm: 'video/webm',
         mov: 'video/quicktime', mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', m4a: 'audio/mp4'
       })[extension] || '';
-      const mime = !file.type || file.type === 'application/octet-stream' ? extensionMime || file.type : file.type;
+      const mime = extension === 'pdf' ? 'application/pdf' : (!file.type || file.type === 'application/octet-stream' ? extensionMime || file.type : file.type);
+      if (mime === 'application/pdf') {
+        await abrirPdfNaPrevia(file, fileName, url, null, 1);
+        return;
+      }
       let content;
       if (mime.startsWith('image/')) content = `<div class="flex h-full min-h-0 w-full items-center justify-center overflow-auto bg-slate-950"><img src="${url}" alt="${safeName}" class="max-h-full max-w-full object-contain"></div>`;
-      else if (mime === 'application/pdf') content = `<iframe src="${url}" type="application/pdf" title="${safeName}" class="h-full min-h-0 w-full flex-1 border-0 bg-white"></iframe>`;
       else if (mime.startsWith('video/')) content = `<div class="flex h-full min-h-0 w-full items-center justify-center bg-slate-950"><video src="${url}" controls playsinline class="max-h-full max-w-full"></video></div>`;
       else if (mime.startsWith('audio/')) content = `<div class="flex h-full min-h-0 w-full items-center justify-center p-6"><audio src="${url}" controls class="w-full"></audio></div>`;
       else if (mime.startsWith('text/') || /\.(txt|md|markdown|json|csv|xml|html|css|js|ts|py|log|yaml|yml|ini|toml)$/i.test(row.dataset.path)) content = `<pre class="h-full min-h-0 w-full flex-1 overflow-auto whitespace-pre-wrap break-words bg-white p-4 text-xs text-slate-800 dark:bg-slate-950 dark:text-slate-100"></pre>`;
@@ -3138,6 +3493,55 @@
       openModal(row.dataset.path, content);
       const pre = document.querySelector('#modal-content pre');
       if (pre) pre.textContent = await file.text();
+    }
+
+    async function abrirPdfNaPrevia(blob, filename, url, card = null, initialPage = 1) {
+      const safeName = escapeHTML(filename);
+      const content = `
+        <div class="flex h-full min-h-0 w-full flex-col bg-slate-900">
+          <div class="flex shrink-0 items-center justify-between gap-2 bg-slate-800 px-2 py-2 text-white sm:px-3">
+            <div class="flex min-w-0 items-center gap-1.5 text-xs sm:gap-2">
+              <button onclick="navegarPdfPreview(-1)" class="rounded bg-slate-700 px-2.5 py-1 font-bold hover:bg-slate-600" aria-label="Página anterior">‹</button>
+              <button onclick="navegarPdfPreview(1)" class="rounded bg-slate-700 px-2.5 py-1 font-bold hover:bg-slate-600" aria-label="Próxima página">›</button>
+              <input type="number" min="1" value="${Math.max(1, initialPage)}" onchange="irParaPaginaPdfPreview(this.value)" class="preview-pdf-page w-12 rounded border border-slate-600 bg-slate-900 px-1 py-1 text-center text-amber-300">
+              <span class="whitespace-nowrap">/ <span class="preview-pdf-count">?</span></span>
+            </div>
+            <div class="flex shrink-0 items-center gap-1.5 text-xs sm:gap-2">
+              <button onclick="alterarZoomPdfPreview(-1)" class="rounded bg-slate-700 px-2.5 py-1 font-bold hover:bg-slate-600" aria-label="Diminuir zoom">−</button>
+              <span class="preview-pdf-zoom min-w-10 text-center font-mono">100%</span>
+              <button onclick="alterarZoomPdfPreview(1)" class="rounded bg-slate-700 px-2.5 py-1 font-bold hover:bg-slate-600" aria-label="Aumentar zoom">+</button>
+            </div>
+          </div>
+          <div class="preview-pdf-scroll min-h-0 flex-1 overflow-auto overscroll-contain bg-slate-950">
+            <div class="flex min-h-full w-max min-w-full justify-center p-2 sm:p-3">
+              <canvas class="preview-pdf-canvas block shadow-lg"></canvas>
+            </div>
+          </div>
+        </div>`;
+      openModal(filename, content);
+      const state = {
+        generation: ++boardPdfPreviewGeneration,
+        card,
+        page: Math.max(1, initialPage),
+        zoom: 1,
+        pdf: null,
+        renderTask: null,
+        renderGeneration: 0
+      };
+      activeBoardPdfPreview = state;
+      try {
+        state.pdf = await pdfjsLib.getDocument({
+          data: new Uint8Array(await blob.arrayBuffer())
+        }).promise;
+        if (activeBoardPdfPreview === state) await renderizarPaginaPdfPreview();
+      } catch (error) {
+        if (activeBoardPdfPreview !== state) return;
+        console.error('Falha ao carregar prévia PDF:', error);
+        const scroll = document.querySelector('#modal-content .preview-pdf-scroll');
+        if (scroll) {
+          scroll.innerHTML = `<div class="flex min-h-full flex-col items-center justify-center gap-3 p-6 text-center text-white"><p role="alert" class="text-sm">Não foi possível renderizar este PDF neste dispositivo.</p><div class="flex flex-wrap justify-center gap-2"><a href="${url}" target="_blank" rel="noopener noreferrer" class="rounded-lg bg-slate-700 px-4 py-2 text-sm font-bold text-white">Abrir PDF</a><a href="${url}" download="${safeName}" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-900">Baixar PDF</a></div></div>`;
+        }
+      }
     }
 
     function createTemporaryFolderView(sourceCard, folderRow) {
@@ -3157,23 +3561,21 @@
           label.textContent = row.dataset.path.split('/').pop();
           label.title = row.dataset.path;
         }
-        clone.querySelectorAll('[data-folder-action="up"], [data-folder-action="down"], [data-folder-action="rename"], [data-folder-action="delete"]').forEach(button => button.remove());
-        const dragHandle = clone.querySelector('[data-folder-drag-handle]');
-        if (row.dataset.kind === 'folder') dragHandle?.remove();
-        else if (dragHandle) {
-          dragHandle.title = 'Arrastar arquivo para o quadro';
-          dragHandle.setAttribute('aria-label', 'Arrastar arquivo para o quadro');
-        }
-        clone.removeAttribute('draggable');
         return clone.outerHTML;
       }).join('');
       const folderName = folderPath.split('/').pop();
       const bodyHtml = `<div class="folder-card-body flex h-full min-h-0 flex-col bg-slate-50 dark:bg-slate-950/40" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();">
-        <div class="flex shrink-0 items-center gap-2 border-b border-slate-200 p-2 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
-          <span class="text-amber-500">📁</span><span class="min-w-0 flex-1 truncate" title="${escapeHTML(folderPath)}">${escapeHTML(folderPath)}</span>
+        <div class="flex shrink-0 items-center gap-1 border-b border-slate-200 p-2 dark:border-slate-700">
+          <span class="min-w-0 flex-1 truncate text-xs font-semibold text-slate-600 dark:text-slate-300" title="${escapeHTML(folderPath)}">📁 ${escapeHTML(folderPath)}</span>
+          <button type="button" data-folder-action="new-folder" class="shrink-0 rounded-lg bg-slate-200 px-2 py-1 text-xs font-bold text-slate-700 hover:bg-amber-200 dark:bg-slate-800 dark:text-slate-200" title="Criar subpasta" aria-label="Criar subpasta">+ Pasta</button>
+          <button type="button" data-folder-action="zip" class="shrink-0 rounded-lg bg-amber-500 px-2 py-1 text-xs font-bold text-slate-900 hover:bg-amber-400" title="Baixar esta pasta como ZIP" aria-label="Baixar esta pasta como ZIP">ZIP</button>
+        </div>
+        <div class="shrink-0 border-b border-slate-200 p-2 dark:border-slate-700">
+          <input type="search" placeholder="Buscar nesta pasta e subpastas..." aria-label="Buscar arquivos e pastas nesta pasta e subpastas" oninput="filtrarArquivosPasta(this)" class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-amber-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
         </div>
         <ul class="folder-file-list min-h-0 flex-1 list-none overflow-auto overscroll-contain p-0">${rows || '<li class="p-4 text-center text-xs text-slate-400">Esta pasta está vazia.</li>'}</ul>
         <div data-folder-count="true" class="shrink-0 border-t border-slate-200 px-3 py-1.5 text-[10px] text-slate-500 dark:border-slate-700 dark:text-slate-400">${children.filter(row => row.dataset.kind === 'file').length} arquivo(s) · ${children.filter(row => row.dataset.kind === 'folder').length} pasta(s)</div>
+        <div data-folder-clipboard-status class="folder-clipboard-status hidden shrink-0 px-3 pb-1.5 text-[10px] font-semibold text-blue-700 dark:text-blue-300" role="status" aria-live="polite"></div>
       </div>`;
       const sourceLeft = parseFloat(sourceCard.style.left) || 0;
       const sourceTop = parseFloat(sourceCard.style.top) || 0;
@@ -3187,7 +3589,13 @@
       viewCard.dataset.temporaryFolderView = 'true';
       viewCard.dataset.folderViewPath = folderPath;
       viewCard.dataset.folderRootCardId = rootCardId || '';
+      const moveHandle = viewCard.querySelector('[data-board-folder-drag-handle]');
+      if (moveHandle) {
+        moveHandle.title = 'Mover esta pasta para o quadro';
+        moveHandle.setAttribute('aria-label', 'Mover esta pasta para o quadro');
+      }
       bindFolderCardInteractions(viewCard);
+      refreshFolderCardViews(rootCard);
       return viewCard;
     }
 
@@ -3198,6 +3606,33 @@
       const link = document.createElement('a');
       link.href = url;
       link.download = row.dataset.path.split('/').pop();
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    async function downloadFolderEntryZip(card, folderRow) {
+      if (!window.JSZip) { alert('Não foi possível carregar a função ZIP. Verifique sua conexão.'); return; }
+      const rootCardId = card.dataset.folderRootCardId || card.dataset.folderCardId;
+      const rootCard = Array.from(document.querySelectorAll('.folder-card'))
+        .find(item => item.dataset.folderCardId === rootCardId && item.dataset.temporaryFolderView !== 'true') || card;
+      const folderPath = folderRow.dataset.path;
+      const root = folderPath.split('/').pop().replace(/[\\/:*?"<>|]/g, '_') || 'pasta';
+      const zip = new JSZip();
+      for (const row of rootCard.querySelectorAll('[data-folder-entry]')) {
+        const path = row.dataset.path;
+        if (path !== folderPath && !path.startsWith(`${folderPath}/`)) continue;
+        const relativePath = path === folderPath ? root : `${root}/${path.slice(folderPath.length + 1)}`;
+        if (row.dataset.kind === 'folder') zip.folder(relativePath);
+        else {
+          const file = await obterArquivoPastaDoDb(row.dataset.entryId);
+          if (file) zip.file(relativePath, file);
+        }
+      }
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${root}.zip`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
@@ -3230,75 +3665,81 @@
       event.stopPropagation();
       const action = button.dataset.folderAction;
       const card = button.closest('.codex-card');
-      const list = card.querySelector('.folder-file-list');
+      const rootCard = getFolderRootCard(card);
+      const list = rootCard?.querySelector('.folder-file-list');
       const row = button.closest('[data-folder-entry]');
+      const canonicalRow = row ? getCanonicalFolderEntry(rootCard, row.dataset.entryId) : null;
       if (action === 'new-folder') {
-        const name = prompt('Nome da nova pasta (use / para criar subpastas):');
+        const basePath = card.dataset.folderViewPath || '';
+        const name = prompt(`Nome da nova pasta${basePath ? ` dentro de "${basePath.split('/').pop()}"` : ''} (use / para criar subpastas):`);
         if (!name?.trim()) return;
-        const parts = name.trim().replace(/\\/g, '/').split('/').map(part => part.trim()).filter(part => part && part !== '.' && part !== '..');
-        let folderPath = '';
-        parts.forEach(part => {
-          folderPath = folderPath ? `${folderPath}/${part}` : part;
-          if (Array.from(list.querySelectorAll('[data-kind="folder"]')).some(item => item.dataset.path === folderPath)) return;
-          const wrapper = document.createElement('ul');
-          wrapper.innerHTML = renderFolderEntryRow({ id: createFolderEntryId(), kind: 'folder', path: folderPath });
-          const folderRow = wrapper.firstElementChild;
-          folderRow.classList.toggle('hidden', getFolderEntryParentPath(folderPath) !== (card.dataset.folderViewPath || ''));
-          list.appendChild(folderRow);
-        });
-        updateFolderCardCount(card);
+        createFolderEntries(rootCard, basePath, name);
       } else if (action === 'zip') {
-        await downloadFolderCardZip(card).catch(error => {
+        const folderPath = card.dataset.folderViewPath || '';
+        const folderRow = folderPath ? getCanonicalFolderEntry(rootCard, Array.from(rootCard.querySelectorAll('[data-folder-entry]')).find(item => item.dataset.path === folderPath)?.dataset.entryId) : null;
+        const download = folderRow ? downloadFolderEntryZip(rootCard, folderRow) : downloadFolderCardZip(rootCard);
+        await download.catch(error => {
           console.error('Falha ao baixar pasta ZIP:', error);
           alert('Não foi possível criar o ZIP desta pasta.');
         });
         return;
-      } else if (!row) return;
+      } else if (!row || !canonicalRow) return;
       else if (action === 'open') {
-        if (row.dataset.kind === 'folder') {
-          createTemporaryFolderView(card, row);
-        } else await previewFolderFile(row).catch(error => {
+        if (canonicalRow.dataset.kind === 'folder') {
+          createTemporaryFolderView(card, canonicalRow);
+        } else await previewFolderFile(canonicalRow).catch(error => {
           console.error('Falha ao abrir arquivo da pasta:', error);
           alert('Não foi possível abrir este arquivo.');
         });
         return;
       } else if (action === 'download') {
-        await downloadFolderFile(row).catch(error => {
+        const download = canonicalRow.dataset.kind === 'folder'
+          ? downloadFolderEntryZip(rootCard, canonicalRow)
+          : downloadFolderFile(canonicalRow);
+        await download.catch(error => {
           console.error('Falha ao baixar arquivo da pasta:', error);
-          alert('Não foi possível baixar este arquivo.');
+          alert(canonicalRow.dataset.kind === 'folder' ? 'Não foi possível baixar esta pasta.' : 'Não foi possível baixar este arquivo.');
         });
         return;
       } else if (action === 'rename') {
-        const oldPath = row.dataset.path;
+        const oldPath = canonicalRow.dataset.path;
         const oldName = oldPath.split('/').pop();
         const newName = prompt('Novo nome:', oldName)?.trim().replace(/[\\/]/g, '-');
         if (!newName || newName === oldName) return;
         const parentPath = oldPath.includes('/') ? oldPath.slice(0, oldPath.lastIndexOf('/') + 1) : '';
         const newPath = `${parentPath}${newName}`;
-        const pathPrefix = row.dataset.kind === 'folder' ? `${oldPath}/` : null;
+        const pathPrefix = canonicalRow.dataset.kind === 'folder' ? `${oldPath}/` : null;
+        const renamedPaths = new Set([newPath]);
+        if (pathPrefix) {
+          Array.from(list.querySelectorAll('[data-folder-entry]'))
+            .filter(item => item.dataset.path.startsWith(pathPrefix))
+            .forEach(item => renamedPaths.add(`${newPath}${item.dataset.path.slice(oldPath.length)}`));
+        }
+        const changingRows = new Set([canonicalRow, ...Array.from(list.querySelectorAll('[data-folder-entry]')).filter(item => pathPrefix && item.dataset.path.startsWith(pathPrefix))]);
+        if (Array.from(list.querySelectorAll('[data-folder-entry]')).some(item => !changingRows.has(item) && renamedPaths.has(item.dataset.path))) {
+          alert('Já existe um arquivo ou pasta com esse nome.');
+          return;
+        }
         Array.from(list.querySelectorAll('[data-folder-entry]')).forEach(item => {
-          if (item === row) item.dataset.path = newPath;
+          if (item === canonicalRow) item.dataset.path = newPath;
           else if (pathPrefix && item.dataset.path.startsWith(pathPrefix)) item.dataset.path = `${newPath}${item.dataset.path.slice(oldPath.length)}`;
           item.dataset.search = item.dataset.path.toLowerCase();
           const label = item.querySelector('[data-entry-label]');
           if (label) { label.textContent = item.dataset.path; label.title = item.dataset.path; }
         });
       } else if (action === 'delete') {
-        const path = row.dataset.path;
-        const isFolder = row.dataset.kind === 'folder';
+        const path = canonicalRow.dataset.path;
+        const isFolder = canonicalRow.dataset.kind === 'folder';
         if (!confirm(`Excluir ${isFolder ? 'a pasta' : 'o arquivo'} "${path}"?`)) return;
         const rowsToDelete = isFolder
-          ? [row, ...Array.from(list.querySelectorAll('[data-folder-entry]')).filter(item => item.dataset.path.startsWith(`${path}/`))]
-          : [row];
+          ? [canonicalRow, ...Array.from(list.querySelectorAll('[data-folder-entry]')).filter(item => item.dataset.path.startsWith(`${path}/`))]
+          : [canonicalRow];
         rowsToDelete.forEach(item => {
           if (item.dataset.kind === 'file') removerArquivoPastaDoDb(item.dataset.entryId);
           item.remove();
         });
-        updateFolderCardCount(card);
-      } else if (action === 'up' || action === 'down') {
-        const sibling = action === 'up' ? row.previousElementSibling : row.nextElementSibling;
-        if (sibling) list.insertBefore(row, action === 'up' ? sibling : sibling.nextElementSibling);
       }
+      refreshFolderCardViews(rootCard);
       salvarEstadoNoStorage();
     }
 
@@ -3432,6 +3873,7 @@
         : [row];
       const files = [];
       const folderPaths = [];
+      let missingFiles = 0;
       for (const item of descendants) {
         const relativePath = isFolder ? item.dataset.path.slice(path.length).replace(/^\//, '') : item.dataset.path.split('/').pop();
         if (item.dataset.kind === 'folder') {
@@ -3440,18 +3882,94 @@
         }
         const blob = await obterArquivoPastaDoDb(item.dataset.entryId);
         if (blob) files.push({ file: new File([blob], item.dataset.path.split('/').pop(), { type: blob.type || '' }), path: relativePath || item.dataset.path.split('/').pop() });
+        else missingFiles += 1;
       }
-      return { row, card: actualRoot, folderName: path.split('/').pop() || path, isFolder, files, folderPaths };
+      return { row, card: actualRoot, folderName: path.split('/').pop() || path, isFolder, files, folderPaths, missingFiles };
     }
 
     async function criarCardDaEntradaDePasta(entryId) {
       const entry = await obterEntradaDePasta(entryId);
-      if (!entry) return;
-      if (entry.isFolder) {
-        await createFolderCard(entry.folderName, entry.files, entry.folderPaths);
-        return;
+      if (!entry) return false;
+      if (entry.missingFiles) {
+        alert('A pasta contém arquivos indisponíveis. Nenhum item foi movido.');
+        return false;
       }
-      if (entry.files[0]) await processAndCreateCard(entry.files[0].file);
+      let createdCard = null;
+      if (entry.isFolder) {
+        createdCard = await createFolderCard(entry.folderName, entry.files, entry.folderPaths);
+      } else if (entry.files[0]) {
+        createdCard = await processAndCreateCard(entry.files[0].file);
+      }
+      if (!createdCard) return false;
+      posicionarCardAoLadoDaPasta(createdCard, entry.card);
+      if (!removerEntradaPastaMovida(entry)) {
+        if (createdCard.dataset.filetype === 'FOLDERS') {
+          createdCard.querySelectorAll('[data-folder-entry][data-kind="file"]').forEach(row => removerArquivoPastaDoDb(row.dataset.entryId));
+        } else {
+          const createdSource = createdCard.querySelector('[data-pdfsourceid], [data-mediasourceid]');
+          if (createdSource?.dataset.pdfsourceid) removerPdfDoDb(createdSource.dataset.pdfsourceid);
+          else if (createdSource?.dataset.mediasourceid) removerMediaDoDb(createdSource.dataset.mediasourceid);
+        }
+        createdCard.remove();
+        await salvarEstadoNoStorage();
+        alert('A origem não pôde ser removida. O movimento foi cancelado.');
+        return false;
+      }
+      return true;
+    }
+
+    function posicionarCardAoLadoDaPasta(card, folderCard) {
+      const sourceCard = getFolderRootCard(folderCard);
+      if (!card || !sourceCard) return;
+      const sourceLeft = parseFloat(sourceCard.style.left) || 0;
+      const sourceTop = parseFloat(sourceCard.style.top) || 0;
+      const sourceWidth = parseFloat(sourceCard.style.width) || sourceCard.offsetWidth || 360;
+      const cardWidth = parseFloat(card.style.width) || card.offsetWidth || 360;
+      const cardHeight = parseFloat(card.style.height) || card.offsetHeight || 280;
+      const left = sourceLeft + sourceWidth + 24;
+      let top = sourceTop;
+      let collisions;
+      do {
+        collisions = Array.from(document.querySelectorAll('.codex-card'))
+          .filter(other => other !== card && other.dataset.temporaryFolderView !== 'true')
+          .filter(other => {
+            const otherLeft = parseFloat(other.style.left) || 0;
+            const otherTop = parseFloat(other.style.top) || 0;
+            const otherWidth = parseFloat(other.style.width) || other.offsetWidth || 280;
+            const otherHeight = parseFloat(other.style.height) || other.offsetHeight || 280;
+            return left < otherLeft + otherWidth + 16 && left + cardWidth + 16 > otherLeft && top < otherTop + otherHeight + 16 && top + cardHeight + 16 > otherTop;
+          });
+        if (collisions.length) {
+          top = Math.max(...collisions.map(other => (parseFloat(other.style.top) || 0) + (parseFloat(other.style.height) || other.offsetHeight || 280) + 24));
+        }
+      } while (collisions.length);
+      card.style.left = `${left}px`;
+      card.style.top = `${top}px`;
+    }
+
+    function removerEntradaPastaMovida(entry) {
+      const rootCard = entry.card;
+      const list = rootCard?.querySelector('.folder-file-list');
+      const sourceEntry = getCanonicalFolderEntry(rootCard, entry.row?.dataset.entryId);
+      if (!list || !sourceEntry) return false;
+      const sourcePath = sourceEntry.dataset.path;
+      const rowsToRemove = entry.isFolder
+        ? Array.from(list.querySelectorAll('[data-folder-entry]')).filter(row => row.dataset.path === sourcePath || row.dataset.path.startsWith(`${sourcePath}/`))
+        : [sourceEntry];
+      rowsToRemove.forEach(row => {
+        if (row.dataset.kind === 'file') removerArquivoPastaDoDb(row.dataset.entryId);
+        row.remove();
+      });
+      if (entry.isFolder) {
+        document.querySelectorAll('.folder-card[data-temporary-folder-view="true"]')
+          .forEach(view => {
+            const viewPath = view.dataset.folderViewPath || '';
+            if (view.dataset.folderRootCardId === rootCard.dataset.folderCardId && (viewPath === sourcePath || viewPath.startsWith(`${sourcePath}/`))) view.remove();
+          });
+      }
+      refreshFolderCardViews(rootCard);
+      salvarEstadoNoStorage();
+      return true;
     }
 
     let pendingEnvelope = null;
@@ -3505,9 +4023,12 @@
       const entries = [];
       const folderPaths = [];
       const occupiedPaths = new Set();
+      let movedFolderEntry = null;
       if (source.kind === 'folder-entry') {
         const folderEntry = await obterEntradaDePasta(source.entryId, source.rootCardId);
         if (!folderEntry) { alert('A pasta ou arquivo arrastado não está mais disponível.'); return; }
+        if (folderEntry.missingFiles) { alert('A pasta contém arquivos indisponíveis. Nenhum item foi movido.'); return; }
+        movedFolderEntry = folderEntry;
         const prefix = folderEntry.isFolder ? `${folderEntry.folderName}/` : '';
         folderEntry.folderPaths.forEach(path => folderPaths.push(`${prefix}${path}`));
         if (folderEntry.isFolder) folderPaths.push(folderEntry.folderName);
@@ -3526,8 +4047,10 @@
       }
       const targetPath = uniqueEnvelopePath(targetFile.name, occupiedPaths);
       entries.push({ file: targetFile, path: targetPath });
+      const envelopeCard = await createFolderCard('Envelope', entries, folderPaths);
+      if (!envelopeCard) return;
+      if (movedFolderEntry) removerEntradaPastaMovida(movedFolderEntry);
       clearPendingEnvelope();
-      await createFolderCard('Envelope', entries, folderPaths);
       limparSelecao();
     };
 
@@ -3537,7 +4060,16 @@
       const currentPath = card.dataset.folderViewPath || '';
       card.querySelectorAll('.folder-file-row').forEach(row => {
         const isCurrentLevel = getFolderEntryParentPath(row.dataset.path) === currentPath;
-        row.classList.toggle('hidden', query ? !row.dataset.search.includes(query) : !isCurrentLevel);
+        const isWithinFolder = !currentPath || row.dataset.path.startsWith(`${currentPath}/`);
+        const visible = query
+          ? isWithinFolder && row.dataset.search.includes(query)
+          : isCurrentLevel;
+        row.classList.toggle('hidden', !visible);
+        const label = row.querySelector('[data-entry-label]');
+        if (label) {
+          const relativePath = currentPath ? row.dataset.path.slice(currentPath.length + 1) : row.dataset.path;
+          label.textContent = query && visible ? relativePath : row.dataset.path.split('/').pop();
+        }
       });
     };
 
@@ -3549,9 +4081,13 @@
       dropZone.classList.add('bg-slate-200/40', 'dark:bg-slate-800/40');
       const targetCard = event.target.closest('.codex-card');
       const transferTypes = Array.from(event.dataTransfer.types);
-      if (canBeEnveloped(targetCard) && targetCard !== draggedBoardFileCard && (transferTypes.includes('application/x-dexi-board-file') || transferTypes.includes('application/x-dexi-folder-entry'))) {
+      if (canBeEnveloped(targetCard) && targetCard !== draggedBoardFileCard && transferTypes.includes('application/x-dexi-board-file')) {
         targetCard.classList.add('envelope-drop-target');
         event.dataTransfer.dropEffect = 'copy';
+      } else if (transferTypes.includes('application/x-dexi-folder-entry')) {
+        event.dataTransfer.dropEffect = 'move';
+      } else if (draggedFolderEntry) {
+        event.dataTransfer.dropEffect = 'move';
       }
     });
     dropZone.addEventListener('dragleave', event => {
@@ -3565,30 +4101,25 @@
       document.querySelectorAll('.envelope-drop-target').forEach(card => card.classList.remove('envelope-drop-target'));
       const targetCard = e.target.closest('.codex-card');
       const transferTypes = Array.from(e.dataTransfer.types);
-      if (targetCard?.closest('.folder-card-body')) return;
+      const isFolderEntryDrag = transferTypes.includes('application/x-dexi-folder-entry') || Boolean(draggedFolderEntry);
+      if (targetCard?.closest('.folder-card-body') && e.target.closest('.folder-file-list')) return;
+      if (isFolderEntryDrag) {
+        try {
+          const entryId = e.dataTransfer.getData('application/x-dexi-folder-entry') || draggedFolderEntry?.dataset.entryId;
+          const moved = await criarCardDaEntradaDePasta(entryId);
+          if (!moved) return;
+        } catch (error) {
+          console.error('Falha ao mover item FOLDERS para o quadro:', error);
+          alert('Não foi possível mover o item para o quadro. O original foi mantido.');
+        }
+        return;
+      }
       if (canBeEnveloped(targetCard) && transferTypes.includes('application/x-dexi-board-file')) {
         const sourceCard = draggedBoardFileCard || Array.from(document.querySelectorAll('.codex-card')).find(card => card.dataset.boardUndoId === e.dataTransfer.getData('application/x-dexi-board-file'));
         if (sourceCard) setPendingEnvelope({ card: sourceCard }, targetCard);
         return;
       }
-      if (canBeEnveloped(targetCard) && transferTypes.includes('application/x-dexi-folder-entry')) {
-        const entryId = e.dataTransfer.getData('application/x-dexi-folder-entry');
-        const sourceRow = draggedFolderEntry || Array.from(document.querySelectorAll('[data-folder-entry]')).find(row => row.dataset.entryId === entryId);
-        const sourceCard = sourceRow?.closest('.codex-card');
-        const rootCardId = sourceCard?.dataset.folderRootCardId || sourceCard?.dataset.folderCardId || '';
-        setPendingEnvelope({ kind: 'folder-entry', entryId, rootCardId, card: sourceCard }, targetCard);
-        return;
-      }
       if (transferTypes.includes('application/x-dexi-board-file')) return;
-      if (transferTypes.includes('application/x-dexi-folder-entry')) {
-        try {
-          await criarCardDaEntradaDePasta(e.dataTransfer.getData('application/x-dexi-folder-entry'));
-        } catch (error) {
-          console.error('Falha ao criar card do arquivo da pasta:', error);
-          alert('Não foi possível adicionar este arquivo ao quadro.');
-        }
-        return;
-      }
       const linkData = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
       if (linkData && (linkData.startsWith('http://') || linkData.startsWith('https://'))) {
         tratarLinkColado(linkData);
@@ -3883,13 +4414,13 @@
           marcarCardComoTemporario(card, extension, file.name);
           salvarEstadoNoStorage();
         }
-        return;
+        return card;
       }
       const width = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(fileNameLower) ? Math.min(1100, Math.max(280, window.innerWidth * 0.92))
         : /\.(mp4|webm|ogg|mov)$/i.test(fileNameLower) ? 360
           : /\.(mp3|wav|ogg|m4a|flac)$/i.test(fileNameLower) ? 300
             : /\.(txt|md|json|csv|xml|html|css|js|ts|py|log)$/i.test(fileNameLower) ? 290 : 260;
-      await criarCardDeArquivoPersistente(file, extension, width);
+      return criarCardDeArquivoPersistente(file, extension, width);
     }
 
     window.criarStickyNote = function(savedProps = null, savedText = '', savedFilename = 'Sticky note', savedStyle = {}) {
@@ -4424,6 +4955,7 @@
             <input type="text" value="${escapeHTML(filename || '')}" onchange="this.closest('.codex-card').dataset.filename = this.value; salvarEstadoNoStorage();" class="bg-transparent border border-transparent hover:border-slate-200 dark:hover:border-slate-700 focus:border-amber-500 focus:bg-white dark:focus:bg-slate-800 rounded px-1 text-slate-600 dark:text-slate-300 font-bold text-xs truncate w-full cursor-text transition-all outline-none pointer-events-auto" onmousedown="event.stopPropagation();" ontouchstart="event.stopPropagation();" title="Renomear Card">
           </div>
           <button type="button" draggable="true" data-board-file-drag-handle="true" class="hidden h-7 w-7 shrink-0 cursor-grab touch-none rounded-md text-sm text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-100" title="Arrastar arquivo para uma pasta" aria-label="Arrastar arquivo para uma pasta" onpointerdown="event.stopPropagation();">⠿</button>
+          <button type="button" draggable="true" data-board-folder-drag-handle="true" class="hidden h-7 w-7 shrink-0 cursor-grab touch-none rounded-md text-sm text-slate-400 hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-slate-700 dark:hover:text-slate-100" title="Mover pasta FOLDERS para outra pasta" aria-label="Mover pasta FOLDERS para outra pasta" onpointerdown="event.stopPropagation();">⠿</button>
           <button onclick="excluirCard(this)" class="text-slate-400 hover:text-rose-500 font-bold text-sm px-1.5 py-0.5 rounded transition-colors pointer-events-auto" title="Excluir Card">&times;</button>
         </div>
         <div class="flex-1 overflow-hidden rounded-b-2xl card-body-holder">
@@ -4445,6 +4977,37 @@
         boardFileDragHandle.addEventListener('dragend', () => {
           card.classList.remove('opacity-60');
           draggedBoardFileCard = null;
+          document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
+        });
+      }
+
+      const boardFolderDragHandle = card.querySelector('[data-board-folder-drag-handle]');
+      if (fileType === 'FOLDERS' && boardFolderDragHandle) {
+        boardFolderDragHandle.classList.remove('hidden');
+        boardFolderDragHandle.addEventListener('dragstart', event => {
+          if (card.dataset.temporaryFolderView === 'true') {
+            const rootCard = getFolderRootCard(card);
+            const folderPath = card.dataset.folderViewPath || '';
+            const folderRow = Array.from(rootCard?.querySelectorAll('.folder-file-list > [data-folder-entry]') || [])
+              .find(row => row.dataset.path === folderPath && row.dataset.kind === 'folder');
+            if (!folderRow) { event.preventDefault(); return; }
+            draggedFolderEntry = folderRow;
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', folderRow.dataset.entryId);
+            event.dataTransfer.setData('application/x-dexi-folder-entry', folderRow.dataset.entryId);
+            folderRow.classList.add('folder-entry-cut');
+            return;
+          }
+          draggedBoardFolderCard = card;
+          event.dataTransfer.effectAllowed = 'move';
+          event.dataTransfer.setData('application/x-dexi-board-folder-card', card.dataset.folderCardId);
+        });
+        boardFolderDragHandle.addEventListener('dragend', () => {
+          if (card.dataset.temporaryFolderView === 'true') {
+            handleFolderEntryDragEnd();
+            return;
+          }
+          draggedBoardFolderCard = null;
           document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
         });
       }
@@ -4517,7 +5080,7 @@
       interact(element)
         .draggable({
           allowFrom: '.card-header', 
-          ignoreFrom: '[data-board-file-drag-handle]',
+          ignoreFrom: '[data-board-file-drag-handle], [data-board-folder-drag-handle]',
           inertia: false,
           listeners: {
             start(event) {
@@ -4860,70 +5423,291 @@
       return snapshotSaved;
     }
 
-    window.baixarTemplateQuadro = async function() {
-      if (!window.JSZip) { alert('Não foi possível carregar o recurso ZIP. Verifique sua conexão.'); return; }
-      try {
-        await salvarEstadoNoStorage();
-        const cards = JSON.parse(localStorage.getItem('dexi_codex_cards') || '[]');
-        const template = {
-          format: 'dexi-template',
-          version: 1,
-          cards,
-          strokes: JSON.parse(localStorage.getItem('dexi_board_writing_strokes') || '[]'),
-          texts: JSON.parse(localStorage.getItem('dexi_board_writing_texts') || '[]'),
-          tasks: scheduledTasks,
-          favorites: getFavoriteSites(),
-          taskSound: taskSoundSelect.value,
-          assets: []
-        };
-        const zip = new JSZip();
-        const includedAssets = new Set();
-        const addAsset = async (kind, id, blob, name = '', type = '') => {
-          const assetKey = `${kind}:${id}`;
-          if (!blob || includedAssets.has(assetKey)) return;
-          includedAssets.add(assetKey);
-          const path = `assets/${kind}/${encodeURIComponent(id)}`;
-          zip.file(path, blob);
-          template.assets.push({ kind, id, path, name, type: type || blob.type || '' });
-        };
+    const backupConfigStorageKey = 'dexi_board_backup_config';
+    let backupDirectoryHandle = null;
+    let automaticBackupTimer = null;
+    let backupSettingsDatabase = null;
+    let backupSettingsDatabasePromise = null;
 
-        for (const card of cards) {
-          if (card.pdfSourceId) await addAsset('pdf', card.pdfSourceId, await obterPdfDoDb(card.pdfSourceId), card.filename, 'application/pdf');
-          if (card.mediaSourceId) {
-            const blob = await obterMediaDoDb(card.mediaSourceId);
-            await addAsset('media', card.mediaSourceId, blob, card.filename, blob?.type || '');
-          }
-          if (card.filetype === 'FOLDERS' && card.bodyContent) {
-            const templateElement = document.createElement('template');
-            templateElement.innerHTML = card.bodyContent;
-            for (const row of templateElement.content.querySelectorAll('[data-folder-entry][data-kind="file"]')) {
-              const blob = await obterArquivoPastaDoDb(row.dataset.entryId);
-              await addAsset('folder', row.dataset.entryId, blob, row.dataset.path, blob?.type || '');
-            }
+    function abrirBancoConfiguracoesBackup() {
+      if (backupSettingsDatabase) return Promise.resolve(backupSettingsDatabase);
+      if (backupSettingsDatabasePromise) return backupSettingsDatabasePromise;
+      backupSettingsDatabasePromise = new Promise((resolve, reject) => {
+        let request;
+        try { request = indexedDB.open('DexiBackupSettings', 1); }
+        catch (error) { reject(error); return; }
+        request.onupgradeneeded = event => {
+          if (!event.target.result.objectStoreNames.contains('settings')) event.target.result.createObjectStore('settings');
+        };
+        request.onsuccess = event => {
+          backupSettingsDatabase = event.target.result;
+          backupSettingsDatabase.onversionchange = () => backupSettingsDatabase.close();
+          resolve(backupSettingsDatabase);
+        };
+        request.onerror = () => reject(request.error || new Error('Não foi possível abrir o banco de configurações'));
+        request.onblocked = () => reject(new Error('O banco de configurações está bloqueado por outra aba do Dexi'));
+      }).catch(error => {
+        backupSettingsDatabasePromise = null;
+        throw error;
+      });
+      return backupSettingsDatabasePromise;
+    }
+
+    function lerConfiguracaoBackup() {
+      try { return JSON.parse(localStorage.getItem(backupConfigStorageKey) || '{"enabled":false,"time":"18:00"}'); }
+      catch (error) { return { enabled: false, time: '18:00' }; }
+    }
+
+    async function salvarPastaBackupNoDb(handle) {
+      const database = await abrirBancoConfiguracoesBackup();
+      return new Promise((resolve, reject) => {
+        let transaction;
+        try {
+          transaction = database.transaction(['settings'], 'readwrite');
+          transaction.objectStore('settings').put(handle, 'directory');
+        } catch (error) { reject(error); return; }
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error || new Error('Falha ao salvar a pasta'));
+        transaction.onabort = () => reject(transaction.error || new Error('Falha ao salvar a pasta'));
+      });
+    }
+
+    async function obterPastaBackup() {
+      if (backupDirectoryHandle) return backupDirectoryHandle;
+      return new Promise(resolve => {
+        abrirBancoConfiguracoesBackup().then(database => {
+          const request = database.transaction(['settings'], 'readonly').objectStore('settings').get('directory');
+          request.onsuccess = () => {
+            backupDirectoryHandle = request.result || null;
+            resolve(backupDirectoryHandle);
+          };
+          request.onerror = () => resolve(null);
+        }).catch(() => resolve(null));
+      });
+    }
+
+    function atualizarStatusBackup(message, isError = false) {
+      const status = document.getElementById('backup-status');
+      if (!status) return;
+      status.textContent = message;
+      status.classList.toggle('text-rose-600', isError);
+      status.classList.toggle('dark:text-rose-300', isError);
+    }
+
+    window.definirModoBackup = function(mode) {
+      const automatic = mode === 'automatic';
+      document.getElementById('backup-manual-panel').classList.toggle('hidden', automatic);
+      document.getElementById('backup-automatic-panel').classList.toggle('hidden', !automatic);
+      [
+        [document.getElementById('backup-mode-manual'), !automatic],
+        [document.getElementById('backup-mode-automatic'), automatic]
+      ].forEach(([button, selected]) => {
+        button.setAttribute('aria-selected', String(selected));
+        button.classList.toggle('border-amber-600', selected);
+        button.classList.toggle('bg-amber-600', selected);
+        button.classList.toggle('text-white', selected);
+        button.classList.toggle('hover:bg-amber-700', selected);
+        button.classList.toggle('border-slate-300', !selected);
+        button.classList.toggle('bg-white', !selected);
+        button.classList.toggle('text-slate-700', !selected);
+        button.classList.toggle('hover:bg-slate-100', !selected);
+        button.classList.toggle('dark:border-slate-600', !selected);
+        button.classList.toggle('dark:bg-slate-800', !selected);
+        button.classList.toggle('dark:text-slate-200', !selected);
+        button.classList.toggle('dark:hover:bg-slate-700', !selected);
+      });
+    };
+
+    window.abrirModalDownloadQuadro = async function() {
+      document.getElementById('board-backup-modal').classList.remove('hidden');
+      const config = lerConfiguracaoBackup();
+      document.getElementById('backup-time').value = config.time || '18:00';
+      document.getElementById('backup-save-button').textContent = config.enabled ? 'Salvar horário e pasta' : 'Ativar backup automático';
+      document.getElementById('backup-disable-button').classList.toggle('hidden', !config.enabled);
+      const directory = await obterPastaBackup();
+      document.getElementById('backup-folder-label').textContent = directory?.name || 'Nenhuma pasta escolhida';
+      const status = config.enabled && !directory
+        ? 'Selecione a pasta novamente: o navegador não conseguiu restaurar o destino salvo.'
+        : config.enabled
+          ? `Agendado diariamente às ${config.time}. O Dexi precisa permanecer aberto.`
+          : 'O backup automático funciona enquanto o Dexi estiver aberto.';
+      atualizarStatusBackup(status, config.enabled && !directory);
+      window.definirModoBackup(config.enabled ? 'automatic' : 'manual');
+    };
+
+    window.fecharModalDownloadQuadro = function() {
+      document.getElementById('board-backup-modal').classList.add('hidden');
+    };
+
+    window.selecionarPastaBackup = async function() {
+      if (!window.showDirectoryPicker) {
+        atualizarStatusBackup('Este navegador não permite escolher uma pasta. Use Chrome ou Edge em localhost/HTTPS.', true);
+        return;
+      }
+      try {
+        const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        const permission = await handle.requestPermission({ mode: 'readwrite' });
+        if (permission !== 'granted') throw new Error('Permissão de gravação não concedida');
+        backupDirectoryHandle = handle;
+        document.getElementById('backup-folder-label').textContent = handle.name;
+        try {
+          await salvarPastaBackupNoDb(handle);
+          atualizarStatusBackup('Pasta autorizada. Escolha um horário e ative o agendamento.');
+        } catch (error) {
+          const reason = error.name ? `${error.name}: ${error.message}` : error.message;
+          atualizarStatusBackup(`Pasta disponível nesta sessão; não foi possível salvar a preferência (${reason}). Será preciso escolhê-la novamente ao reabrir o Dexi.`);
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError') atualizarStatusBackup(error.message || 'Não foi possível selecionar a pasta.', true);
+      }
+    };
+
+    window.salvarConfiguracaoBackup = async function() {
+      const time = document.getElementById('backup-time').value;
+      const directory = await obterPastaBackup();
+      if (!directory) {
+        atualizarStatusBackup('Escolha uma pasta antes de ativar o backup automático.', true);
+        return;
+      }
+      localStorage.setItem(backupConfigStorageKey, JSON.stringify({ enabled: true, time: time || '18:00' }));
+      document.getElementById('backup-save-button').textContent = 'Salvar horário e pasta';
+      document.getElementById('backup-disable-button').classList.remove('hidden');
+      atualizarStatusBackup(`Backup diário ativado para ${time || '18:00'}. O Dexi precisa permanecer aberto.`);
+      agendarProximoBackup();
+    };
+
+    window.desativarBackupAutomatico = function() {
+      localStorage.setItem(backupConfigStorageKey, JSON.stringify({ ...lerConfiguracaoBackup(), enabled: false }));
+      clearTimeout(automaticBackupTimer);
+      automaticBackupTimer = null;
+      document.getElementById('backup-save-button').textContent = 'Ativar backup automático';
+      document.getElementById('backup-disable-button').classList.add('hidden');
+      atualizarStatusBackup('Backup automático desativado.');
+    };
+
+    function agendarProximoBackup() {
+      clearTimeout(automaticBackupTimer);
+      const config = lerConfiguracaoBackup();
+      if (!config.enabled) return;
+      const [hours, minutes] = (config.time || '18:00').split(':').map(Number);
+      const next = new Date();
+      next.setHours(hours || 0, minutes || 0, 0, 0);
+      if (next <= new Date()) next.setDate(next.getDate() + 1);
+      automaticBackupTimer = setTimeout(async () => {
+        await executarBackupAutomatico();
+        agendarProximoBackup();
+      }, Math.max(1000, next.getTime() - Date.now()));
+    }
+
+    async function executarBackupAutomatico() {
+      try {
+        const directory = await obterPastaBackup();
+        if (!directory) throw new Error('Pasta de destino não encontrada. Selecione-a novamente nas opções de backup.');
+        const permission = await directory.queryPermission({ mode: 'readwrite' });
+        if (permission !== 'granted') throw new Error('A permissão da pasta expirou. Abra o Dexi e selecione a pasta novamente.');
+        const archive = await gerarBackupQuadro();
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const fileHandle = await directory.getFileHandle(`dexi-quadro-${timestamp}.zip`, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(archive);
+        await writable.close();
+        atualizarStatusBackup('Backup automático concluído.');
+      } catch (error) {
+        console.error('Falha no backup automático:', error);
+        atualizarStatusBackup(error.message || 'Não foi possível concluir o backup automático.', true);
+      }
+    }
+
+    async function gerarBackupQuadro(onProgress = null) {
+      if (!window.JSZip) throw new Error('Não foi possível carregar o recurso ZIP. Verifique sua conexão.');
+      await salvarEstadoNoStorage();
+      const cards = JSON.parse(localStorage.getItem('dexi_codex_cards') || '[]');
+      const template = {
+        format: 'dexi-template',
+        version: 1,
+        cards,
+        strokes: JSON.parse(localStorage.getItem('dexi_board_writing_strokes') || '[]'),
+        texts: JSON.parse(localStorage.getItem('dexi_board_writing_texts') || '[]'),
+        tasks: scheduledTasks,
+        favorites: getFavoriteSites(),
+        taskSound: taskSoundSelect.value,
+        assets: []
+      };
+      const zip = new JSZip();
+      const includedAssets = new Set();
+      const addAsset = async (kind, id, blob, name = '', type = '') => {
+        const assetKey = `${kind}:${id}`;
+        if (!blob || includedAssets.has(assetKey)) return;
+        includedAssets.add(assetKey);
+        const path = `assets/${kind}/${encodeURIComponent(id)}`;
+        zip.file(path, blob);
+        template.assets.push({ kind, id, path, name, type: type || blob.type || '' });
+      };
+
+      for (const card of cards) {
+        if (card.pdfSourceId) await addAsset('pdf', card.pdfSourceId, await obterPdfDoDb(card.pdfSourceId), card.filename, 'application/pdf');
+        if (card.mediaSourceId) {
+          const blob = await obterMediaDoDb(card.mediaSourceId);
+          await addAsset('media', card.mediaSourceId, blob, card.filename, blob?.type || '');
+        }
+        if (card.filetype === 'FOLDERS' && card.bodyContent) {
+          const templateElement = document.createElement('template');
+          templateElement.innerHTML = card.bodyContent;
+          for (const row of templateElement.content.querySelectorAll('[data-folder-entry][data-kind="file"]')) {
+            const blob = await obterArquivoPastaDoDb(row.dataset.entryId);
+            await addAsset('folder', row.dataset.entryId, blob, row.dataset.path, blob?.type || '');
           }
         }
-        const database = db || await dexiDatabaseReady;
-        if (database) {
-          const audioBlob = await new Promise(resolve => {
-            const request = database.transaction(['media'], 'readonly').objectStore('media').get('dexi_task_alarm_audio');
-            request.onsuccess = () => resolve(request.result || null);
-            request.onerror = () => resolve(null);
-          });
-          await addAsset('audio', 'dexi_task_alarm_audio', audioBlob, 'alarme.mp3', 'audio/mpeg');
-        }
-        zip.file('template.json', JSON.stringify(template));
-        const archive = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+      }
+      const database = db || await dexiDatabaseReady;
+      if (database) {
+        const audioBlob = await new Promise(resolve => {
+          const request = database.transaction(['media'], 'readonly').objectStore('media').get('dexi_task_alarm_audio');
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => resolve(null);
+        });
+        await addAsset('audio', 'dexi_task_alarm_audio', audioBlob, 'alarme.mp3', 'audio/mpeg');
+      }
+      zip.file('template.json', JSON.stringify(template));
+      return zip.generateAsync({ type: 'blob', compression: 'STORE' }, metadata => {
+        if (typeof onProgress === 'function') onProgress(metadata);
+      });
+    }
+
+    window.baixarTemplateQuadro = async function() {
+      const button = document.getElementById('backup-download-button');
+      const status = document.getElementById('backup-manual-status');
+      if (button?.disabled) return;
+      if (button) {
+        button.disabled = true;
+        button.textContent = 'Preparando backup...';
+      }
+      if (status) status.textContent = 'Salvando o estado e reunindo os arquivos...';
+      try {
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        const archive = await gerarBackupQuadro(metadata => {
+          if (status) status.textContent = `Montando ZIP... ${Math.round(metadata.percent)}%`;
+        });
         const url = URL.createObjectURL(archive);
         const link = document.createElement('a');
         link.href = url;
         link.download = `dexi-quadro-${new Date().toISOString().slice(0, 10)}.zip`;
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
+        if (status) status.textContent = 'Backup pronto e download iniciado.';
       } catch (error) {
         console.error('Falha ao exportar template:', error);
-        alert('Não foi possível preparar o arquivo completo do quadro.');
+        if (status) status.textContent = error.message || 'Não foi possível preparar o backup.';
+        alert(error.message || 'Não foi possível preparar o arquivo completo do quadro.');
+      } finally {
+        if (button) {
+          button.disabled = false;
+          button.textContent = 'Baixar backup agora';
+        }
       }
     };
+
+    agendarProximoBackup();
 
     window.importarTemplateQuadro = async function(file) {
       if (!file) return;
@@ -5003,6 +5787,7 @@
         };
         const finishBoardRestore = () => {
           if (!restoringBoardState) return;
+          document.querySelectorAll('.folder-card:not([data-temporary-folder-view="true"])').forEach(refreshFolderCardViews);
           restoringBoardState = false;
           migrarMidiasDataUrlLegadas();
           salvarEstadoNoStorage();
@@ -5014,7 +5799,7 @@
             });
             if (c.mediaTemporary) {
               lastMediaStorageFailure = c.mediaStorageFailure || 'arquivo antigo sem motivo da falha registrado';
-              marcarCardComoTemporario(pdfCard, c.filetype, c.filename);
+              marcarCardComoTemporario(pdfCard, c.filetype, c.filename, false);
             }
           } else if (c.mediaSourceId) {
             obterMediaDoDb(c.mediaSourceId).then(async blob => {
@@ -5022,9 +5807,9 @@
               const mediaCard = createCard(c.filetype, c.filename, bodyHtml, c.width ? parseFloat(c.width) : 290, {
                 width: c.width, height: c.height, left: c.left, top: c.top, groupId: c.groupId
               });
-              if (!blob || c.mediaTemporary) {
+              if (!blob) {
                 lastMediaStorageFailure = c.mediaStorageFailure || 'arquivo não encontrado no IndexedDB; reimporte o original';
-                marcarCardComoTemporario(mediaCard, c.filetype, c.filename);
+                marcarCardComoTemporario(mediaCard, c.filetype, c.filename, !c.mediaTemporary);
               }
               finishMediaRestore();
             }).catch(error => {
@@ -5033,7 +5818,7 @@
               const mediaCard = createCard(c.filetype, c.filename, bodyHtml, c.width ? parseFloat(c.width) : 290, {
                 width: c.width, height: c.height, left: c.left, top: c.top, groupId: c.groupId
               });
-              marcarCardComoTemporario(mediaCard, c.filetype, c.filename);
+              marcarCardComoTemporario(mediaCard, c.filetype, c.filename, !c.mediaTemporary);
               finishMediaRestore();
             });
           } else if (c.filetype === 'NOTAS') {
@@ -5477,7 +6262,13 @@
         mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', mp3: 'audio/mpeg', wav: 'audio/wav',
         ogg: 'audio/ogg', m4a: 'audio/mp4', txt: 'text/plain', md: 'text/markdown', csv: 'text/csv', json: 'application/json'
       };
-      const mime = !blob.type || blob.type === 'application/octet-stream' ? mimeByExtension[extension] || blob.type : blob.type;
+      const mime = extension === 'pdf' ? 'application/pdf' : (!blob.type || blob.type === 'application/octet-stream' ? mimeByExtension[extension] || blob.type : blob.type);
+      if (mime === 'application/pdf') {
+        const viewer = card.querySelector('[data-viewerid][data-pdfsourceid]');
+        const currentPage = Math.max(1, parseInt(viewer?.dataset.currentPage, 10) || 1);
+        await abrirPdfNaPrevia(blob, filename, url, card, currentPage);
+        return;
+      }
       const safeName = escapeHTML(filename);
       let content;
       if (mime.startsWith('image/')) {
@@ -5587,6 +6378,30 @@
       if (!boardUndoStack.length) return;
       event.preventDefault();
       undoBoardAction();
+    });
+
+    document.addEventListener('keydown', event => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+      const key = event.key.toLowerCase();
+      if (!['x', 'c', 'v'].includes(key)) return;
+      if (event.target.matches('input, textarea, [contenteditable="true"]')) return;
+      if (!activeFolderCard?.isConnected) return;
+      if (key === 'v') {
+        if (!folderClipboard) return;
+        event.preventDefault();
+        pasteFolderClipboard(activeFolderCard).catch(error => {
+          console.error('Falha ao colar item na pasta:', error);
+          alert('Não foi possível colar este item na pasta.');
+        });
+        return;
+      }
+      if (!selectedFolderEntry) return;
+      const rootCard = Array.from(document.querySelectorAll('.folder-card:not([data-temporary-folder-view="true"])'))
+        .find(card => card.dataset.folderCardId === selectedFolderEntry.rootCardId);
+      const row = getCanonicalFolderEntry(rootCard, selectedFolderEntry.entryId);
+      if (!row) return;
+      event.preventDefault();
+      setFolderClipboard(row, key === 'x' ? 'cut' : 'copy');
     });
 
     window.addEventListener('paste', async (e) => {
