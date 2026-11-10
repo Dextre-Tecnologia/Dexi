@@ -171,7 +171,10 @@
         <main class="w-full h-full relative select-none" id="canvas"></main>
         <canvas id="board-writing-layer" width="100%" height="100%" aria-label="Camada de escrita do quadro"></canvas>
         <svg id="board-writing-svg" width="100%" height="100%" aria-label="Traços do quadro"></svg>
-        <div id="board-writing-selection" aria-hidden="true"></div>
+        <div id="board-writing-selection">
+          <button type="button" class="board-selection-drag-handle" aria-label="Arrastar seleção para FOLDERS" title="Arrastar seleção para FOLDERS" hidden>⠿</button>
+          <button type="button" class="board-selection-resize-handle" aria-label="Redimensionar seleção do Notar" title="Redimensionar seleção"></button>
+        </div>
       </div>
     </div>
   </div>
@@ -1155,6 +1158,8 @@
     let touchStartDist = 0;
     let touchStartZoom = 1;
     let touchStartCenter = { x: 0, y: 0 };
+    let touchStartBoardPoint = { x: 0, y: 0 };
+    let lastBoardPointer = null;
     let isPinching = false;
     let isTwoFingerPanning = false;
 
@@ -1169,6 +1174,7 @@
     let boardWritingTexts = [];
     const boardUndoStack = [];
     let boardWritingSelectionMove = null;
+    let boardWritingSelectionResize = null;
     let activeStickyNote = null;
     let activeTextEditor = null;
     let boardSelectionJustCreated = false;
@@ -1295,16 +1301,149 @@
       boardWritingSelectionEl.style.top = `${top}px`;
       boardWritingSelectionEl.style.width = `${width}px`;
       boardWritingSelectionEl.style.height = `${height}px`;
-      boardWritingSelectionEl.style.pointerEvents = 'none';
       const minSize = 5;
       document.getElementById('download-board-selection').disabled = width < minSize || height < minSize;
+      const selectedContent = getBoardWritingSelectionContent(boardWritingSelection);
+      const hasDraggableContent = selectedContent.strokes.length > 0 || selectedContent.texts.length > 0;
+      const dragHandle = boardWritingSelectionEl.querySelector('.board-selection-drag-handle');
+      dragHandle.hidden = !hasDraggableContent;
+      dragHandle.draggable = hasDraggableContent;
+      boardWritingSelectionEl.style.pointerEvents = hasDraggableContent ? 'auto' : 'none';
+      boardWritingSelectionEl.style.cursor = hasDraggableContent ? 'grab' : 'default';
+      boardWritingSelectionEl.querySelector('.board-selection-resize-handle').hidden = !hasDraggableContent;
     }
+
+    function getBoardWritingSelectionContent(selection) {
+      if (!selection) return { strokes: [], texts: [] };
+      const right = selection.left + selection.width;
+      const bottom = selection.top + selection.height;
+      const strokes = boardWritingStrokes.filter(stroke => stroke.points?.some(point =>
+        point.x >= selection.left && point.x <= right && point.y >= selection.top && point.y <= bottom
+      ));
+      const texts = boardWritingTexts.filter(text =>
+        text.x >= selection.left && text.x <= right && text.y >= selection.top && text.y <= bottom
+      );
+      return { strokes, texts };
+    }
+
+    function createBoardWritingSelectionPayload() {
+      const selection = boardWritingSelection || boardWritingSelectionSnapshot;
+      const selectedContent = getBoardWritingSelectionContent(selection);
+      if (!selection || (!selectedContent.strokes.length && !selectedContent.texts.length)) return null;
+      return {
+        selection,
+        strokes: selectedContent.strokes,
+        texts: selectedContent.texts.map(text => ({ content: text.content || '' }))
+      };
+    }
+
+    boardWritingSelectionEl.addEventListener('dragstart', event => {
+      if (!event.target.closest('.board-selection-drag-handle')) {
+        event.preventDefault();
+        return;
+      }
+      const payload = createBoardWritingSelectionPayload();
+      if (!payload) {
+        event.preventDefault();
+        return;
+      }
+      event.dataTransfer.effectAllowed = 'copy';
+      event.dataTransfer.setData('application/x-dexi-notar-selection', JSON.stringify(payload));
+      event.dataTransfer.setData('text/plain', 'Seleção do Notar');
+    });
+
+    let boardSelectionTouchDrag = null;
+    const boardSelectionTouchGhost = document.createElement('div');
+    boardSelectionTouchGhost.className = 'board-selection-touch-ghost';
+    boardSelectionTouchGhost.textContent = 'Solte em FOLDERS';
+    boardSelectionTouchGhost.hidden = true;
+    document.body.appendChild(boardSelectionTouchGhost);
+
+    function getFolderDropTargetAtPoint(x, y) {
+      const element = document.elementFromPoint(x, y);
+      const card = element?.closest('.folder-card');
+      if (!card) return null;
+      const folderEntry = element.closest('[data-folder-entry]');
+      const list = card.querySelector('.folder-file-list');
+      const destinationPath = folderEntry?.dataset.kind === 'folder'
+        ? folderEntry.dataset.path
+        : (card.dataset.folderViewPath || '');
+      document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
+      if (folderEntry?.dataset.kind === 'folder') folderEntry.classList.add('folder-drop-target');
+      else list?.classList.add('folder-drop-target');
+      return { card, destinationPath };
+    }
+
+    function finishBoardSelectionTouchDrag(touch, shouldArchive) {
+      if (!boardSelectionTouchDrag || boardSelectionTouchDrag.identifier !== touch.identifier) return;
+      const drag = boardSelectionTouchDrag;
+      boardSelectionTouchDrag = null;
+      boardSelectionTouchGhost.hidden = true;
+      document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
+      if (!shouldArchive || !drag.active) return;
+      const target = getFolderDropTargetAtPoint(touch.clientX, touch.clientY);
+      document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
+      if (!target) {
+        return;
+      }
+      arquivarSelecaoNotarNaPasta(target.card, target.destinationPath, JSON.stringify(drag.payload))
+        .catch(error => {
+          console.error('Falha ao arquivar seleção em FOLDERS:', error);
+          alert('Não foi possível arquivar a seleção nesta pasta.');
+        });
+    }
+
+    boardWritingSelectionEl.querySelector('.board-selection-drag-handle').addEventListener('touchstart', event => {
+      const payload = createBoardWritingSelectionPayload();
+      const touch = event.changedTouches[0];
+      if (!payload || !touch) return;
+      event.preventDefault();
+      event.stopPropagation();
+      boardSelectionTouchDrag = {
+        identifier: touch.identifier,
+        startX: touch.clientX,
+        startY: touch.clientY,
+        active: false,
+        payload
+      };
+    }, { passive: false });
+
+    document.addEventListener('touchmove', event => {
+      if (!boardSelectionTouchDrag) return;
+      const touch = Array.from(event.changedTouches).find(item => item.identifier === boardSelectionTouchDrag.identifier);
+      if (!touch) return;
+      const drag = boardSelectionTouchDrag;
+      if (!drag.active && Math.hypot(touch.clientX - drag.startX, touch.clientY - drag.startY) < 8) return;
+      drag.active = true;
+      event.preventDefault();
+      event.stopPropagation();
+      boardSelectionTouchGhost.hidden = false;
+      boardSelectionTouchGhost.style.left = `${touch.clientX + 14}px`;
+      boardSelectionTouchGhost.style.top = `${touch.clientY + 14}px`;
+      getFolderDropTargetAtPoint(touch.clientX, touch.clientY);
+    }, { passive: false, capture: true });
+
+    document.addEventListener('touchend', event => {
+      if (!boardSelectionTouchDrag) return;
+      const touch = Array.from(event.changedTouches).find(item => item.identifier === boardSelectionTouchDrag.identifier);
+      if (touch) finishBoardSelectionTouchDrag(touch, true);
+    }, { capture: true });
+
+    document.addEventListener('touchcancel', event => {
+      if (!boardSelectionTouchDrag) return;
+      const touch = Array.from(event.changedTouches).find(item => item.identifier === boardSelectionTouchDrag.identifier);
+      if (touch) finishBoardSelectionTouchDrag(touch, false);
+    }, { capture: true });
 
     function hideBoardWritingSelection() {
       boardWritingSelectionEl.style.display = 'none';
       boardWritingSelectionEl.style.pointerEvents = 'none';
       boardWritingSelection = null;
       boardWritingSelectionSnapshot = null;
+      const dragHandle = boardWritingSelectionEl.querySelector('.board-selection-drag-handle');
+      dragHandle.draggable = false;
+      dragHandle.hidden = true;
+      boardWritingSelectionEl.querySelector('.board-selection-resize-handle').hidden = true;
       document.getElementById('download-board-selection').disabled = true;
     }
 
@@ -1663,6 +1802,11 @@
         boardWritingDrawing = false;
         boardWritingSelectionEl.style.display = 'none';
         boardWritingSelection = null;
+        boardWritingSelectionEl.draggable = false;
+        const dragHandle = boardWritingSelectionEl.querySelector('.board-selection-drag-handle');
+        dragHandle.draggable = false;
+        dragHandle.hidden = true;
+        boardWritingSelectionEl.querySelector('.board-selection-resize-handle').hidden = true;
         document.getElementById('download-board-selection').disabled = true;
       }
       setBoardWritingMode('pen');
@@ -1700,11 +1844,39 @@
       const startsInsideSelection = boardWritingMode === 'select' && boardWritingSelection &&
         position.x >= boardWritingSelection.left && position.x <= boardWritingSelection.left + boardWritingSelection.width &&
         position.y >= boardWritingSelection.top && position.y <= boardWritingSelection.top + boardWritingSelection.height;
+      const startsOnResizeHandle = event.target.closest?.('.board-selection-resize-handle');
+      const startsOnDragHandle = event.target.closest?.('.board-selection-drag-handle');
       const startsOnWritingControl = event.target.closest?.('#writing-toolbar');
       const startsOnBoardItem = event.target.closest?.('.codex-card, .board-text-element');
+      if (startsOnDragHandle) return;
       if (startsOnWritingControl || (startsOnBoardItem && !startsInsideSelection)) return;
       event.stopPropagation();
       if (event.cancelable) event.preventDefault();
+      if (startsOnResizeHandle && boardWritingSelection) {
+        const selectedContent = getBoardWritingSelectionContent(boardWritingSelection);
+        pushBoardUndoSnapshot();
+        boardWritingSelectionResize = {
+          selection: { ...boardWritingSelection },
+          strokes: selectedContent.strokes.map(stroke => ({
+            index: boardWritingStrokes.indexOf(stroke),
+            points: stroke.points.map(point => ({ ...point })),
+            width: stroke.width || 2
+          })),
+          texts: selectedContent.texts.map(text => {
+            const textarea = document.querySelector(`[data-text-id="${CSS.escape(text.id)}"] .board-text-input`);
+            return {
+              id: text.id,
+              x: text.x,
+              y: text.y,
+              fontSize: text.fontSize || 16,
+              width: textarea?.offsetWidth || text.width || 24,
+              height: textarea?.offsetHeight || text.height || 30
+            };
+          })
+        };
+        boardWritingDrawing = true;
+        return;
+      }
       if (startsInsideSelection) {
         pushBoardUndoSnapshot();
         const selectedStrokeIndexes = boardWritingStrokes.reduce((indexes, stroke, index) => {
@@ -1798,6 +1970,49 @@
         return;
       }
       const position = getBoardWritingPosition(event);
+      if (boardWritingSelectionResize) {
+        const selection = boardWritingSelectionResize.selection;
+        const scale = Math.max(0.1, Math.min(20,
+          Math.max(
+            (position.x - selection.left) / Math.max(1, selection.width),
+            (position.y - selection.top) / Math.max(1, selection.height)
+          )
+        ));
+        boardWritingSelectionResize.strokes.forEach(({ index, points, width }) => {
+          const stroke = boardWritingStrokes[index];
+          if (!stroke) return;
+          stroke.points = points.map(point => ({
+            x: selection.left + (point.x - selection.left) * scale,
+            y: selection.top + (point.y - selection.top) * scale
+          }));
+          stroke.width = width * scale;
+        });
+        boardWritingSelectionResize.texts.forEach(original => {
+          const text = boardWritingTexts.find(item => item.id === original.id);
+          if (!text) return;
+          text.x = selection.left + (original.x - selection.left) * scale;
+          text.y = selection.top + (original.y - selection.top) * scale;
+          text.fontSize = Math.max(6, original.fontSize * scale);
+          text.width = Math.max(24, original.width * scale);
+          text.height = Math.max(24, original.height * scale);
+          text.manualSize = true;
+          const textarea = document.querySelector(`[data-text-id="${CSS.escape(text.id)}"] .board-text-input`);
+          if (textarea) {
+            textarea.style.fontSize = `${text.fontSize}px`;
+            textarea.style.width = `${text.width}px`;
+            textarea.style.height = `${text.height}px`;
+            textarea.dataset.manualSize = 'true';
+            textarea.closest('.board-text-element').style.left = `${text.x}px`;
+            textarea.closest('.board-text-element').style.top = `${text.y}px`;
+          }
+        });
+        updateBoardWritingSelection(
+          { x: selection.left, y: selection.top },
+          { x: selection.left + selection.width * scale, y: selection.top + selection.height * scale }
+        );
+        renderBoardWriting();
+        return;
+      }
       if (boardWritingSelectionMove) {
         const deltaX = position.x - boardWritingSelectionMove.start.x;
         const deltaY = position.y - boardWritingSelectionMove.start.y;
@@ -1852,6 +2067,14 @@
         saveBoardWriting();
         saveBoardWritingTexts();
         if (movedCards) salvarEstadoNoStorage();
+      }
+      if (boardWritingSelectionResize) {
+        boardWritingSelectionResize = null;
+        renderBoardWriting();
+        renderBoardWritingTexts();
+        saveBoardWriting();
+        saveBoardWritingTexts();
+        boardSelectionJustCreated = true;
       }
       if (boardWritingMode === 'pen' && boardWritingCurrentStroke.length > 0) {
         boardWritingStrokes.push({
@@ -2498,34 +2721,37 @@
       document.getElementById('zoom-indicator').innerText = `${Math.round(zoom * 100)}%`;
     }
 
+    function zoomAtPoint(nextZoom, clientX, clientY) {
+      const boundedZoom = Math.max(0.15, Math.min(nextZoom, 3));
+      if (boundedZoom === zoom) return;
+      const rect = boardWrapper.getBoundingClientRect();
+      const pointX = clientX - rect.left;
+      const pointY = clientY - rect.top;
+      const scale = boundedZoom / zoom;
+      panX = pointX - (pointX - panX) * scale;
+      panY = pointY - (pointY - panY) * scale;
+      zoom = boundedZoom;
+      updateTransform();
+    }
+
+    boardWrapper.addEventListener('pointermove', event => {
+      lastBoardPointer = { x: event.clientX, y: event.clientY };
+    }, { passive: true });
+
     function handleWheel(e) {
-      if (e.target.closest('.codex-card')) return;
-      if (boardWritingActive && e.target === boardWritingSvg && (Math.abs(e.deltaX) > 0 || Math.abs(e.deltaY) > 0)) {
+      const isZoomGesture = e.ctrlKey || e.metaKey;
+      if (e.target.closest('.codex-card') && !isZoomGesture) return;
+      if (!isZoomGesture && boardWritingActive && e.target === boardWritingSvg && (Math.abs(e.deltaX) > 0 || Math.abs(e.deltaY) > 0)) {
         e.preventDefault();
         panX -= e.deltaX;
         panY -= e.deltaY;
         updateTransform();
         return;
       }
-      if (e.target.closest('.drawing-canvas') || e.target.closest('.scroll-container-a4') || e.target.closest('textarea')) return; 
+      if (!isZoomGesture && (e.target.closest('.drawing-canvas') || e.target.closest('.scroll-container-a4') || e.target.closest('textarea'))) return;
       e.preventDefault();
-      const zoomFactor = 1.1;
-      let newZoom = zoom;
-
-      if (e.deltaY < 0) {
-        newZoom = Math.min(zoom * zoomFactor, 3);
-      } else {
-        newZoom = Math.max(zoom / zoomFactor, 0.15);
-      }
-
-      const rect = boardWrapper.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-      panX = mouseX - (mouseX - panX) * (newZoom / zoom);
-      panY = mouseY - (mouseY - panY) * (newZoom / zoom);
-      zoom = newZoom;
-      
-      updateTransform();
+      const factor = Math.exp(-e.deltaY * (isZoomGesture ? 0.002 : 0.0015));
+      zoomAtPoint(zoom * factor, e.clientX, e.clientY);
     }
     boardWrapper.addEventListener('wheel', handleWheel, { passive: false });
 
@@ -2543,17 +2769,13 @@
     }
 
     window.changeZoom = function(delta) {
-      let newZoom = zoom + delta;
-      newZoom = Math.max(0.15, Math.min(newZoom, 3));
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      panX = width / 2 - (width / 2 - panX) * (newZoom / zoom);
-      panY = height / 2 - (height / 2 - panY) * (newZoom / zoom);
-      zoom = newZoom;
-      updateTransform();
+      const rect = boardWrapper.getBoundingClientRect();
+      const anchor = lastBoardPointer || { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      zoomAtPoint(zoom + delta, anchor.x, anchor.y);
     }
     window.resetZoom = function() {
       zoom = 1; panX = 0; panY = 0;
+      lastBoardPointer = null;
       updateTransform();
     }
     
@@ -2610,6 +2832,11 @@
           isTwoFingerPanning = false;
           touchStartDist = getTouchDist(e);
           touchStartZoom = zoom;
+          const rect = boardWrapper.getBoundingClientRect();
+          touchStartBoardPoint = {
+            x: (touchStartCenter.x - rect.left - panX) / zoom,
+            y: (touchStartCenter.y - rect.top - panY) / zoom
+          };
         }
         e.preventDefault();
         return;
@@ -2618,7 +2845,7 @@
       isTwoFingerPanning = false;
 
       if (!forcePanMode) {
-        if (e.target.closest('.codex-card') || e.target.closest('aside') || e.target.closest('button') || e.target.closest('input') || e.target.closest('a') || e.target.closest('canvas') || e.target.closest('textarea') || e.target.closest('embed') || e.target.closest('iframe')) {
+        if (e.target.closest('.codex-card') || e.target.closest('aside') || e.target.closest('button') || e.target.closest('input') || e.target.closest('a') || e.target.closest('canvas') || e.target.closest('#board-writing-selection') || e.target.closest('textarea') || e.target.closest('embed') || e.target.closest('iframe')) {
           isPanning = false; return;
         }
       } else {
@@ -2649,21 +2876,10 @@
         const currentDist = getTouchDist(e);
         const currentCenter = getTouchCenter(e);
         
-        let newZoom = touchStartZoom * (currentDist / touchStartDist);
-        newZoom = Math.max(0.15, Math.min(newZoom, 3));
-        
+        const newZoom = Math.max(0.15, Math.min(touchStartZoom * (currentDist / touchStartDist), 3));
         const rect = boardWrapper.getBoundingClientRect();
-        const centerCanvasX = currentCenter.x - rect.left;
-        const centerCanvasY = currentCenter.y - rect.top;
-        
-        const zoomFactor = newZoom / zoom;
-        panX = centerCanvasX - (centerCanvasX - panX) * zoomFactor;
-        panY = centerCanvasY - (centerCanvasY - panY) * zoomFactor;
-        
-        const dx = currentCenter.x - touchStartCenter.x;
-        const dy = currentCenter.y - touchStartCenter.y;
-        panX += dx;
-        panY += dy;
+        panX = currentCenter.x - rect.left - touchStartBoardPoint.x * newZoom;
+        panY = currentCenter.y - rect.top - touchStartBoardPoint.y * newZoom;
 
         touchStartCenter = currentCenter;
         zoom = newZoom;
@@ -3051,7 +3267,74 @@
     let activeBoardPreviewUrl = null;
     let activeBoardPdfPreview = null;
     let boardPdfPreviewGeneration = 0;
+    let folderTouchDrag = null;
+    const folderTouchGhost = document.createElement('div');
+    folderTouchGhost.className = 'board-selection-touch-ghost';
+    folderTouchGhost.textContent = 'Solte na pasta';
+    folderTouchGhost.hidden = true;
+    document.body.appendChild(folderTouchGhost);
     const folderListsWithEvents = new WeakSet();
+
+    function startFolderTouchDrag(event, kind, source) {
+      const touch = event.changedTouches[0];
+      if (!touch || !source) return;
+      event.preventDefault();
+      event.stopPropagation();
+      folderTouchDrag = {
+        identifier: touch.identifier,
+        startX: touch.clientX,
+        startY: touch.clientY,
+        active: false,
+        kind,
+        source
+      };
+    }
+
+    document.addEventListener('touchmove', event => {
+      if (!folderTouchDrag) return;
+      const touch = Array.from(event.changedTouches).find(item => item.identifier === folderTouchDrag.identifier);
+      if (!touch) return;
+      const drag = folderTouchDrag;
+      if (!drag.active && Math.hypot(touch.clientX - drag.startX, touch.clientY - drag.startY) < 8) return;
+      drag.active = true;
+      event.preventDefault();
+      event.stopPropagation();
+      folderTouchGhost.hidden = false;
+      folderTouchGhost.style.left = `${touch.clientX + 14}px`;
+      folderTouchGhost.style.top = `${touch.clientY + 14}px`;
+      getFolderDropTargetAtPoint(touch.clientX, touch.clientY);
+    }, { passive: false, capture: true });
+
+    function finishFolderTouchDrag(touch, shouldMove) {
+      if (!folderTouchDrag || folderTouchDrag.identifier !== touch.identifier) return;
+      const drag = folderTouchDrag;
+      folderTouchDrag = null;
+      folderTouchGhost.hidden = true;
+      document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
+      if (!shouldMove || !drag.active) return;
+      const target = getFolderDropTargetAtPoint(touch.clientX, touch.clientY);
+      document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
+      if (!target) return;
+      const operation = drag.kind === 'entry'
+        ? moverEntradaDaPasta(target.card, drag.source, target.destinationPath)
+        : moverCardFoldersParaPasta(drag.source, target.card, target.destinationPath);
+      Promise.resolve(operation).catch(error => {
+        console.error('Falha ao mover item entre FOLDERS:', error);
+        alert('Não foi possível mover o item para esta pasta.');
+      });
+    }
+
+    document.addEventListener('touchend', event => {
+      if (!folderTouchDrag) return;
+      const touch = Array.from(event.changedTouches).find(item => item.identifier === folderTouchDrag.identifier);
+      if (touch) finishFolderTouchDrag(touch, true);
+    }, { capture: true });
+
+    document.addEventListener('touchcancel', event => {
+      if (!folderTouchDrag) return;
+      const touch = Array.from(event.changedTouches).find(item => item.identifier === folderTouchDrag.identifier);
+      if (touch) finishFolderTouchDrag(touch, false);
+    }, { capture: true });
 
     function bindFolderCardInteractions(card) {
       const body = card.querySelector('.folder-card-body');
@@ -3067,8 +3350,13 @@
       });
       body.addEventListener('focusin', () => { activeFolderCard = card; });
       list.addEventListener('dragstart', handleFolderEntryDragStart);
-      body.addEventListener('dragover', handleFolderEntryDragOver);
-      body.addEventListener('drop', handleFolderEntryDrop);
+      list.addEventListener('touchstart', event => {
+        const handle = event.target.closest('[data-folder-drag-handle]');
+        const row = handle?.closest('[data-folder-entry]');
+        if (row) startFolderTouchDrag(event, 'entry', row);
+      }, { passive: false });
+      card.addEventListener('dragover', handleFolderEntryDragOver);
+      card.addEventListener('drop', handleFolderEntryDrop);
       list.addEventListener('dragend', handleFolderEntryDragEnd);
     }
 
@@ -3087,6 +3375,15 @@
 
     function handleFolderEntryDragOver(event) {
       event.preventDefault();
+      if (Array.from(event.dataTransfer.types).includes('application/x-dexi-notar-selection')) {
+        const target = event.target.closest('[data-folder-entry]');
+        const list = event.currentTarget.querySelector('.folder-file-list');
+        document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
+        if (target?.dataset.kind === 'folder') target.classList.add('folder-drop-target');
+        else list?.classList.add('folder-drop-target');
+        event.dataTransfer.dropEffect = 'copy';
+        return;
+      }
       if (Array.from(event.dataTransfer.types).includes('application/x-dexi-board-folder-card')) {
         const target = event.target.closest('[data-folder-entry]');
         const card = event.currentTarget.closest('.codex-card');
@@ -3131,9 +3428,17 @@
       event.preventDefault();
       const card = event.target.closest('.codex-card');
       const target = event.target.closest('[data-folder-entry]');
-      const dropList = event.target.closest('.folder-file-list');
-      const isFolderEntryDrag = Array.from(event.dataTransfer.types).includes('application/x-dexi-folder-entry') || Boolean(draggedFolderEntry);
-      if (isFolderEntryDrag && !dropList) return;
+      const transferTypes = Array.from(event.dataTransfer.types);
+      const hasFolderEntryType = transferTypes.includes('application/x-dexi-folder-entry');
+      const isFolderEntryDrag = hasFolderEntryType || Boolean(draggedFolderEntry);
+      if (isFolderEntryDrag && !card?.classList.contains('folder-card')) return;
+      if (Array.from(event.dataTransfer.types).includes('application/x-dexi-notar-selection')) {
+        const destinationPath = target?.dataset.kind === 'folder' ? target.dataset.path : (card?.dataset.folderViewPath || '');
+        const payload = event.dataTransfer.getData('application/x-dexi-notar-selection');
+        if (card && payload) await arquivarSelecaoNotarNaPasta(card, destinationPath, payload);
+        document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
+        return;
+      }
       if (Array.from(event.dataTransfer.types).includes('application/x-dexi-board-folder-card')) {
         const sourceId = event.dataTransfer.getData('application/x-dexi-board-folder-card');
         const sourceCard = draggedBoardFolderCard || Array.from(document.querySelectorAll('.folder-card:not([data-temporary-folder-view="true"])'))
@@ -3151,16 +3456,198 @@
         document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
         return;
       }
-      if (card && draggedFolderEntry && target?.dataset.kind === 'folder' && target.dataset.entryId !== draggedFolderEntry.dataset.entryId) {
-        moverEntradaDaPasta(card, draggedFolderEntry, target.dataset.path);
-      } else if (card && draggedFolderEntry && !target) {
-        moverEntradaDaPasta(card, draggedFolderEntry, card.dataset.folderViewPath || '');
+      const hasDroppedFiles = Array.from(event.dataTransfer.items || []).some(item => item.kind === 'file') || event.dataTransfer.files?.length;
+      if (card?.classList.contains('folder-card') && hasDroppedFiles && !hasFolderEntryType) {
+        const destinationPath = target?.dataset.kind === 'folder' ? target.dataset.path : (card.dataset.folderViewPath || '');
+        await arquivarItensSoltosNaPasta(card, destinationPath, event.dataTransfer);
+        document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
+        return;
+      }
+      if (card && draggedFolderEntry && target?.dataset.entryId !== draggedFolderEntry.dataset.entryId) {
+        const destinationPath = target?.dataset.kind === 'folder'
+          ? target.dataset.path
+          : target?.dataset.kind === 'file'
+            ? getFolderEntryParentPath(target.dataset.path)
+            : (card.dataset.folderViewPath || '');
+        moverEntradaDaPasta(card, draggedFolderEntry, destinationPath);
       }
       card?.querySelectorAll('.folder-drop-target, .folder-drop-before, .folder-drop-after').forEach(row => {
         row.classList.remove('folder-drop-target', 'folder-drop-before', 'folder-drop-after');
       });
       card?.querySelector('.folder-file-list')?.classList.remove('folder-drop-target');
       if (card) salvarEstadoNoStorage();
+    }
+
+    async function arquivarItensSoltosNaPasta(targetCard, destinationPath, dataTransfer) {
+      const items = Array.from(dataTransfer.items || []);
+      const itemEntries = items.map(item => item.webkitGetAsEntry?.() || null);
+      const directoryEntries = itemEntries.filter(entry => entry?.isDirectory);
+      const itemFiles = items
+        .filter((item, index) => item.kind === 'file' && !itemEntries[index]?.isDirectory)
+        .map(item => item.getAsFile?.())
+        .filter(Boolean);
+      const fallbackFiles = Array.from(dataTransfer.files || []);
+      const fileSystemHandles = await Promise.all(items.map(async item => {
+        try { return await item.getAsFileSystemHandle?.(); } catch (error) { return null; }
+      }));
+      const directoryHandles = fileSystemHandles.filter(handle => handle?.kind === 'directory');
+      const files = [];
+      const folders = new Set();
+
+      for (const entry of directoryEntries) {
+        const contents = await readDroppedDirectory(entry, entry.name);
+        files.push(...contents.files);
+        contents.folders.forEach(path => folders.add(path));
+      }
+      if (!directoryEntries.length) {
+        for (const handle of directoryHandles) {
+          const contents = await readDirectoryHandle(handle, handle.name);
+          files.push(...contents.files);
+          folders.add(handle.name);
+          contents.folders.forEach(path => folders.add(path));
+        }
+      }
+
+      const droppedFiles = itemFiles.length
+        ? itemFiles
+        : directoryEntries.length || directoryHandles.length ? [] : fallbackFiles;
+      droppedFiles.forEach(file => {
+        const relativePath = file.webkitRelativePath || file.name;
+        files.push({ file, path: relativePath });
+      });
+      if (!files.length && !folders.size) return false;
+
+      const rootCard = getFolderRootCard(targetCard);
+      const list = rootCard?.querySelector('.folder-file-list');
+      if (!list) return false;
+      const existingPaths = new Map(Array.from(list.querySelectorAll('[data-folder-entry]')).map(row => [row.dataset.path, row.dataset.kind]));
+      const fullPath = path => destinationPath ? `${destinationPath}/${path}` : path;
+
+      for (const path of Array.from(folders).sort((left, right) => left.split('/').length - right.split('/').length)) {
+        const normalizedPath = fullPath(path);
+        if (existingPaths.get(normalizedPath) === 'file') continue;
+        createFolderEntries(rootCard, '', normalizedPath);
+        existingPaths.set(normalizedPath, 'folder');
+      }
+
+      let duplicateCount = 0;
+      let temporaryCount = 0;
+      let firstTemporaryName = '';
+      for (const { file, path } of files) {
+        const normalizedPath = fullPath(String(path || file.name).replace(/\\/g, '/').split('/').filter(part => part && part !== '.' && part !== '..').join('/'));
+        if (!normalizedPath || existingPaths.has(normalizedPath)) {
+          duplicateCount += 1;
+          continue;
+        }
+        const parentPath = getFolderEntryParentPath(normalizedPath);
+        if (parentPath && existingPaths.get(parentPath) === 'file') {
+          duplicateCount += 1;
+          continue;
+        }
+        if (parentPath) createFolderEntries(rootCard, '', parentPath);
+        const id = createFolderEntryId();
+        const storedPersistently = await guardarArquivoPastaNoDb(id, file);
+        const entry = {
+          id,
+          kind: 'file',
+          path: normalizedPath,
+          name: normalizedPath.split('/').pop(),
+          type: file.type || '',
+          size: file.size || 0,
+          temporary: !storedPersistently,
+          storageFailure: storedPersistently ? '' : lastMediaStorageFailure
+        };
+        const wrapper = document.createElement('ul');
+        wrapper.innerHTML = renderFolderEntryRow(entry);
+        list.appendChild(wrapper.firstElementChild);
+        existingPaths.set(normalizedPath, 'file');
+        if (!storedPersistently) {
+          temporaryCount += 1;
+          firstTemporaryName ||= entry.name;
+        }
+      }
+
+      if (duplicateCount) alert(`${duplicateCount} arquivo(s) ou pasta(s) já existente(s) foram ignorados.`);
+      if (temporaryCount) mostrarAvisoArmazenamentoArquivo(firstTemporaryName, temporaryCount);
+      Array.from(list.querySelectorAll(':scope > [data-folder-entry]'))
+        .sort((left, right) => left.dataset.path.localeCompare(right.dataset.path, 'pt-BR'))
+        .forEach(row => list.appendChild(row));
+      refreshFolderCardViews(rootCard);
+      await salvarEstadoNoStorage();
+      return true;
+    }
+
+    async function arquivarSelecaoNotarNaPasta(targetCard, destinationPath, serializedSelection) {
+      let payload;
+      try { payload = JSON.parse(serializedSelection); } catch (error) { return false; }
+      const selection = payload.selection;
+      const strokes = Array.isArray(payload.strokes) ? payload.strokes : [];
+      const texts = Array.isArray(payload.texts) ? payload.texts : [];
+      const files = [];
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      if (texts.length) {
+        files.push(new File([texts.map(text => text.content).join('\n')], `notar-texto-${timestamp}.txt`, { type: 'text/plain' }));
+      }
+      if (strokes.length && selection?.width > 0 && selection?.height > 0) {
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.ceil(selection.width));
+        canvas.height = Math.max(1, Math.ceil(selection.height));
+        const context = canvas.getContext('2d');
+        if (!context) return false;
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        strokes.forEach(stroke => {
+          if (!stroke.points?.length) return;
+          context.beginPath();
+          context.moveTo(stroke.points[0].x - selection.left, stroke.points[0].y - selection.top);
+          stroke.points.slice(1).forEach(point => context.lineTo(point.x - selection.left, point.y - selection.top));
+          context.lineCap = 'round';
+          context.lineJoin = 'round';
+          context.strokeStyle = '#000000';
+          context.lineWidth = stroke.width || 2;
+          context.stroke();
+        });
+        const imageBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+        if (imageBlob) files.push(new File([imageBlob], `notar-tracos-${timestamp}.jpg`, { type: 'image/jpeg' }));
+      }
+      if (!files.length) return false;
+
+      const rootCard = getFolderRootCard(targetCard);
+      const list = rootCard?.querySelector('.folder-file-list');
+      if (!list) return false;
+      const existingPaths = new Set(Array.from(list.querySelectorAll('[data-folder-entry]')).map(row => row.dataset.path));
+      const newEntries = [];
+      for (const file of files) {
+        const path = destinationPath ? `${destinationPath}/${file.name}` : file.name;
+        if (existingPaths.has(path)) {
+          alert(`Já existe um arquivo chamado "${path}" no destino.`);
+          continue;
+        }
+        const id = createFolderEntryId();
+        const storedPersistently = await guardarArquivoPastaNoDb(id, file);
+        newEntries.push({
+          id,
+          kind: 'file',
+          path,
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          temporary: !storedPersistently,
+          storageFailure: storedPersistently ? '' : lastMediaStorageFailure
+        });
+      }
+      newEntries.forEach(entry => {
+        const wrapper = document.createElement('ul');
+        wrapper.innerHTML = renderFolderEntryRow(entry);
+        list.appendChild(wrapper.firstElementChild);
+      });
+      if (newEntries.some(entry => entry.temporary)) mostrarAvisoArmazenamentoArquivo(newEntries.find(entry => entry.temporary).name, newEntries.filter(entry => entry.temporary).length);
+      Array.from(list.querySelectorAll('[data-folder-entry]'))
+        .sort((left, right) => left.dataset.path.localeCompare(right.dataset.path, 'pt-BR'))
+        .forEach(row => list.appendChild(row));
+      refreshFolderCardViews(rootCard);
+      await salvarEstadoNoStorage();
+      return newEntries.length > 0;
     }
 
     async function arquivarCardDoQuadroNaPasta(sourceCard, targetCard, destinationPath) {
@@ -3413,16 +3900,20 @@
     }
 
     function moverEntradaDaPasta(card, source, destinationPath) {
-      const rootCard = getFolderRootCard(card);
-      const list = rootCard?.querySelector('.folder-file-list');
-      source = getCanonicalFolderEntry(rootCard, source.dataset.entryId);
-      if (!list || !source) return;
+      const sourceId = source?.dataset.entryId;
+      const sourceRoot = getFolderRootCard(source?.closest('.codex-card'));
+      const destinationRoot = getFolderRootCard(card);
+      const sourceList = sourceRoot?.querySelector('.folder-file-list');
+      const destinationList = destinationRoot?.querySelector('.folder-file-list');
+      source = getCanonicalFolderEntry(sourceRoot, sourceId);
+      if (!sourceList || !destinationList || !source) return false;
       const sourcePath = source.dataset.path;
-      if (source.dataset.kind === 'folder' && (destinationPath === sourcePath || destinationPath.startsWith(`${sourcePath}/`))) return false;
-      if (getFolderEntryParentPath(sourcePath) === destinationPath) return false;
+      if (sourceRoot === destinationRoot && source.dataset.kind === 'folder' && (destinationPath === sourcePath || destinationPath.startsWith(`${sourcePath}/`))) return false;
+      if (sourceRoot === destinationRoot && getFolderEntryParentPath(sourcePath) === destinationPath) return false;
+      if (destinationPath && !Array.from(destinationList.querySelectorAll('[data-folder-entry]')).some(row => row.dataset.path === destinationPath && row.dataset.kind === 'folder')) return false;
       const newBasePath = destinationPath ? `${destinationPath}/${sourcePath.split('/').pop()}` : sourcePath.split('/').pop();
       const movingRows = source.dataset.kind === 'folder'
-        ? [source, ...Array.from(list.querySelectorAll('[data-folder-entry]')).filter(row => row.dataset.path.startsWith(`${sourcePath}/`))]
+        ? [source, ...Array.from(sourceList.querySelectorAll('[data-folder-entry]')).filter(row => row.dataset.path.startsWith(`${sourcePath}/`))]
         : [source];
       const movingSet = new Set(movingRows);
       const nextPaths = movingRows.map(row => ({
@@ -3431,7 +3922,7 @@
           ? newBasePath
           : `${newBasePath}${row.dataset.path.slice(sourcePath.length)}`
       }));
-      const occupiedPaths = new Set(Array.from(list.querySelectorAll('[data-folder-entry]'))
+      const occupiedPaths = new Set(Array.from(destinationList.querySelectorAll('[data-folder-entry]'))
         .filter(row => !movingSet.has(row))
         .map(row => row.dataset.path));
       if (nextPaths.some(entry => occupiedPaths.has(entry.path))) {
@@ -3445,11 +3936,20 @@
         if (label) { label.textContent = path; label.title = path; }
         const openButton = row.querySelector('[data-folder-action="open"]');
         if (openButton) openButton.setAttribute('aria-label', `${row.dataset.kind === 'folder' ? 'Abrir pasta' : 'Visualizar arquivo'} ${path}`);
+        destinationList.appendChild(row);
       });
-      Array.from(list.querySelectorAll('[data-folder-entry]'))
-        .sort((left, right) => left.dataset.path.localeCompare(right.dataset.path, 'pt-BR'))
-        .forEach(row => list.appendChild(row));
-      refreshFolderCardViews(rootCard);
+      [sourceList, destinationList].filter((list, index, lists) => lists.indexOf(list) === index).forEach(list => {
+        Array.from(list.querySelectorAll(':scope > [data-folder-entry]'))
+          .sort((left, right) => left.dataset.path.localeCompare(right.dataset.path, 'pt-BR'))
+          .forEach(row => list.appendChild(row));
+      });
+      if (source.dataset.kind === 'folder') {
+        document.querySelectorAll('.folder-card[data-temporary-folder-view="true"]').forEach(view => {
+          if (view.dataset.folderRootCardId === sourceRoot.dataset.folderCardId &&
+              (view.dataset.folderViewPath === sourcePath || view.dataset.folderViewPath.startsWith(`${sourcePath}/`))) view.remove();
+        });
+      }
+      [sourceRoot, destinationRoot].filter((root, index, roots) => root && roots.indexOf(root) === index).forEach(refreshFolderCardViews);
       salvarEstadoNoStorage();
       return true;
     }
@@ -3474,6 +3974,7 @@
       const safeName = escapeHTML(row.dataset.path);
       const fileName = file.name || row.dataset.path.split('/').pop() || 'arquivo';
       const extension = (fileName.split('.').pop() || '').toLowerCase();
+      const isNotarTextFile = extension === 'txt' && fileName.startsWith('notar-texto-');
       const extensionMime = ({
         pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
         webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp', avif: 'image/avif', mp4: 'video/mp4', webm: 'video/webm',
@@ -3488,7 +3989,7 @@
       if (mime.startsWith('image/')) content = `<div class="flex h-full min-h-0 w-full items-center justify-center overflow-auto bg-slate-950"><img src="${url}" alt="${safeName}" class="max-h-full max-w-full object-contain"></div>`;
       else if (mime.startsWith('video/')) content = `<div class="flex h-full min-h-0 w-full items-center justify-center bg-slate-950"><video src="${url}" controls playsinline class="max-h-full max-w-full"></video></div>`;
       else if (mime.startsWith('audio/')) content = `<div class="flex h-full min-h-0 w-full items-center justify-center p-6"><audio src="${url}" controls class="w-full"></audio></div>`;
-      else if (mime.startsWith('text/') || /\.(txt|md|markdown|json|csv|xml|html|css|js|ts|py|log|yaml|yml|ini|toml)$/i.test(row.dataset.path)) content = `<pre class="h-full min-h-0 w-full flex-1 overflow-auto whitespace-pre-wrap break-words bg-white p-4 text-xs text-slate-800 dark:bg-slate-950 dark:text-slate-100"></pre>`;
+      else if (mime.startsWith('text/') || /\.(txt|md|markdown|json|csv|xml|html|css|js|ts|py|log|yaml|yml|ini|toml)$/i.test(row.dataset.path)) content = `<pre class="h-full min-h-0 w-full flex-1 overflow-auto whitespace-pre-wrap break-words ${isNotarTextFile ? 'bg-white text-slate-800' : 'bg-white text-slate-800 dark:bg-slate-950 dark:text-slate-100'} p-4 text-xs"></pre>`;
       else content = `<div class="flex h-full min-h-0 w-full flex-col items-center justify-center gap-3 p-6 text-center"><p class="text-sm text-slate-600 dark:text-slate-300">Este formato não possui prévia embutida neste navegador.</p><div class="flex flex-wrap justify-center gap-2"><a href="${url}" target="_blank" rel="noopener noreferrer" class="rounded-lg bg-slate-700 px-4 py-2 text-sm font-bold text-white">Abrir arquivo</a><a href="${url}" download="${escapeHTML(fileName)}" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-900">Baixar arquivo</a></div></div>`;
       openModal(row.dataset.path, content);
       const pre = document.querySelector('#modal-content pre');
@@ -4102,7 +4603,7 @@
       const targetCard = e.target.closest('.codex-card');
       const transferTypes = Array.from(e.dataTransfer.types);
       const isFolderEntryDrag = transferTypes.includes('application/x-dexi-folder-entry') || Boolean(draggedFolderEntry);
-      if (targetCard?.closest('.folder-card-body') && e.target.closest('.folder-file-list')) return;
+      if (targetCard?.classList.contains('folder-card')) return;
       if (isFolderEntryDrag) {
         try {
           const entryId = e.dataTransfer.getData('application/x-dexi-folder-entry') || draggedFolderEntry?.dataset.entryId;
@@ -4905,6 +5406,59 @@
       renderizarPaginaVisualizador(viewerId, container.dataset.pdfsourceid);
     }
 
+    function findVisibleCardPosition(cardWidth, cardHeight) {
+      const rect = boardWrapper.getBoundingClientRect();
+      const visibleLeft = Math.max(0, -panX / zoom + 20);
+      const visibleTop = Math.max(0, -panY / zoom + 20);
+      const visibleRight = (-panX + rect.width) / zoom - 20;
+      const visibleBottom = (-panY + rect.height) / zoom - 20;
+      const centerX = (rect.width / 2 - panX) / zoom;
+      const centerY = (rect.height / 2 - panY) / zoom;
+      const maxLeft = visibleRight - cardWidth;
+      const maxTop = visibleBottom - cardHeight;
+      const preferredLeft = maxLeft >= visibleLeft
+        ? Math.min(maxLeft, Math.max(visibleLeft, centerX - cardWidth / 2))
+        : Math.max(0, centerX - cardWidth / 2);
+      const preferredTop = maxTop >= visibleTop
+        ? Math.min(maxTop, Math.max(visibleTop, centerY - cardHeight / 2))
+        : Math.max(0, centerY - cardHeight / 2);
+      const candidates = [{ left: preferredLeft, top: preferredTop }];
+
+      if (maxLeft >= visibleLeft && maxTop >= visibleTop) {
+        const stepX = cardWidth + 24;
+        const stepY = cardHeight + 24;
+        const columns = Math.floor((maxLeft - visibleLeft) / stepX);
+        const rows = Math.floor((maxTop - visibleTop) / stepY);
+        for (let ring = 1; ring <= Math.max(columns, rows); ring += 1) {
+          for (let column = -ring; column <= ring; column += 1) {
+            for (const row of [-ring, ring]) {
+              const left = preferredLeft + column * stepX;
+              const top = preferredTop + row * stepY;
+              if (left >= visibleLeft && left <= maxLeft && top >= visibleTop && top <= maxTop) candidates.push({ left, top });
+            }
+          }
+          for (let row = -ring + 1; row < ring; row += 1) {
+            for (const column of [-ring, ring]) {
+              const left = preferredLeft + column * stepX;
+              const top = preferredTop + row * stepY;
+              if (left >= visibleLeft && left <= maxLeft && top >= visibleTop && top <= maxTop) candidates.push({ left, top });
+            }
+          }
+        }
+      }
+
+      const cards = Array.from(document.querySelectorAll('.codex-card'));
+      const positionIsFree = candidate => cards.every(existing => {
+        const left = parseFloat(existing.style.left) || 0;
+        const top = parseFloat(existing.style.top) || 0;
+        const width = existing.offsetWidth || parseFloat(existing.style.width) || 280;
+        const height = existing.offsetHeight || parseFloat(existing.style.height) || 280;
+        return candidate.left + cardWidth + 20 <= left || left + width + 20 <= candidate.left ||
+          candidate.top + cardHeight + 20 <= top || top + height + 20 <= candidate.top;
+      });
+      return candidates.find(positionIsFree) || candidates[0];
+    }
+
     // Cria o card base e conecta seleção, arraste e redimensionamento.
     function createCard(fileType, filename, bodyContent, customWidth = 280, savedProps = null) {
       const card = document.createElement('div');
@@ -4934,15 +5488,9 @@
       else {
         card.style.width = `${finalWidth}px`;
         card.style.height = `${finalHeight}px`;
-          const totalCards = Array.from(document.querySelectorAll('.codex-card')).filter(existingCard => existingCard.dataset.temporaryFolderView !== 'true').length;
-        const spacingX = 24; const spacingY = 24;
-        const cardsPerLine = Math.floor(1200 / (finalWidth + spacingX));
-        const col = totalCards % cardsPerLine;
-        const row = Math.floor(totalCards / cardsPerLine);
-        const startX = Math.abs(panX) / zoom + 320 + col * (finalWidth + spacingX);
-        const startY = Math.abs(panY) / zoom + 60 + row * (finalHeight + spacingY);
-        card.style.left = `${startX}px`;
-        card.style.top = `${startY}px`;
+        const position = findVisibleCardPosition(finalWidth, finalHeight);
+        card.style.left = `${position.left}px`;
+        card.style.top = `${position.top}px`;
       }
 
       card.style.minWidth = `230px`;
@@ -5010,6 +5558,17 @@
           draggedBoardFolderCard = null;
           document.querySelectorAll('.folder-drop-target').forEach(row => row.classList.remove('folder-drop-target'));
         });
+        boardFolderDragHandle.addEventListener('touchstart', event => {
+          if (card.dataset.temporaryFolderView === 'true') {
+            const rootCard = getFolderRootCard(card);
+            const folderPath = card.dataset.folderViewPath || '';
+            const folderRow = Array.from(rootCard?.querySelectorAll('.folder-file-list > [data-folder-entry]') || [])
+              .find(row => row.dataset.path === folderPath && row.dataset.kind === 'folder');
+            if (folderRow) startFolderTouchDrag(event, 'entry', folderRow);
+            return;
+          }
+          startFolderTouchDrag(event, 'folder-card', card);
+        }, { passive: false });
       }
 
       const header = card.querySelector('.card-header');
@@ -5405,14 +5964,6 @@
         localStorage.setItem('dexi_codex_cards_saved_at', String(savedAt));
       } catch (error) {
         console.error('Não foi possível salvar o quadro no armazenamento local:', error);
-        let notice = document.getElementById('board-storage-warning');
-        if (!notice) {
-          notice = document.createElement('div');
-          notice.id = 'board-storage-warning';
-          notice.className = 'fixed bottom-4 left-1/2 z-[130] -translate-x-1/2 rounded-lg border border-amber-400 bg-amber-100 px-4 py-3 text-xs font-semibold text-slate-900 shadow-xl';
-          notice.textContent = 'O armazenamento do navegador está cheio. O estado anterior foi preservado; exporte ou remova mídias grandes para continuar salvando.';
-          document.body.appendChild(notice);
-        }
       }
       const snapshotSaved = salvarSnapshotQuadroNoDb(jsonDataStr, savedAt);
       
