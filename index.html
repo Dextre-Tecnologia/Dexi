@@ -11,7 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/tldraw/tldraw.css">
@@ -226,6 +226,11 @@
         <button onclick="executarDownloadBoard('pdf')" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2">
           <span class="text-xl">📄</span> PDF (Documento)
         </button>
+        <button id="download-selection-zip-button" onclick="executarDownloadZipSelecao()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2">
+          <span class="text-xl">📦</span> ZIP (Selecionado)
+        </button>
+        <p id="download-zip-status" class="hidden text-center text-xs text-slate-600 dark:text-slate-300" role="status" aria-live="polite"></p>
+        <a id="download-selection-zip-link" class="hidden w-full rounded-xl bg-slate-800 px-4 py-3 text-center font-bold text-white hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600" download>Baixar ZIP da seleção</a>
       </div>
       <div class="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
         <button onclick="fecharModalDownloadFormat()" class="w-full bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 text-slate-800 dark:text-white font-bold py-2 px-4 rounded-xl transition-all">Cancelar</button>
@@ -245,8 +250,12 @@
           <button id="backup-mode-automatic" type="button" onclick="definirModoBackup('automatic')" class="rounded-lg border px-3 py-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500" role="tab" aria-selected="false">Automático</button>
         </div>
         <div id="backup-manual-panel" class="mt-4">
-          <p class="mb-4 text-sm text-slate-600 dark:text-slate-300">Gera e baixa agora um ZIP completo do quadro.</p>
-          <button id="backup-download-button" onclick="baixarTemplateQuadro()" class="w-full rounded-lg bg-orange-500 px-4 py-3 font-bold text-white hover:bg-orange-600 disabled:cursor-wait disabled:opacity-60">Baixar backup agora</button>
+          <p class="mb-3 text-sm text-slate-600 dark:text-slate-300">A seleção inclui cards, arquivos, traços e textos dentro da área. Sem uma área marcada, o botão de seleção inicia esse modo.</p>
+          <div class="grid gap-2">
+            <button id="backup-download-button" onclick="baixarTemplateQuadro()" class="w-full rounded-lg bg-orange-500 px-4 py-3 font-bold text-white hover:bg-orange-600 disabled:cursor-wait disabled:opacity-60">Baixar quadro completo</button>
+            <button id="backup-selection-download-button" onclick="baixarSelecaoQuadro()" class="w-full rounded-lg bg-sky-600 px-4 py-3 font-bold text-white hover:bg-sky-700">Selecionar área para baixar</button>
+          </div>
+          <a id="backup-download-fallback" class="mt-2 hidden w-full rounded-lg bg-slate-800 px-4 py-3 text-center text-sm font-bold text-white hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600" download>Baixar ZIP do quadro</a>
           <p id="backup-manual-status" class="mt-2 min-h-5 text-xs text-slate-500 dark:text-slate-400" role="status" aria-live="polite"></p>
         </div>
         <div id="backup-automatic-panel" class="mt-4 hidden">
@@ -1178,6 +1187,7 @@
     let activeStickyNote = null;
     let activeTextEditor = null;
     let boardSelectionJustCreated = false;
+    let boardSelectionDownloadPending = false;
     const boardWritingLayer = document.getElementById('board-writing-layer');
     const boardWritingSvg = document.getElementById('board-writing-svg');
     const boardWritingSelectionEl = document.getElementById('board-writing-selection');
@@ -1305,6 +1315,7 @@
       document.getElementById('download-board-selection').disabled = width < minSize || height < minSize;
       const selectedContent = getBoardWritingSelectionContent(boardWritingSelection);
       const hasDraggableContent = selectedContent.strokes.length > 0 || selectedContent.texts.length > 0;
+      atualizarOpcaoDownloadSelecao();
       const dragHandle = boardWritingSelectionEl.querySelector('.board-selection-drag-handle');
       dragHandle.hidden = !hasDraggableContent;
       dragHandle.draggable = hasDraggableContent;
@@ -1324,6 +1335,19 @@
         text.x >= selection.left && text.x <= right && text.y >= selection.top && text.y <= bottom
       );
       return { strokes, texts };
+    }
+
+    function atualizarOpcaoDownloadSelecao() {
+      const button = document.getElementById('backup-selection-download-button');
+      if (!button) return;
+      const selection = boardWritingSelection || boardWritingSelectionSnapshot;
+      const content = getBoardWritingSelectionContent(selection);
+      const hasContent = selection && selection.width >= 5 && selection.height >= 5 && (
+        content.strokes.length || content.texts.length || getCardsInBoardWritingSelection(selection).length
+      );
+      button.disabled = false;
+      button.textContent = hasContent ? 'Baixar seleção' : 'Selecionar área para baixar';
+      button.title = hasContent ? 'Baixar a seleção atual' : 'Marcar uma área do quadro para baixar';
     }
 
     function createBoardWritingSelectionPayload() {
@@ -1445,6 +1469,7 @@
       dragHandle.hidden = true;
       boardWritingSelectionEl.querySelector('.board-selection-resize-handle').hidden = true;
       document.getElementById('download-board-selection').disabled = true;
+      atualizarOpcaoDownloadSelecao();
     }
 
     function getCardsInBoardWritingSelection(selection) {
@@ -1814,6 +1839,7 @@
 
     window.setBoardWritingMode = function(mode) {
       boardWritingMode = mode;
+      if (mode !== 'select') boardSelectionDownloadPending = false;
       boardWrapper.classList.toggle('writing-eraser', mode === 'eraser' && boardWritingActive);
       document.querySelectorAll('[data-writing-mode]').forEach(button => {
         button.classList.toggle('active', button.dataset.writingMode === mode);
@@ -2058,6 +2084,15 @@
       boardWritingDrawing = false;
       if (boardWritingMode === 'select' && boardWritingSelection) {
         boardSelectionJustCreated = true;
+        if (boardSelectionDownloadPending) {
+          if (boardWritingSelection.width >= 5 && boardWritingSelection.height >= 5) {
+            boardSelectionDownloadPending = false;
+            window.baixarSelecaoQuadro();
+          } else {
+            hideBoardWritingSelection();
+            alert('A área selecionada é pequena demais. Arraste uma área maior para baixar.');
+          }
+        }
       }
       if (boardWritingSelectionMove) {
         const movedCards = boardWritingSelectionMove.cards.length > 0;
@@ -2093,9 +2128,8 @@
 
     boardWrapper.addEventListener('mousedown', startBoardWriting, true);
     boardWrapper.addEventListener('dblclick', createBoardTextOnDoubleClick);
-    boardWrapper.addEventListener('mousemove', moveBoardWriting);
-    boardWrapper.addEventListener('mouseup', stopBoardWriting);
-    boardWrapper.addEventListener('mouseleave', stopBoardWriting);
+    window.addEventListener('mousemove', moveBoardWriting);
+    window.addEventListener('mouseup', stopBoardWriting);
     boardWrapper.addEventListener('touchstart', startBoardWriting, { passive: false, capture: true });
     boardWrapper.addEventListener('touchmove', moveBoardWriting, { passive: false });
     boardWrapper.addEventListener('touchend', stopBoardWriting, { passive: false });
@@ -2267,6 +2301,8 @@
       }
 
       boardWritingSelectionSnapshot = { ...activeSelection };
+  document.getElementById('download-zip-status').classList.add('hidden');
+  document.getElementById('download-selection-zip-link').classList.add('hidden');
       document.getElementById('download-format-modal').classList.remove('hidden');
     };
 
@@ -6070,6 +6106,7 @@
     };
 
     window.abrirModalDownloadQuadro = async function() {
+      atualizarOpcaoDownloadSelecao();
       document.getElementById('board-backup-modal').classList.remove('hidden');
       const config = lerConfiguracaoBackup();
       document.getElementById('backup-time').value = config.time || '18:00';
@@ -6169,6 +6206,40 @@
       }
     }
 
+    async function adicionarAssetAoZip(zip, assets, includedAssets, kind, id, blob, name = '', type = '') {
+      const assetKey = `${kind}:${id}`;
+      if (!blob || includedAssets.has(assetKey)) return;
+      includedAssets.add(assetKey);
+      const path = `assets/${kind}/${encodeURIComponent(id)}`;
+      zip.file(path, blob);
+      assets.push({ kind, id, path, name, type: type || blob.type || '' });
+    }
+
+    async function adicionarAssetsDosCards(zip, cards, assets, includedAssets) {
+      for (const card of cards) {
+        if (card.pdfSourceId) await adicionarAssetAoZip(zip, assets, includedAssets, 'pdf', card.pdfSourceId, await obterPdfDoDb(card.pdfSourceId), card.filename, 'application/pdf');
+        if (card.mediaSourceId) {
+          const blob = await obterMediaDoDb(card.mediaSourceId);
+          await adicionarAssetAoZip(zip, assets, includedAssets, 'media', card.mediaSourceId, blob, card.filename, blob?.type || '');
+        }
+        if (card.filetype === 'FOLDERS' && card.bodyContent) {
+          const templateElement = document.createElement('template');
+          templateElement.innerHTML = card.bodyContent;
+          for (const row of templateElement.content.querySelectorAll('[data-folder-entry][data-kind="file"]')) {
+            const blob = await obterArquivoPastaDoDb(row.dataset.entryId);
+            await adicionarAssetAoZip(zip, assets, includedAssets, 'folder', row.dataset.entryId, blob, row.dataset.path, blob?.type || '');
+          }
+        }
+      }
+    }
+
+    function obterCardsPersistidosDaSelecao(selection, cardsData) {
+      const selectedElements = new Set(getCardsInBoardWritingSelection(selection).map(item => item.element));
+      const persistedElements = Array.from(document.querySelectorAll('.codex-card'))
+        .filter(card => card.dataset.temporaryFolderView !== 'true');
+      return persistedElements.flatMap((card, index) => selectedElements.has(card) && cardsData[index] ? [cardsData[index]] : []);
+    }
+
     async function gerarBackupQuadro(onProgress = null) {
       if (!window.JSZip) throw new Error('Não foi possível carregar o recurso ZIP. Verifique sua conexão.');
       await salvarEstadoNoStorage();
@@ -6186,30 +6257,7 @@
       };
       const zip = new JSZip();
       const includedAssets = new Set();
-      const addAsset = async (kind, id, blob, name = '', type = '') => {
-        const assetKey = `${kind}:${id}`;
-        if (!blob || includedAssets.has(assetKey)) return;
-        includedAssets.add(assetKey);
-        const path = `assets/${kind}/${encodeURIComponent(id)}`;
-        zip.file(path, blob);
-        template.assets.push({ kind, id, path, name, type: type || blob.type || '' });
-      };
-
-      for (const card of cards) {
-        if (card.pdfSourceId) await addAsset('pdf', card.pdfSourceId, await obterPdfDoDb(card.pdfSourceId), card.filename, 'application/pdf');
-        if (card.mediaSourceId) {
-          const blob = await obterMediaDoDb(card.mediaSourceId);
-          await addAsset('media', card.mediaSourceId, blob, card.filename, blob?.type || '');
-        }
-        if (card.filetype === 'FOLDERS' && card.bodyContent) {
-          const templateElement = document.createElement('template');
-          templateElement.innerHTML = card.bodyContent;
-          for (const row of templateElement.content.querySelectorAll('[data-folder-entry][data-kind="file"]')) {
-            const blob = await obterArquivoPastaDoDb(row.dataset.entryId);
-            await addAsset('folder', row.dataset.entryId, blob, row.dataset.path, blob?.type || '');
-          }
-        }
-      }
+      await adicionarAssetsDosCards(zip, cards, template.assets, includedAssets);
       const database = db || await dexiDatabaseReady;
       if (database) {
         const audioBlob = await new Promise(resolve => {
@@ -6217,7 +6265,7 @@
           request.onsuccess = () => resolve(request.result || null);
           request.onerror = () => resolve(null);
         });
-        await addAsset('audio', 'dexi_task_alarm_audio', audioBlob, 'alarme.mp3', 'audio/mpeg');
+        await adicionarAssetAoZip(zip, template.assets, includedAssets, 'audio', 'dexi_task_alarm_audio', audioBlob, 'alarme.mp3', 'audio/mpeg');
       }
       zip.file('template.json', JSON.stringify(template));
       return zip.generateAsync({ type: 'blob', compression: 'STORE' }, metadata => {
@@ -6227,8 +6275,10 @@
 
     window.baixarTemplateQuadro = async function() {
       const button = document.getElementById('backup-download-button');
+      const fallbackLink = document.getElementById('backup-download-fallback');
       const status = document.getElementById('backup-manual-status');
       if (button?.disabled) return;
+      fallbackLink?.classList.add('hidden');
       if (button) {
         button.disabled = true;
         button.textContent = 'Preparando backup...';
@@ -6240,12 +6290,22 @@
           if (status) status.textContent = `Montando ZIP... ${Math.round(metadata.percent)}%`;
         });
         const url = URL.createObjectURL(archive);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `dexi-quadro-${new Date().toISOString().slice(0, 10)}.zip`;
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-        if (status) status.textContent = 'Backup pronto e download iniciado.';
+        if (fallbackLink) {
+          fallbackLink.href = url;
+          fallbackLink.download = `dexi-quadro-${new Date().toISOString().slice(0, 10)}.zip`;
+          fallbackLink.classList.remove('hidden');
+          fallbackLink.click();
+          setTimeout(() => URL.revokeObjectURL(url), 60000);
+        } else {
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `dexi-quadro-${new Date().toISOString().slice(0, 10)}.zip`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 60000);
+        }
+        if (status) status.textContent = 'ZIP pronto. Se o download não começou, clique em Baixar ZIP do quadro.';
       } catch (error) {
         console.error('Falha ao exportar template:', error);
         if (status) status.textContent = error.message || 'Não foi possível preparar o backup.';
@@ -6258,6 +6318,98 @@
       }
     };
 
+    window.baixarSelecaoQuadro = async function() {
+      const button = document.getElementById('backup-selection-download-button');
+      const zipButton = document.getElementById('download-selection-zip-button');
+      const status = document.getElementById('backup-manual-status');
+      const zipStatus = document.getElementById('download-zip-status');
+      const downloadLink = document.getElementById('download-selection-zip-link');
+      const selection = boardWritingSelection || boardWritingSelectionSnapshot;
+      const content = getBoardWritingSelectionContent(selection);
+      const hasArea = selection && selection.width >= 5 && selection.height >= 5;
+      if (!hasArea) {
+        hideBoardWritingSelection();
+        fecharModalDownloadQuadro();
+        window.toggleBoardWriting(true);
+        window.setBoardWritingMode('select');
+        boardSelectionDownloadPending = true;
+        alert('Arraste no quadro para marcar a área que deseja baixar. O ZIP será criado ao terminar a seleção.');
+        return;
+      }
+      if (button) {
+        button.disabled = true;
+        button.textContent = 'Preparando seleção...';
+      }
+      if (zipButton) {
+        zipButton.disabled = true;
+        zipButton.textContent = 'Preparando ZIP...';
+      }
+      if (status) status.textContent = 'Salvando cards e reunindo os arquivos da seleção...';
+      if (zipStatus) {
+        zipStatus.classList.remove('hidden');
+        zipStatus.textContent = 'Preparando ZIP com cards, arquivos e notas selecionados...';
+      }
+      if (downloadLink) downloadLink.classList.add('hidden');
+      try {
+        if (!window.JSZip) throw new Error('Não foi possível carregar o recurso ZIP. Verifique sua conexão.');
+        salvarEstadoNoStorage();
+        const allCards = JSON.parse(localStorage.getItem('dexi_codex_cards') || '[]');
+        const cards = obterCardsPersistidosDaSelecao(selection, allCards);
+        const zip = new JSZip();
+        const selectionTemplate = {
+          format: 'dexi-selection',
+          version: 1,
+          selection,
+          cards,
+          strokes: content.strokes,
+          texts: content.texts,
+          assets: []
+        };
+        const includedAssets = new Set();
+        await adicionarAssetsDosCards(zip, cards, selectionTemplate.assets, includedAssets);
+        zip.file('template.json', JSON.stringify({
+          ...selectionTemplate,
+          format: 'dexi-template',
+          scope: 'selection'
+        }));
+        const archive = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+        const url = URL.createObjectURL(archive);
+        const filename = `dexi-selecao-${new Date().toISOString().slice(0, 10)}.zip`;
+        if (downloadLink) {
+          downloadLink.href = url;
+          downloadLink.download = filename;
+          downloadLink.classList.remove('hidden');
+          downloadLink.click();
+        } else {
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        if (status) status.textContent = 'ZIP da seleção pronto e download iniciado.';
+        if (zipStatus) zipStatus.textContent = 'ZIP pronto. Se o download não começou, clique em Baixar ZIP da seleção.';
+      } catch (error) {
+        console.error('Falha ao exportar seleção:', error);
+        if (status) status.textContent = error.message || 'Não foi possível preparar o ZIP da seleção.';
+        if (zipStatus) zipStatus.textContent = error.message || 'Não foi possível preparar o ZIP da seleção.';
+        alert(error.message || 'Não foi possível preparar o ZIP da seleção.');
+      } finally {
+        if (button) button.disabled = false;
+        if (zipButton) {
+          zipButton.disabled = false;
+          zipButton.innerHTML = '<span class="text-xl">📦</span> ZIP (Selecionado)';
+        }
+        atualizarOpcaoDownloadSelecao();
+      }
+    };
+
+    window.executarDownloadZipSelecao = function() {
+      window.baixarSelecaoQuadro();
+    };
+
     agendarProximoBackup();
 
     window.importarTemplateQuadro = async function(file) {
@@ -6266,8 +6418,43 @@
         if (!window.JSZip) throw new Error('Recurso ZIP indisponível');
         const zip = await JSZip.loadAsync(file);
         const manifestFile = zip.file('template.json');
+        const selectionFile = zip.file('selection.json');
+        const template = manifestFile ? JSON.parse(await manifestFile.async('string')) : null;
+        const selection = selectionFile
+          ? JSON.parse(await selectionFile.async('string'))
+          : (template?.scope === 'selection' ? template : null);
+        if (selection) {
+          const validSelectionFormat = selection.format === 'dexi-selection' || (selection.format === 'dexi-template' && selection.scope === 'selection');
+          if (!validSelectionFormat || !Array.isArray(selection.strokes) || !Array.isArray(selection.texts) || (selection.cards !== undefined && !Array.isArray(selection.cards))) throw new Error('Arquivo de seleção Dexi inválido');
+          if (!confirm('Importar esta seleção adicionará os cards, arquivos e notas ao quadro atual. Deseja continuar?')) return;
+          for (const asset of selection.assets || []) {
+            const archivedFile = zip.file(asset.path);
+            if (!archivedFile) continue;
+            const blob = await archivedFile.async('blob');
+            const restoredFile = new Blob([blob], { type: asset.type || blob.type || 'application/octet-stream' });
+            if (asset.kind === 'pdf') await guardarPdfNoDb(asset.id, restoredFile);
+            else if (asset.kind === 'folder') await guardarArquivoPastaNoDb(asset.id, restoredFile);
+            else await guardarMediaNoDb(asset.id, restoredFile);
+          }
+          await salvarEstadoNoStorage();
+          const currentCards = JSON.parse(localStorage.getItem('dexi_codex_cards') || '[]');
+          const importedCards = Array.isArray(selection.cards) ? selection.cards : [];
+          boardWritingStrokes.push(...selection.strokes);
+          boardWritingTexts.push(...selection.texts.map((text, index) => ({
+            ...text,
+            id: `selection-${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`
+          })));
+          saveBoardWriting();
+          saveBoardWritingTexts();
+          renderBoardWriting();
+          renderBoardWritingTexts();
+          if (importedCards.length) {
+            document.querySelectorAll('.codex-card').forEach(card => card.remove());
+            await carregarEstadoDoStorage(JSON.stringify([...currentCards, ...importedCards]));
+          }
+          return;
+        }
         if (!manifestFile) throw new Error('Arquivo de template não encontrado');
-        const template = JSON.parse(await manifestFile.async('string'));
         if (template.format !== 'dexi-template' || !Array.isArray(template.cards)) throw new Error('Template Dexi inválido');
         if (!confirm('Importar este quadro substituirá os cards e desenhos atuais. Deseja continuar?')) return;
 
@@ -6275,7 +6462,7 @@
           const archivedFile = zip.file(asset.path);
           if (!archivedFile) continue;
           const blob = await archivedFile.async('blob');
-          const restoredFile = new File([blob], asset.name || asset.id, { type: asset.type || blob.type || 'application/octet-stream' });
+          const restoredFile = new Blob([blob], { type: asset.type || blob.type || 'application/octet-stream' });
           if (asset.kind === 'pdf') await guardarPdfNoDb(asset.id, restoredFile);
           else if (asset.kind === 'folder') await guardarArquivoPastaNoDb(asset.id, restoredFile);
           else await guardarMediaNoDb(asset.id, restoredFile);
