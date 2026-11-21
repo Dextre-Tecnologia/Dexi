@@ -64,7 +64,7 @@
           }
         }
       }
-    }
+    };
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
   </script>
   <link rel="stylesheet" href="style.css">
@@ -1724,6 +1724,20 @@
       }
     }
 
+    function atualizarTextosPadraoPeloTema(previousDark) {
+      const nextColor = document.documentElement.classList.contains('dark') ? '#ffffff' : '#000000';
+      const previousColors = previousDark ? ['#ffffff', '#fff'] : ['#000000', '#000', '#1e293b'];
+      let changed = false;
+      boardWritingTexts.forEach(text => {
+        if (!previousColors.includes(String(text.color).toLowerCase())) return;
+        text.color = nextColor;
+        const textarea = document.querySelector(`[data-text-id="${text.id}"] .board-text-input`);
+        if (textarea) textarea.style.color = nextColor;
+        changed = true;
+      });
+      if (changed) saveBoardWritingTexts();
+    }
+
     function persistBoardWritingBeforeExit() {
       if (boardWritingMode === 'pen' && boardWritingCurrentStroke.length > 0) {
         boardWritingStrokes.push({
@@ -1752,6 +1766,7 @@
       } catch (error) {
         boardWritingTexts = [];
       }
+      atualizarTextosPadraoPeloTema(!document.documentElement.classList.contains('dark'));
       const furthestPoint = boardWritingStrokes.reduce((furthest, stroke) => {
         stroke.points.forEach(point => {
           furthest.x = Math.max(furthest.x, point.x);
@@ -3011,6 +3026,7 @@
       }
       atualizarCorCanetaPeloTema();
       atualizarTracosPadraoPeloTema(previousDark);
+      atualizarTextosPadraoPeloTema(previousDark);
     }
     if (localStorage.getItem('theme') === 'light') document.documentElement.classList.remove('dark');
 
@@ -4750,11 +4766,41 @@
     }
 
     // Cards de links: favicon, edição, ordenação e abertura em nova aba.
+    const linkFaviconFallback = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM2NDc0OGIiIHN0cm9rZS13aWR0aD0iMiI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiPjwvY2lyY2xlPjwvc3ZnPg==";
+
+    function obterCandidatosFaviconLink(url) {
+      try {
+        const normalizedUrl = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+        const parsedUrl = new URL(normalizedUrl);
+        return [...new Set([
+          new URL('/favicon.ico', parsedUrl).href,
+          `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(parsedUrl.href)}&sz=64`,
+          `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=${encodeURIComponent(parsedUrl.href)}&size=64`,
+          `https://icons.duckduckgo.com/ip3/${encodeURIComponent(parsedUrl.hostname)}.ico`
+        ])];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    window.tentarProximoFaviconLink = function(image) {
+      const input = image.closest('.link-item-row')?.querySelector('.url-input-field');
+      const candidates = obterCandidatosFaviconLink(input?.value || '');
+      const nextIndex = Number(image.dataset.faviconIndex || 0);
+
+      if (nextIndex < candidates.length) {
+        image.dataset.faviconIndex = String(nextIndex + 1);
+        image.src = candidates[nextIndex];
+      } else {
+        image.onerror = null;
+        image.src = linkFaviconFallback;
+      }
+    };
+
     function gerarStructureItemLink(url = '', tag = '') {
-      let domain = '';
-      try { domain = new URL(url).hostname; } catch(e) {}
-      const fallbackSvgBase64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM2NDc0OGIiIHN0cm9rZS13aWR0aD0iMiI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiPjwvY2lyY2xlPjwvc3ZnPg==";
-      const faviconUrl = domain ? `https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico` : fallbackSvgBase64;
+      const faviconCandidates = obterCandidatosFaviconLink(url);
+      const faviconUrl = faviconCandidates[0] || linkFaviconFallback;
+      const faviconIndex = faviconCandidates.length ? 1 : 0;
 
       return `
         <div class="link-item-row flex flex-col gap-1 p-2 border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/60 rounded-xl relative group/item transition-all" 
@@ -4775,7 +4821,7 @@
 
           <div class="flex w-full flex-col items-stretch gap-2">
             <button type="button" onclick="abrirLinkDoCard(this)" data-link-favicon="true" class="link-favicon-button self-center shrink-0 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-slate-700 transition-colors" title="Abrir página" aria-label="Abrir página">
-              <img src="${faviconUrl}" onerror="this.onerror=null;this.src='${fallbackSvgBase64}';" loading="lazy" referrerpolicy="no-referrer" class="link-favicon-image rounded-lg object-contain" alt="Ícone do site">
+              <img src="${faviconUrl}" data-favicon-index="${faviconIndex}" onerror="tentarProximoFaviconLink(this)" loading="lazy" referrerpolicy="no-referrer" class="link-favicon-image rounded-lg object-contain" alt="Ícone do site">
             </button>
             <input type="text" value="${escapeHTML(url)}" placeholder="https://..." aria-label="Link" oninput="atualizarTagLink(this)" class="url-input-field box-border w-full min-w-0 text-[10px] px-2 py-1 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 focus:outline-none focus:border-amber-500 text-slate-500 dark:text-slate-400 font-mono select-text truncate">
           </div>
@@ -4873,10 +4919,10 @@
           faviconButton.setAttribute('aria-label', linkLabel ? `Abrir ${linkLabel}` : 'Abrir página');
         }
         if(imgEl) {
-          try {
-            let domain = new URL(inputElement.value).hostname;
-            if(domain) imgEl.src = `https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico`;
-          } catch(e) {}
+          const faviconCandidates = obterCandidatosFaviconLink(inputElement.value.trim());
+          imgEl.dataset.faviconIndex = faviconCandidates.length ? '1' : '0';
+          imgEl.onerror = () => window.tentarProximoFaviconLink(imgEl);
+          imgEl.src = faviconCandidates[0] || linkFaviconFallback;
         }
       }
       salvarEstadoNoStorage();
