@@ -6252,12 +6252,201 @@
       }
     }
 
+    const backupAssetsIgnorados = [];
+
+    // ===== Gerador de ZIP em streaming (sem carregar arquivos inteiros na memória) =====
+    // O JSZip lê cada Blob inteiro com FileReader e falha (NotReadableError) em arquivos
+    // grandes. Aqui cada arquivo é lido em pedaços só para calcular o CRC32, e o ZIP final
+    // é um Blob composto por referências aos blobs originais (modo STORE, com ZIP64).
+    const CRC32_TABLE = (() => {
+      const table = new Uint32Array(256);
+      for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        table[n] = c >>> 0;
+      }
+      return table;
+    })();
+
+    function crc32Atualizar(crc, bytes) {
+      let c = (crc ^ 0xFFFFFFFF) >>> 0;
+      for (let i = 0; i < bytes.length; i++) c = CRC32_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+      return (c ^ 0xFFFFFFFF) >>> 0;
+    }
+
+    let backupBytesLidos = 0;
+    let backupProgresso = null;
+
+    async function verificarBlob(input) {
+      const blob = input instanceof Blob ? input : new Blob([input]);
+      try {
+        const CHUNK = 8 * 1024 * 1024;
+        let crc = 0;
+        for (let start = 0; start < blob.size; start += CHUNK) {
+          const bytes = new Uint8Array(await blob.slice(start, Math.min(start + CHUNK, blob.size)).arrayBuffer());
+          crc = crc32Atualizar(crc, bytes);
+          backupBytesLidos += bytes.length;
+          if (typeof backupProgresso === 'function') backupProgresso(backupBytesLidos);
+        }
+        return { ok: true, blob, crc, size: blob.size };
+      } catch (error) {
+        console.warn('Arquivo ilegível no backup:', error);
+        return { ok: false };
+      }
+    }
+
+    class ZipEntradas {
+      constructor() { this.entries = []; }
+      file(path, data, info = null) { this.entries.push({ path, data, info }); }
+    }
+
+    async function gerarZipSemMemoria(entries, onProgress = null) {
+      const encoder = new TextEncoder();
+      const now = new Date();
+      const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+      const dosDate = ((Math.max(now.getFullYear(), 1980) - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+      const U32 = 0xFFFFFFFF;
+      const parts = [];
+      const central = [];
+      let offset = 0;
+      let centralSize = 0;
+      for (let index = 0; index < entries.length; index++) {
+        const entry = entries[index];
+        let info = entry.info;
+        if (!info) {
+          if (typeof entry.data === 'string') {
+            const bytes = encoder.encode(entry.data);
+            info = { ok: true, blob: new Blob([bytes]), crc: crc32Atualizar(0, bytes), size: bytes.length };
+          } else {
+            info = await verificarBlob(entry.data);
+          }
+        }
+        if (!info.ok) throw Object.assign(new Error(`Não foi possível ler ${entry.path}`), { name: 'NotReadableError' });
+        const name = encoder.encode(entry.path);
+        const big = info.size >= U32;
+        const bigOffset = offset >= U32;
+
+        const localExtra = big ? 20 : 0;
+        const local = new DataView(new ArrayBuffer(30 + name.length + localExtra));
+        local.setUint32(0, 0x04034b50, true);
+        local.setUint16(4, big ? 45 : 20, true);
+        local.setUint16(6, 0x0800, true);
+        local.setUint16(8, 0, true);
+        local.setUint16(10, dosTime, true);
+        local.setUint16(12, dosDate, true);
+        local.setUint32(14, info.crc, true);
+        local.setUint32(18, big ? U32 : info.size, true);
+        local.setUint32(22, big ? U32 : info.size, true);
+        local.setUint16(26, name.length, true);
+        local.setUint16(28, localExtra, true);
+        new Uint8Array(local.buffer).set(name, 30);
+        if (big) {
+          local.setUint16(30 + name.length, 0x0001, true);
+          local.setUint16(32 + name.length, 16, true);
+          local.setBigUint64(34 + name.length, BigInt(info.size), true);
+          local.setBigUint64(42 + name.length, BigInt(info.size), true);
+        }
+
+        const centralExtra = (big || bigOffset) ? 4 + (big ? 16 : 0) + (bigOffset ? 8 : 0) : 0;
+        const cd = new DataView(new ArrayBuffer(46 + name.length + centralExtra));
+        cd.setUint32(0, 0x02014b50, true);
+        cd.setUint16(4, (big || bigOffset) ? 45 : 20, true);
+        cd.setUint16(6, (big || bigOffset) ? 45 : 20, true);
+        cd.setUint16(8, 0x0800, true);
+        cd.setUint16(10, 0, true);
+        cd.setUint16(12, dosTime, true);
+        cd.setUint16(14, dosDate, true);
+        cd.setUint32(16, info.crc, true);
+        cd.setUint32(20, big ? U32 : info.size, true);
+        cd.setUint32(24, big ? U32 : info.size, true);
+        cd.setUint16(28, name.length, true);
+        cd.setUint16(30, centralExtra, true);
+        cd.setUint16(32, 0, true);
+        cd.setUint16(34, 0, true);
+        cd.setUint16(36, 0, true);
+        cd.setUint32(38, 0, true);
+        cd.setUint32(42, bigOffset ? U32 : offset, true);
+        new Uint8Array(cd.buffer).set(name, 46);
+        if (centralExtra) {
+          let p = 46 + name.length;
+          cd.setUint16(p, 0x0001, true);
+          cd.setUint16(p + 2, centralExtra - 4, true);
+          p += 4;
+          if (big) {
+            cd.setBigUint64(p, BigInt(info.size), true);
+            cd.setBigUint64(p + 8, BigInt(info.size), true);
+            p += 16;
+          }
+          if (bigOffset) cd.setBigUint64(p, BigInt(offset), true);
+        }
+
+        parts.push(local.buffer, info.blob);
+        central.push(cd.buffer);
+        offset += local.byteLength + info.size;
+        centralSize += cd.byteLength;
+        if (typeof onProgress === 'function') onProgress({ percent: ((index + 1) / entries.length) * 100 });
+      }
+
+      const centralOffset = offset;
+      parts.push(...central);
+      const needsZip64 = entries.length >= 0xFFFF || centralOffset >= U32 || centralSize >= U32;
+      if (needsZip64) {
+        const end64 = new DataView(new ArrayBuffer(56 + 20));
+        end64.setUint32(0, 0x06064b50, true);
+        end64.setBigUint64(4, 44n, true);
+        end64.setUint16(12, 45, true);
+        end64.setUint16(14, 45, true);
+        end64.setUint32(16, 0, true);
+        end64.setUint32(20, 0, true);
+        end64.setBigUint64(24, BigInt(entries.length), true);
+        end64.setBigUint64(32, BigInt(entries.length), true);
+        end64.setBigUint64(40, BigInt(centralSize), true);
+        end64.setBigUint64(48, BigInt(centralOffset), true);
+        end64.setUint32(56, 0x07064b50, true);
+        end64.setUint32(60, 0, true);
+        end64.setBigUint64(64, BigInt(centralOffset + centralSize), true);
+        end64.setUint32(72, 1, true);
+        parts.push(end64.buffer);
+      }
+      const end = new DataView(new ArrayBuffer(22));
+      end.setUint32(0, 0x06054b50, true);
+      end.setUint16(4, 0, true);
+      end.setUint16(6, 0, true);
+      end.setUint16(8, needsZip64 ? 0xFFFF : entries.length, true);
+      end.setUint16(10, needsZip64 ? 0xFFFF : entries.length, true);
+      end.setUint32(12, needsZip64 ? U32 : centralSize, true);
+      end.setUint32(16, needsZip64 ? U32 : centralOffset, true);
+      end.setUint16(20, 0, true);
+      parts.push(end.buffer);
+      return new Blob(parts, { type: 'application/zip' });
+    }
+    // ===== Fim do gerador de ZIP =====
+
+    function mensagemErroBackup(error) {
+      if (error?.name === 'NotReadableError' || /could not be read/i.test(error?.message || '')) {
+        return 'Algum arquivo do quadro não pôde ser lido (foi movido, alterado ou o navegador perdeu a referência). Reimporte os arquivos marcados como TEMP e tente novamente.';
+      }
+      return error?.message || 'Não foi possível preparar o arquivo completo do quadro.';
+    }
+
+    function avisarAssetsIgnorados() {
+      if (!backupAssetsIgnorados.length) return;
+      const nomes = backupAssetsIgnorados.slice(0, 10).map(a => `• ${a.name || a.id}`).join('\n');
+      const resto = backupAssetsIgnorados.length > 10 ? `\n…e mais ${backupAssetsIgnorados.length - 10}` : '';
+      alert(`O ZIP foi gerado, mas ${backupAssetsIgnorados.length} arquivo(s) não puderam ser lidos e ficaram de fora:\n\n${nomes}${resto}\n\nReimporte esses arquivos no quadro e faça o backup de novo.`);
+    }
+
     async function adicionarAssetAoZip(zip, assets, includedAssets, kind, id, blob, name = '', type = '') {
       const assetKey = `${kind}:${id}`;
       if (!blob || includedAssets.has(assetKey)) return;
       includedAssets.add(assetKey);
+      const info = await verificarBlob(blob);
+      if (!info.ok) {
+        backupAssetsIgnorados.push({ kind, id, name });
+        return;
+      }
       const path = `assets/${kind}/${encodeURIComponent(id)}`;
-      zip.file(path, blob);
+      zip.file(path, info.blob, info);
       assets.push({ kind, id, path, name, type: type || blob.type || '' });
     }
 
@@ -6287,7 +6476,6 @@
     }
 
     async function gerarBackupQuadro(onProgress = null) {
-      if (!window.JSZip) throw new Error('Não foi possível carregar o recurso ZIP. Verifique sua conexão.');
       await salvarEstadoNoStorage();
       const cards = JSON.parse(localStorage.getItem('dexi_codex_cards') || '[]');
       const template = {
@@ -6301,8 +6489,12 @@
         taskSound: taskSoundSelect.value,
         assets: []
       };
-      const zip = new JSZip();
+      const zip = new ZipEntradas();
       const includedAssets = new Set();
+      backupAssetsIgnorados.length = 0;
+      backupBytesLidos = 0;
+      backupProgresso = bytes => { if (typeof onProgress === 'function') onProgress({ bytes }); };
+      try {
       await adicionarAssetsDosCards(zip, cards, template.assets, includedAssets);
       const database = db || await dexiDatabaseReady;
       if (database) {
@@ -6313,10 +6505,12 @@
         });
         await adicionarAssetAoZip(zip, template.assets, includedAssets, 'audio', 'dexi_task_alarm_audio', audioBlob, 'alarme.mp3', 'audio/mpeg');
       }
+      template.skippedAssets = backupAssetsIgnorados.slice();
       zip.file('template.json', JSON.stringify(template));
-      return zip.generateAsync({ type: 'blob', compression: 'STORE' }, metadata => {
-        if (typeof onProgress === 'function') onProgress(metadata);
-      });
+      return await gerarZipSemMemoria(zip.entries, onProgress);
+      } finally {
+        backupProgresso = null;
+      }
     }
 
     window.baixarTemplateQuadro = async function() {
@@ -6333,7 +6527,10 @@
       try {
         await new Promise(resolve => requestAnimationFrame(resolve));
         const archive = await gerarBackupQuadro(metadata => {
-          if (status) status.textContent = `Montando ZIP... ${Math.round(metadata.percent)}%`;
+          if (!status) return;
+          status.textContent = metadata.bytes != null
+            ? `Lendo arquivos... ${(metadata.bytes / 1048576).toFixed(0)} MB`
+            : `Montando ZIP... ${Math.round(metadata.percent)}%`;
         });
         const url = URL.createObjectURL(archive);
         if (fallbackLink) {
@@ -6351,11 +6548,14 @@
           link.remove();
           setTimeout(() => URL.revokeObjectURL(url), 60000);
         }
-        if (status) status.textContent = 'ZIP pronto. Se o download não começou, clique em Baixar ZIP do quadro.';
+        if (status) status.textContent = backupAssetsIgnorados.length
+          ? `ZIP pronto, mas ${backupAssetsIgnorados.length} arquivo(s) ilegíveis ficaram de fora.`
+          : 'ZIP pronto. Se o download não começou, clique em Baixar ZIP do quadro.';
+        avisarAssetsIgnorados();
       } catch (error) {
         console.error('Falha ao exportar template:', error);
-        if (status) status.textContent = error.message || 'Não foi possível preparar o backup.';
-        alert(error.message || 'Não foi possível preparar o arquivo completo do quadro.');
+        if (status) status.textContent = mensagemErroBackup(error);
+        alert(mensagemErroBackup(error));
       } finally {
         if (button) {
           button.disabled = false;
@@ -6397,11 +6597,12 @@
       }
       if (downloadLink) downloadLink.classList.add('hidden');
       try {
-        if (!window.JSZip) throw new Error('Não foi possível carregar o recurso ZIP. Verifique sua conexão.');
         salvarEstadoNoStorage();
         const allCards = JSON.parse(localStorage.getItem('dexi_codex_cards') || '[]');
         const cards = obterCardsPersistidosDaSelecao(selection, allCards);
-        const zip = new JSZip();
+        const zip = new ZipEntradas();
+        backupBytesLidos = 0;
+        backupProgresso = null;
         const selectionTemplate = {
           format: 'dexi-selection',
           version: 1,
@@ -6412,13 +6613,14 @@
           assets: []
         };
         const includedAssets = new Set();
+        backupAssetsIgnorados.length = 0;
         await adicionarAssetsDosCards(zip, cards, selectionTemplate.assets, includedAssets);
         zip.file('template.json', JSON.stringify({
           ...selectionTemplate,
           format: 'dexi-template',
           scope: 'selection'
         }));
-        const archive = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+        const archive = await gerarZipSemMemoria(zip.entries);
         const url = URL.createObjectURL(archive);
         const filename = `dexi-selecao-${new Date().toISOString().slice(0, 10)}.zip`;
         if (downloadLink) {
@@ -6437,6 +6639,7 @@
         setTimeout(() => URL.revokeObjectURL(url), 60000);
         if (status) status.textContent = 'ZIP da seleção pronto e download iniciado.';
         if (zipStatus) zipStatus.textContent = 'ZIP pronto. Se o download não começou, clique em Baixar ZIP da seleção.';
+        avisarAssetsIgnorados();
       } catch (error) {
         console.error('Falha ao exportar seleção:', error);
         if (status) status.textContent = error.message || 'Não foi possível preparar o ZIP da seleção.';
@@ -6458,11 +6661,101 @@
 
     agendarProximoBackup();
 
+    // ===== Leitor de ZIP sem carregar o arquivo inteiro na memória =====
+    // O JSZip.loadAsync(file) lê o ZIP todo com FileReader e falha em backups grandes.
+    // Aqui só o índice (diretório central) é lido; cada item vira uma fatia (slice) do
+    // arquivo original. Suporta STORE, DEFLATE (via DecompressionStream) e ZIP64.
+    async function abrirZipLeve(file) {
+      const decoder = new TextDecoder('utf-8');
+      const size = file.size;
+      const lerBytes = async (start, end) => new DataView(await file.slice(start, end).arrayBuffer());
+      if (size < 22) throw new Error('O arquivo não é um ZIP válido (muito pequeno).');
+      const tailStart = Math.max(0, size - 65557);
+      const tail = await lerBytes(tailStart, size);
+      let eocd = -1;
+      for (let i = tail.byteLength - 22; i >= 0; i--) {
+        if (tail.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+      }
+      if (eocd < 0) throw new Error('O arquivo não é um ZIP válido (fim do arquivo não encontrado). Ele pode estar incompleto ou corrompido.');
+      let total = tail.getUint16(eocd + 10, true);
+      let cdSize = tail.getUint32(eocd + 12, true);
+      let cdOffset = tail.getUint32(eocd + 16, true);
+      if (total === 0xFFFF || cdSize === 0xFFFFFFFF || cdOffset === 0xFFFFFFFF) {
+        const locatorPos = tailStart + eocd - 20;
+        if (locatorPos < 0) throw new Error('ZIP64 inválido.');
+        const locator = await lerBytes(locatorPos, locatorPos + 20);
+        if (locator.getUint32(0, true) !== 0x07064b50) throw new Error('ZIP64 inválido (localizador ausente).');
+        const end64Pos = Number(locator.getBigUint64(8, true));
+        const end64 = await lerBytes(end64Pos, end64Pos + 56);
+        if (end64.getUint32(0, true) !== 0x06064b50) throw new Error('ZIP64 inválido (registro final ausente).');
+        total = Number(end64.getBigUint64(32, true));
+        cdSize = Number(end64.getBigUint64(40, true));
+        cdOffset = Number(end64.getBigUint64(48, true));
+      }
+      const cd = await lerBytes(cdOffset, cdOffset + cdSize);
+      const cdBytes = new Uint8Array(cd.buffer);
+      const entries = new Map();
+      let p = 0;
+      for (let n = 0; n < total && p + 46 <= cd.byteLength; n++) {
+        if (cd.getUint32(p, true) !== 0x02014b50) throw new Error('Índice do ZIP corrompido.');
+        const flags = cd.getUint16(p + 8, true);
+        const method = cd.getUint16(p + 10, true);
+        let csize = cd.getUint32(p + 20, true);
+        let usize = cd.getUint32(p + 24, true);
+        const nameLen = cd.getUint16(p + 28, true);
+        const extraLen = cd.getUint16(p + 30, true);
+        const commentLen = cd.getUint16(p + 32, true);
+        let localOffset = cd.getUint32(p + 42, true);
+        const name = decoder.decode(cdBytes.subarray(p + 46, p + 46 + nameLen));
+        let e = p + 46 + nameLen;
+        const extraEnd = e + extraLen;
+        while (e + 4 <= extraEnd) {
+          const id = cd.getUint16(e, true);
+          const len = cd.getUint16(e + 2, true);
+          if (id === 0x0001) {
+            let q = e + 4;
+            if (usize === 0xFFFFFFFF) { usize = Number(cd.getBigUint64(q, true)); q += 8; }
+            if (csize === 0xFFFFFFFF) { csize = Number(cd.getBigUint64(q, true)); q += 8; }
+            if (localOffset === 0xFFFFFFFF) { localOffset = Number(cd.getBigUint64(q, true)); q += 8; }
+          }
+          e += 4 + len;
+        }
+        p += 46 + nameLen + extraLen + commentLen;
+        if (name.endsWith('/')) continue;
+        entries.set(name, { name, flags, method, csize, usize, localOffset });
+      }
+      const abrirEntrada = async entry => {
+        if (entry.flags & 1) throw new Error(`"${entry.name}" está criptografado.`);
+        const local = await lerBytes(entry.localOffset, entry.localOffset + 30);
+        if (local.getUint32(0, true) !== 0x04034b50) throw new Error(`Entrada "${entry.name}" corrompida no ZIP.`);
+        const dataStart = entry.localOffset + 30 + local.getUint16(26, true) + local.getUint16(28, true);
+        const raw = file.slice(dataStart, dataStart + entry.csize);
+        if (entry.method === 0) return raw;
+        if (entry.method === 8) {
+          if (typeof DecompressionStream === 'undefined') throw new Error('Este navegador não consegue descompactar este ZIP (DecompressionStream ausente).');
+          return new Response(raw.stream().pipeThrough(new DecompressionStream('deflate-raw'))).blob();
+        }
+        throw new Error(`Método de compressão ${entry.method} não suportado em "${entry.name}".`);
+      };
+      return {
+        file(path) {
+          const entry = entries.get(path);
+          if (!entry) return null;
+          return {
+            async: async type => {
+              const blob = await abrirEntrada(entry);
+              return type === 'string' ? blob.text() : blob;
+            }
+          };
+        }
+      };
+    }
+    // ===== Fim do leitor de ZIP =====
+
     window.importarTemplateQuadro = async function(file) {
       if (!file) return;
       try {
-        if (!window.JSZip) throw new Error('Recurso ZIP indisponível');
-        const zip = await JSZip.loadAsync(file);
+        const zip = await abrirZipLeve(file);
         const manifestFile = zip.file('template.json');
         const selectionFile = zip.file('selection.json');
         const template = manifestFile ? JSON.parse(await manifestFile.async('string')) : null;
@@ -6538,7 +6831,7 @@
         fecharModalRecuperaveis();
       } catch (error) {
         console.error('Falha ao importar template:', error);
-        alert('Não foi possível importar este arquivo de quadro Dexi.');
+        alert(`Não foi possível importar este arquivo de quadro Dexi.\n\nMotivo: ${error?.message || error}`);
       } finally {
         document.getElementById('template-import-selector').value = '';
       }
